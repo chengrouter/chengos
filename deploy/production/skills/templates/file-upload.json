@@ -1,0 +1,1247 @@
+{
+  "workflowId": "2e3f3534-7cf7-4237-8d6c-3a36791cc2fc",
+  "name": "文件上传",
+  "description": "",
+  "state": "draft",
+  "nodeCount": 11,
+  "edgeCount": 15,
+  "createdAt": "2026-03-27T21:46:01.572586512+00:00",
+  "updatedAt": "2026-04-03T22:50:15.849244348+00:00",
+  "version": 1,
+  "isFavorite": false,
+  "isTemplate": false,
+  "isDraft": false,
+  "tags": [
+    "ai_chat",
+    "ai_chat"
+  ],
+  "visibility": "private",
+  "definition": {
+    "nodes": [
+      {
+        "nodeId": "f5d2a764-4fea-45e3-8627-8a8a8278bac6",
+        "nodeType": "io/speech_to_text",
+        "name": "语音转文字",
+        "position": {
+          "x": 1449.792304986353,
+          "y": 1237.819884750931
+        },
+        "config": {},
+        "inputs": [
+          {
+            "default": null,
+            "description": "服务器本地音频文件绝对路径（与 base64_content 二选一）",
+            "name": "file_path",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": null,
+            "description": "音频文件的 Base64 编码内容（与 file_path 二选一）",
+            "name": "base64_content",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": null,
+            "description": "文件名，使用 base64_content 时必填（如 audio.mp3）",
+            "name": "filename",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "description": "OpenAI API Key（或兼容服务的密钥）",
+            "name": "api_key",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "default": "https://api.openai.com/v1",
+            "description": "API Base URL，默认 https://api.openai.com/v1，支持兼容服务",
+            "name": "base_url",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": "whisper-1",
+            "description": "模型名称，默认 whisper-1",
+            "name": "model",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": null,
+            "description": "音频语言（ISO-639-1，如 zh、en），留空自动检测",
+            "name": "language",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": null,
+            "description": "提示词（可选），帮助模型识别特定术语或说话风格",
+            "name": "prompt",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": "text",
+            "description": "输出格式：text（纯文本）/ json / verbose_json / srt / vtt",
+            "name": "response_format",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": 0,
+            "description": "采样温度 0.0~1.0，0 表示最确定性的输出",
+            "format": "float",
+            "name": "temperature",
+            "required": false,
+            "type": "number"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "转录后的文字内容",
+            "name": "text",
+            "type": "string"
+          },
+          {
+            "description": "检测到的语言代码（仅 verbose_json 格式时有值）",
+            "name": "detected_language",
+            "type": "string"
+          },
+          {
+            "description": "音频时长（秒，仅 verbose_json 格式时有值）",
+            "format": {},
+            "name": "duration_seconds",
+            "type": "number"
+          },
+          {
+            "description": "转录文字的字符数",
+            "format": {},
+            "name": "char_count",
+            "type": "integer"
+          }
+        ]
+      },
+      {
+        "nodeId": "fabf3a2d-779e-442d-8630-f761f3173bd4",
+        "nodeType": "io/video_extract_frames",
+        "name": "视频抽帧",
+        "position": {
+          "x": 1009.0463759022734,
+          "y": 1187.8828116989555
+        },
+        "config": {},
+        "inputs": [
+          {
+            "description": "视频文件的本地绝对路径（mp4/avi/mov/mkv/webm 等）",
+            "name": "file_path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "default": 5,
+            "description": "每隔多少秒提取一帧，默认 5 秒",
+            "format": "uint32",
+            "minimum": 0,
+            "name": "interval_seconds",
+            "required": false,
+            "type": "integer"
+          },
+          {
+            "default": 20,
+            "description": "最多提取的帧数，默认 20 帧",
+            "format": "uint32",
+            "minimum": 0,
+            "name": "max_frames",
+            "required": false,
+            "type": "integer"
+          },
+          {
+            "default": 768,
+            "description": "输出图片宽度（像素），0 表示保持原始宽度",
+            "format": "uint32",
+            "minimum": 0,
+            "name": "width",
+            "required": false,
+            "type": "integer"
+          },
+          {
+            "default": 0,
+            "description": "输出图片高度（像素），0 表示按比例缩放",
+            "format": "uint32",
+            "minimum": 0,
+            "name": "height",
+            "required": false,
+            "type": "integer"
+          },
+          {
+            "default": 85,
+            "description": "JPEG 压缩质量 1-95，默认 85",
+            "format": "uint32",
+            "minimum": 0,
+            "name": "jpeg_quality",
+            "required": false,
+            "type": "integer"
+          },
+          {
+            "default": true,
+            "description": "是否在 frames 数组中包含每帧的时间戳",
+            "name": "include_timestamps",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "default": 0,
+            "description": "从视频的第几秒开始抽帧（0 表示从头）",
+            "format": "uint32",
+            "minimum": 0,
+            "name": "start_seconds",
+            "required": false,
+            "type": "integer"
+          },
+          {
+            "default": 0,
+            "description": "到视频的第几秒停止抽帧（0 表示到视频结尾）",
+            "format": "uint32",
+            "minimum": 0,
+            "name": "end_seconds",
+            "required": false,
+            "type": "integer"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "提取的帧列表，每帧含时间戳和 Base64 JPEG 图片",
+            "name": "frames",
+            "type": "array"
+          },
+          {
+            "description": "实际提取的帧数",
+            "format": {},
+            "name": "frame_count",
+            "type": "integer"
+          },
+          {
+            "description": "视频总时长（秒）",
+            "format": {},
+            "name": "video_duration_seconds",
+            "type": "number"
+          },
+          {
+            "description": "所有帧的 Base64 JPEG 列表，可直接传给 LLM vision 节点",
+            "name": "base64_images",
+            "type": "array"
+          }
+        ]
+      },
+      {
+        "nodeId": "1830672f-1cf8-4e4d-8369-707ea9c1f760",
+        "nodeType": "chat/input",
+        "name": "Chat 输入节点",
+        "position": {
+          "x": 36.01632372884609,
+          "y": 570.1323947674724
+        },
+        "config": {},
+        "inputs": [
+          {
+            "description": "原始输入载荷（JSON 格式）",
+            "name": "raw_input",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "default": null,
+            "description": "对话 ID（可选），由入口生成后透传给所有下游节点",
+            "name": "conversation_id",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": false,
+            "description": "是否启用流式发送",
+            "name": "stream_mode",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "default": false,
+            "description": "是否对图片进行 OCR 识别",
+            "name": "enable_ocr",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "default": "per_file",
+            "description": "多输入的合并策略",
+            "name": "merge_strategy",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": 50,
+            "description": "最大文件大小（MB）",
+            "format": "uint64",
+            "maximum": 500,
+            "minimum": 1,
+            "name": "max_file_size_mb",
+            "required": false,
+            "type": "integer"
+          },
+          {
+            "default": null,
+            "description": "模型覆盖（格式: credential_id::model_name）",
+            "name": "model_override",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "处理后的上下文（packets）",
+            "name": "context",
+            "type": "object"
+          },
+          {
+            "description": "用户消息文本",
+            "name": "user_message",
+            "type": "string"
+          },
+          {
+            "description": "对话 ID（透传给下游节点）",
+            "name": "conversation_id",
+            "type": "string"
+          },
+          {
+            "description": "处理统计信息",
+            "name": "stats",
+            "type": "string"
+          },
+          {
+            "description": "UI 事件",
+            "name": "ui_event",
+            "type": "string"
+          },
+          {
+            "description": "模型覆盖（格式: credential_id::model_name）",
+            "name": "model_override",
+            "type": "string"
+          },
+          {
+            "description": "附件 JSON 数组，可直接连接 io/file_upload.files_json",
+            "name": "attachments_json",
+            "type": "string"
+          }
+        ]
+      },
+      {
+        "nodeId": "26f492fe-0083-4947-b543-71e18f92206d",
+        "nodeType": "chat/output",
+        "name": "Chat 输出节点",
+        "position": {
+          "x": 2855.020683153903,
+          "y": 939.5420591978408
+        },
+        "config": {},
+        "inputs": [
+          {
+            "description": "Agent 最终回复文本或 AgentContext（自动提取文本）",
+            "name": "context",
+            "required": true,
+            "type": "agent_context"
+          },
+          {
+            "default": null,
+            "description": "Agent 执行轨迹（思考过程）",
+            "name": "trace",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "control": "select",
+            "default": "system",
+            "description": "显示主题",
+            "enum": [
+              "light",
+              "dark",
+              "system"
+            ],
+            "name": "theme",
+            "options": [
+              {
+                "label": "light",
+                "value": "light"
+              },
+              {
+                "label": "dark",
+                "value": "dark"
+              },
+              {
+                "label": "system",
+                "value": "system"
+              }
+            ],
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": true,
+            "description": "是否自动滚动到最新消息",
+            "name": "autoscroll",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "default": 1000,
+            "description": "内存中保留的最大消息数量",
+            "format": "uint",
+            "maximum": 10000,
+            "minimum": 10,
+            "name": "keep_messages",
+            "required": false,
+            "type": "integer"
+          },
+          {
+            "default": 100,
+            "description": "消息数量超过此值时启用虚拟化",
+            "format": "uint",
+            "maximum": 1000,
+            "minimum": 10,
+            "name": "virtualize_threshold",
+            "required": false,
+            "type": "integer"
+          },
+          {
+            "default": "standard",
+            "description": "消息显示格式",
+            "name": "display_format",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": true,
+            "description": "是否显示消息时间戳",
+            "name": "show_timestamp",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "Assistant 最终回复的文本内容",
+            "name": "reply",
+            "type": "string"
+          },
+          {
+            "description": "Agent 执行轨迹（思考过程）",
+            "name": "trace",
+            "type": "string"
+          },
+          {
+            "description": "要发送给前端的 UI 事件",
+            "name": "ui_events",
+            "type": "array"
+          },
+          {
+            "description": "当前保留的消息总数",
+            "format": {},
+            "name": "message_count",
+            "type": "integer"
+          },
+          {
+            "description": "是否启用了虚拟化渲染",
+            "name": "virtualized",
+            "type": "boolean"
+          },
+          {
+            "description": "处理统计信息",
+            "name": "stats",
+            "type": "string"
+          }
+        ]
+      },
+      {
+        "nodeId": "93fe4912-053d-4960-b88e-695e60e5ad7b",
+        "nodeType": "io/file_upload",
+        "name": "文件上传",
+        "position": {
+          "x": 473.9177204304201,
+          "y": 708.431298279337
+        },
+        "config": {},
+        "inputs": [
+          {
+            "description": "文件数据 JSON（单个对象或数组）",
+            "name": "files_json",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "default": "auto",
+            "description": "限制上传的文件类别",
+            "name": "allowed_category",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": 50,
+            "description": "单个文件最大大小（MB）",
+            "format": "uint64",
+            "maximum": 500,
+            "minimum": 1,
+            "name": "max_file_size_mb",
+            "required": false,
+            "type": "integer"
+          },
+          {
+            "default": false,
+            "description": "对图片启用 OCR 识别",
+            "name": "enable_ocr",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "default": false,
+            "description": "解析文档内容（PDF、Word 等）",
+            "name": "parse_documents",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "处理后的文件信息列表",
+            "name": "files",
+            "type": "array"
+          },
+          {
+            "description": "成功处理的文件数量",
+            "format": {},
+            "name": "file_count",
+            "type": "integer"
+          },
+          {
+            "description": "所有文件的总大小（字节）",
+            "format": {},
+            "name": "total_size",
+            "type": "integer"
+          },
+          {
+            "description": "处理过程中的错误信息",
+            "name": "errors",
+            "type": "array"
+          },
+          {
+            "description": "第一个文档文件的 Base64 内容，可直接连接 io/document_to_text.base64_content",
+            "name": "document_base64",
+            "type": "string"
+          },
+          {
+            "description": "第一个文档文件的文件名，可直接连接 io/document_to_text.filename",
+            "name": "document_filename",
+            "type": "string"
+          },
+          {
+            "description": "第一个音频文件的 Base64 内容，可直接连接 io/speech_to_text.base64_content",
+            "name": "audio_base64",
+            "type": "string"
+          },
+          {
+            "description": "第一个音频文件的文件名，可直接连接 io/speech_to_text.filename",
+            "name": "audio_filename",
+            "type": "string"
+          },
+          {
+            "description": "第一个视频文件的本地路径，可直接连接 io/video_extract_audio.file_path 或 io/video_extract_frames.file_path",
+            "name": "video_file_path",
+            "type": "string"
+          },
+          {
+            "description": "第一个图片文件的 Base64 内容，可直接连接支持 vision 的 LLM 节点或 io/ocr.base64_content",
+            "name": "image_base64",
+            "type": "string"
+          },
+          {
+            "description": "第一个图片文件的文件名，可直接连接 io/ocr.filename",
+            "name": "image_filename",
+            "type": "string"
+          }
+        ]
+      },
+      {
+        "nodeId": "33a91d6e-cbf1-41ff-acf9-f47a5cd1630b",
+        "nodeType": "io/document_to_text",
+        "name": "文档转文本",
+        "position": {
+          "x": 1023.5624921251542,
+          "y": 550.4266252803327
+        },
+        "config": {
+          "max_chars": 0
+        },
+        "inputs": [
+          {
+            "default": null,
+            "description": "服务器本地文件绝对路径（与 base64_content 二选一）",
+            "name": "file_path",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": null,
+            "description": "文件的 Base64 编码内容（与 file_path 二选一）",
+            "name": "base64_content",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": null,
+            "description": "文件名，用于推断格式（使用 base64_content 时必填）",
+            "name": "filename",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": 0,
+            "description": "最大提取字符数，0 表示不限制",
+            "format": "uint64",
+            "minimum": 0,
+            "name": "max_chars",
+            "required": false,
+            "type": "integer"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "提取的纯文本内容",
+            "name": "text",
+            "type": "string"
+          },
+          {
+            "description": "提取的字符数",
+            "format": {},
+            "name": "char_count",
+            "type": "integer"
+          },
+          {
+            "description": "检测到的文件格式（pdf / docx / xlsx / txt 等）",
+            "name": "format",
+            "type": "string"
+          },
+          {
+            "description": "内容是否因超出 max_chars 而被截断",
+            "name": "truncated",
+            "type": "boolean"
+          }
+        ]
+      },
+      {
+        "nodeId": "296c91eb-5583-454d-b0d1-a5e4f08de44d",
+        "nodeType": "ai/llm",
+        "name": "AI 对话",
+        "position": {
+          "x": 2477.940320952034,
+          "y": 943.5302570107884
+        },
+        "config": {},
+        "inputs": [
+          {
+            "default": null,
+            "description": "AgentContext（可选，用于承接历史对话）",
+            "name": "context",
+            "required": false,
+            "type": "agent_context"
+          },
+          {
+            "description": "LLM 配置（JSON 字符串或对象）",
+            "name": "llm_config",
+            "required": true,
+            "type": "object"
+          },
+          {
+            "default": "",
+            "description": "系统提示词（可选）",
+            "name": "system_prompt",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": "",
+            "description": "用户消息（如果 context.history 中已有用户消息，可以为空）",
+            "name": "user_message",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": null,
+            "description": "工具/函数定义（JSON 数组，用于函数调用）",
+            "name": "tools",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "AgentContext 输出端口（包含对话历史）",
+            "name": "context",
+            "type": "agent_context"
+          },
+          {
+            "description": "生成的文本响应",
+            "name": "response",
+            "type": "string"
+          },
+          {
+            "description": "输入使用的 Token 数",
+            "format": {},
+            "name": "prompt_tokens",
+            "type": "integer"
+          },
+          {
+            "description": "输出使用的 Token 数",
+            "format": {},
+            "name": "completion_tokens",
+            "type": "integer"
+          },
+          {
+            "description": "总 Token 数",
+            "format": {},
+            "name": "total_tokens",
+            "type": "integer"
+          },
+          {
+            "description": "结束原因",
+            "name": "finish_reason",
+            "type": "string"
+          },
+          {
+            "description": "LLM 调用的工具/函数",
+            "name": "tool_calls",
+            "type": "array"
+          },
+          {
+            "description": "工具执行结果（当连接了工具节点并自动执行时）",
+            "name": "tool_results",
+            "type": "array"
+          },
+          {
+            "description": "本次调用使用的 LLM 配置（可复用）",
+            "name": "llm_config",
+            "type": "object"
+          }
+        ]
+      },
+      {
+        "nodeId": "4dbcb052-de6c-4791-b992-25b0b06d99fd",
+        "nodeType": "ai/llm_config",
+        "name": "LLM 配置",
+        "position": {
+          "x": 2435.3024836145405,
+          "y": 770.0918774387991
+        },
+        "config": {
+          "model": "43abcfdd-4a80-46d4-81a4-c6b6dbcfa6b0::MiniMax-M2.5"
+        },
+        "inputs": [
+          {
+            "description": "选择已连接的 LLM 模型",
+            "name": "model",
+            "required": true,
+            "type": "string",
+            "x-allow-custom": true
+          },
+          {
+            "default": null,
+            "description": "模型覆盖（格式: credential_id::model_name，优先级高于 model）",
+            "name": "model_override",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": 0.699999988079071,
+            "description": "控制生成的随机性，值越高越随机 (0.0 - 2.0)",
+            "format": "float",
+            "maximum": 2,
+            "minimum": 0,
+            "name": "temperature",
+            "required": false,
+            "type": "number"
+          },
+          {
+            "default": 5000,
+            "description": "限制生成的最大 Token 数 (默认 5000)",
+            "format": "uint32",
+            "minimum": 0,
+            "name": "max_tokens",
+            "required": false,
+            "type": "integer"
+          },
+          {
+            "default": 1,
+            "description": "核采样阈值 (0.0 - 1.0)",
+            "format": "float",
+            "maximum": 1,
+            "minimum": 0,
+            "name": "top_p",
+            "required": false,
+            "type": "number"
+          },
+          {
+            "default": 0,
+            "description": "降低模型重复同一句话的可能性 (-2.0 - 2.0)",
+            "format": "float",
+            "maximum": 2,
+            "minimum": -2,
+            "name": "frequency_penalty",
+            "required": false,
+            "type": "number"
+          },
+          {
+            "default": 0,
+            "description": "鼓励模型谈论新话题 (-2.0 - 2.0)",
+            "format": "float",
+            "maximum": 2,
+            "minimum": -2,
+            "name": "presence_penalty",
+            "required": false,
+            "type": "number"
+          },
+          {
+            "default": true,
+            "description": "开启后实时返回结果",
+            "name": "stream",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "default": 60,
+            "description": "API 请求超时时间（1-600 秒）",
+            "format": "uint32",
+            "maximum": 600,
+            "minimum": 1,
+            "name": "timeout_secs",
+            "required": false,
+            "type": "integer"
+          },
+          {
+            "default": false,
+            "description": "注入 response_format: json_object（适合弱模型/开源模型，减少非 JSON 文字；系统层不做二次校验）",
+            "name": "json_mode",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "完整 LLM 配置",
+            "name": "llm_config",
+            "type": "object"
+          }
+        ]
+      },
+      {
+        "nodeId": "6a58aaad-37fb-4574-8f56-013a1dc60c04",
+        "nodeType": "io/video_extract_audio",
+        "name": "视频提取音频",
+        "position": {
+          "x": 1020.1243651702208,
+          "y": 978.8416870723348
+        },
+        "config": {},
+        "inputs": [
+          {
+            "description": "视频文件的本地绝对路径（mp4/avi/mov/mkv/webm 等）",
+            "name": "file_path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "default": "wav",
+            "description": "输出音频格式：wav（推荐）/ mp3 / ogg / flac",
+            "name": "output_format",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": 16000,
+            "description": "采样率（Hz），Whisper 推荐 16000",
+            "format": "uint32",
+            "minimum": 0,
+            "name": "sample_rate",
+            "required": false,
+            "type": "integer"
+          },
+          {
+            "default": 1,
+            "description": "声道数：1=单声道（推荐），2=立体声",
+            "format": "uint32",
+            "minimum": 0,
+            "name": "channels",
+            "required": false,
+            "type": "integer"
+          },
+          {
+            "default": null,
+            "description": "输出目录路径，留空则使用 /tmp/ChengOS/audio/",
+            "name": "output_dir",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": 0,
+            "description": "从视频的第几秒开始提取（0 表示从头开始）",
+            "format": "uint32",
+            "minimum": 0,
+            "name": "start_seconds",
+            "required": false,
+            "type": "integer"
+          },
+          {
+            "default": 0,
+            "description": "提取音频的时长（秒），0 表示提取到视频结尾",
+            "format": "uint32",
+            "minimum": 0,
+            "name": "duration_seconds",
+            "required": false,
+            "type": "integer"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "提取后的音频文件路径，可直接连接到 io/speech_to_text 节点",
+            "name": "audio_file_path",
+            "type": "string"
+          },
+          {
+            "description": "提取的音频文件大小（字节）",
+            "format": {},
+            "name": "file_size",
+            "type": "integer"
+          },
+          {
+            "description": "输出音频格式（wav / mp3 / ogg / flac）",
+            "name": "format",
+            "type": "string"
+          },
+          {
+            "description": "ffmpeg 的 stderr 输出，用于调试",
+            "name": "ffmpeg_output",
+            "type": "string"
+          }
+        ]
+      },
+      {
+        "nodeId": "daf60fbd-4cf2-4f45-8dd6-eead87e4fd08",
+        "nodeType": "ai/context_merge",
+        "name": "上下文合并",
+        "position": {
+          "x": 2029.4375208414035,
+          "y": 972.0470677829818
+        },
+        "config": {
+          "extra_inputs": [
+            null,
+            null,
+            null,
+            null
+          ]
+        },
+        "inputs": [
+          {
+            "description": "AgentContext 输入源（支持连接端口；手动传值时使用 JSON 格式）",
+            "name": "input1",
+            "required": false,
+            "type": "agent_context"
+          },
+          {
+            "description": "AgentContext 输入源（支持连接端口；手动传值时使用 JSON 格式）",
+            "name": "input2",
+            "required": false,
+            "type": "agent_context"
+          },
+          {
+            "default": "append",
+            "description": "消息合并策略",
+            "name": "merge_strategy",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": null,
+            "description": "自定义 session_id（可选）",
+            "name": "custom_session_id",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": null,
+            "description": "额外的系统消息（可选）",
+            "name": "system_message",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "description": "额外输入源（点击 + 号动态添加）",
+            "group": "dynamic-array",
+            "name": "input_0",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "description": "extra_inputs slot 1",
+            "group": "dynamic-array",
+            "name": "input_1",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "description": "extra_inputs slot 2",
+            "group": "dynamic-array",
+            "name": "input_2",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "description": "extra_inputs slot 3",
+            "group": "dynamic-array",
+            "name": "input_3",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "AgentContext 输出端口（合并后的对话历史）",
+            "name": "context",
+            "type": "agent_context"
+          },
+          {
+            "description": "合并后所有消息内容拼接的纯文本",
+            "name": "formatted_content",
+            "type": "string"
+          },
+          {
+            "description": "合并统计信息",
+            "name": "stats",
+            "type": "string"
+          }
+        ]
+      },
+      {
+        "nodeId": "a9e249ea-1bfe-4b6e-91be-29cd2e38bb5d",
+        "nodeType": "io/speech_to_text",
+        "name": "语音转文字",
+        "position": {
+          "x": 1021.114253468014,
+          "y": 760.5806340843055
+        },
+        "config": {},
+        "inputs": [
+          {
+            "default": null,
+            "description": "服务器本地音频文件绝对路径（与 base64_content 二选一）",
+            "name": "file_path",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": null,
+            "description": "音频文件的 Base64 编码内容（与 file_path 二选一）",
+            "name": "base64_content",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": null,
+            "description": "文件名，使用 base64_content 时必填（如 audio.mp3）",
+            "name": "filename",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "description": "OpenAI API Key（或兼容服务的密钥）",
+            "name": "api_key",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "default": "https://api.openai.com/v1",
+            "description": "API Base URL，默认 https://api.openai.com/v1，支持兼容服务",
+            "name": "base_url",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": "whisper-1",
+            "description": "模型名称，默认 whisper-1",
+            "name": "model",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": null,
+            "description": "音频语言（ISO-639-1，如 zh、en），留空自动检测",
+            "name": "language",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": null,
+            "description": "提示词（可选），帮助模型识别特定术语或说话风格",
+            "name": "prompt",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": "text",
+            "description": "输出格式：text（纯文本）/ json / verbose_json / srt / vtt",
+            "name": "response_format",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": 0,
+            "description": "采样温度 0.0~1.0，0 表示最确定性的输出",
+            "format": "float",
+            "name": "temperature",
+            "required": false,
+            "type": "number"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "转录后的文字内容",
+            "name": "text",
+            "type": "string"
+          },
+          {
+            "description": "检测到的语言代码（仅 verbose_json 格式时有值）",
+            "name": "detected_language",
+            "type": "string"
+          },
+          {
+            "description": "音频时长（秒，仅 verbose_json 格式时有值）",
+            "format": {},
+            "name": "duration_seconds",
+            "type": "number"
+          },
+          {
+            "description": "转录文字的字符数",
+            "format": {},
+            "name": "char_count",
+            "type": "integer"
+          }
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "edgeId": "3216b9e5-43c6-4b6e-b24f-83ead9129a94",
+        "sourceNode": "93fe4912-053d-4960-b88e-695e60e5ad7b",
+        "sourcePort": "document_base64",
+        "targetNode": "33a91d6e-cbf1-41ff-acf9-f47a5cd1630b",
+        "targetPort": "base64_content"
+      },
+      {
+        "edgeId": "cc7a58cd-ee5e-4d87-9e7f-516f30a2b343",
+        "sourceNode": "f5d2a764-4fea-45e3-8627-8a8a8278bac6",
+        "sourcePort": "text",
+        "targetNode": "daf60fbd-4cf2-4f45-8dd6-eead87e4fd08",
+        "targetPort": "input_2"
+      },
+      {
+        "edgeId": "a11bd8dd-483d-42e9-bc74-0b8af0e1dfab",
+        "sourceNode": "93fe4912-053d-4960-b88e-695e60e5ad7b",
+        "sourcePort": "video_file_path",
+        "targetNode": "6a58aaad-37fb-4574-8f56-013a1dc60c04",
+        "targetPort": "file_path"
+      },
+      {
+        "edgeId": "cbe05731-6654-40e7-a0b0-661549800211",
+        "sourceNode": "33a91d6e-cbf1-41ff-acf9-f47a5cd1630b",
+        "sourcePort": "text",
+        "targetNode": "daf60fbd-4cf2-4f45-8dd6-eead87e4fd08",
+        "targetPort": "input_0"
+      },
+      {
+        "edgeId": "772e00cd-f4e3-4190-a8e4-5b00e925f91e",
+        "sourceNode": "1830672f-1cf8-4e4d-8369-707ea9c1f760",
+        "sourcePort": "attachments_json",
+        "targetNode": "93fe4912-053d-4960-b88e-695e60e5ad7b",
+        "targetPort": "files_json"
+      },
+      {
+        "edgeId": "860c3a57-cb23-4511-89fd-0b24800869c9",
+        "sourceNode": "93fe4912-053d-4960-b88e-695e60e5ad7b",
+        "sourcePort": "audio_filename",
+        "targetNode": "a9e249ea-1bfe-4b6e-91be-29cd2e38bb5d",
+        "targetPort": "filename"
+      },
+      {
+        "edgeId": "869a6c2c-8754-45c7-960e-b76730c42dce",
+        "sourceNode": "93fe4912-053d-4960-b88e-695e60e5ad7b",
+        "sourcePort": "audio_base64",
+        "targetNode": "a9e249ea-1bfe-4b6e-91be-29cd2e38bb5d",
+        "targetPort": "base64_content"
+      },
+      {
+        "edgeId": "b59ad58e-af60-403c-a04d-5251e74ba70a",
+        "sourceNode": "4dbcb052-de6c-4791-b992-25b0b06d99fd",
+        "sourcePort": "llm_config",
+        "targetNode": "296c91eb-5583-454d-b0d1-a5e4f08de44d",
+        "targetPort": "llm_config"
+      },
+      {
+        "edgeId": "69701e73-ed5d-4e71-ba04-2f8c5ee2d19c",
+        "sourceNode": "93fe4912-053d-4960-b88e-695e60e5ad7b",
+        "sourcePort": "document_filename",
+        "targetNode": "33a91d6e-cbf1-41ff-acf9-f47a5cd1630b",
+        "targetPort": "filename"
+      },
+      {
+        "edgeId": "ca34a389-bc12-4954-bbe3-f116453e3582",
+        "sourceNode": "6a58aaad-37fb-4574-8f56-013a1dc60c04",
+        "sourcePort": "audio_file_path",
+        "targetNode": "f5d2a764-4fea-45e3-8627-8a8a8278bac6",
+        "targetPort": "file_path"
+      },
+      {
+        "edgeId": "a7eac971-d604-4bcd-b8a6-00deb55e09a5",
+        "sourceNode": "296c91eb-5583-454d-b0d1-a5e4f08de44d",
+        "sourcePort": "context",
+        "targetNode": "26f492fe-0083-4947-b543-71e18f92206d",
+        "targetPort": "context"
+      },
+      {
+        "edgeId": "d43e3b21-580e-48fa-8fb9-dbe16cc9cf0e",
+        "sourceNode": "93fe4912-053d-4960-b88e-695e60e5ad7b",
+        "sourcePort": "video_file_path",
+        "targetNode": "fabf3a2d-779e-442d-8630-f761f3173bd4",
+        "targetPort": "file_path"
+      },
+      {
+        "edgeId": "51d8cf4f-db50-4672-84f5-b56b50f9f607",
+        "sourceNode": "93fe4912-053d-4960-b88e-695e60e5ad7b",
+        "sourcePort": "image_base64",
+        "targetNode": "daf60fbd-4cf2-4f45-8dd6-eead87e4fd08",
+        "targetPort": "input_3"
+      },
+      {
+        "edgeId": "dc5e87d4-468c-4a77-a917-744bf89fa84b",
+        "sourceNode": "a9e249ea-1bfe-4b6e-91be-29cd2e38bb5d",
+        "sourcePort": "text",
+        "targetNode": "daf60fbd-4cf2-4f45-8dd6-eead87e4fd08",
+        "targetPort": "input_1"
+      },
+      {
+        "edgeId": "e91d75f9-ced4-4a18-86ac-ec2a82718cbd",
+        "sourceNode": "daf60fbd-4cf2-4f45-8dd6-eead87e4fd08",
+        "sourcePort": "formatted_content",
+        "targetNode": "296c91eb-5583-454d-b0d1-a5e4f08de44d",
+        "targetPort": "user_message"
+      }
+    ]
+  }
+}

@@ -1,0 +1,750 @@
+{
+  "name": "知识库索引",
+  "description": "",
+  "tags": [
+    "traditional"
+  ],
+  "nodes": [
+    {
+      "id": "1a28a4b0-7dc1-4ba5-ab62-fb009ff36978",
+      "node_type": "ai/embedding_config",
+      "name": "Embedding 配置",
+      "config": {
+        "embedding_model": "3daba9f8-0c75-41b2-9bea-2f24f45dccb0::text-embedding-qwen3-embedding-0.6b"
+      },
+      "position": {
+        "x": 221,
+        "y": 1074
+      },
+      "type": "ai/embedding_config",
+      "data": {
+        "type": "ai/embedding_config",
+        "node_type": "ai/embedding_config",
+        "label": "Embedding 配置",
+        "config": {
+          "embedding_model": "3daba9f8-0c75-41b2-9bea-2f24f45dccb0::text-embedding-qwen3-embedding-0.6b"
+        },
+        "inputs": [
+          {
+            "description": "Select a connected Embedding model. Supports credential_id::model_name or model_name (requires CHENG_DEFAULT_EMBEDDING_CREDENTIAL_ID)",
+            "name": "embedding_model",
+            "required": true,
+            "type": "string",
+            "x-allow-custom": true,
+            "x-i18n-key": "nodes.ai.embedding_config.inputs.embedding_model"
+          },
+          {
+            "default": 1024,
+            "description": "向量维度",
+            "name": "dimension",
+            "required": false,
+            "type": "integer",
+            "x-allow-custom": true,
+            "x-i18n-key": "nodes.ai.embedding_config.inputs.dimension"
+          },
+          {
+            "default": null,
+            "description": "批量处理大小",
+            "name": "batch_size",
+            "required": false,
+            "type": "integer",
+            "x-allow-custom": true,
+            "x-i18n-key": "nodes.ai.embedding_config.inputs.batch_size"
+          },
+          {
+            "default": null,
+            "description": "Select a reranker model (optional, for post-processing optimization)",
+            "name": "reranker_model",
+            "required": false,
+            "type": "string",
+            "x-allow-custom": true,
+            "x-i18n-key": "nodes.ai.embedding_config.inputs.reranker_model"
+          },
+          {
+            "default": null,
+            "description": "Reranker Top K",
+            "name": "reranker_top_k",
+            "required": false,
+            "type": "integer",
+            "x-allow-custom": true,
+            "x-i18n-key": "nodes.ai.embedding_config.inputs.reranker_top_k"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "Complete Embedding configuration",
+            "name": "embedding_config",
+            "type": "object"
+          },
+          {
+            "description": "Reranker configuration (if a reranker model is configured)",
+            "name": "reranker_config",
+            "type": "object"
+          }
+        ],
+        "status": "idle",
+        "category": "ai",
+        "enabled": true,
+        "tags": []
+      },
+      "selected": false,
+      "draggable": true,
+      "deletable": true,
+      "width": 250
+    },
+    {
+      "id": "2c7ec5dc-44ce-44f5-8c61-df2433dbe7ae",
+      "node_type": "ai/qdrant_config",
+      "name": "Qdrant 配置",
+      "config": {},
+      "position": {
+        "x": 227.51120210743431,
+        "y": 882.6295497044523
+      },
+      "type": "ai/qdrant_config",
+      "data": {
+        "type": "ai/qdrant_config",
+        "node_type": "ai/qdrant_config",
+        "label": "Qdrant 配置",
+        "config": {},
+        "inputs": [
+          {
+            "default": "local",
+            "description": "Select how Qdrant is deployed",
+            "name": "mode",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.ai.qdrant_config.inputs.mode"
+          },
+          {
+            "default": null,
+            "description": "Qdrant gRPC endpoint URL (default for local mode: http://localhost:6334)",
+            "name": "url",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.ai.qdrant_config.inputs.url"
+          },
+          {
+            "default": null,
+            "description": "Credential for Qdrant Cloud or an authenticated self-hosted server",
+            "name": "credential_id",
+            "required": false,
+            "type": "string",
+            "x-credential-providers": [
+              "qdrant"
+            ],
+            "x-i18n-key": "nodes.ai.qdrant_config.inputs.credential_id"
+          },
+          {
+            "default": null,
+            "description": "Name of the Qdrant collection (optional, auto-derived from knowledge base if not set)",
+            "name": "collection_name",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.ai.qdrant_config.inputs.collection_name"
+          },
+          {
+            "default": null,
+            "description": "Whether to enable a BM25 full-text search index on the collection",
+            "name": "enable_fulltext",
+            "required": false,
+            "type": "boolean",
+            "x-i18n-key": "nodes.ai.qdrant_config.inputs.enable_fulltext"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "Qdrant deployment mode",
+            "name": "mode",
+            "type": "string"
+          },
+          {
+            "description": "Qdrant gRPC endpoint URL",
+            "name": "url",
+            "type": "string"
+          },
+          {
+            "description": "API key (used in cloud/authenticated modes)",
+            "name": "api_key",
+            "type": "string"
+          },
+          {
+            "description": "Qdrant collection name",
+            "name": "collection_name",
+            "type": "string"
+          },
+          {
+            "description": "Whether full-text search is enabled",
+            "name": "enable_fulltext",
+            "type": "boolean"
+          },
+          {
+            "description": "Credential ID used, if any",
+            "name": "credential_id",
+            "type": "string"
+          },
+          {
+            "description": "Complete Qdrant configuration (JSON object)",
+            "name": "qdrant_config",
+            "type": "object"
+          }
+        ],
+        "status": "idle",
+        "category": "ai",
+        "enabled": true,
+        "tags": []
+      },
+      "selected": false,
+      "draggable": true,
+      "deletable": true,
+      "width": 250
+    },
+    {
+      "id": "ac820b91-9b68-4d51-baf4-6e2af466d4e7",
+      "node_type": "workspace/knowledge_base",
+      "name": "知识库",
+      "config": {
+        "description": "01",
+        "mode": "create",
+        "name": "01",
+        "workspace_id": "22fb5167-838d-4b45-890c-60ab12bd4771"
+      },
+      "position": {
+        "x": 228.1207577456546,
+        "y": 525.5823500180735
+      },
+      "type": "workspace/knowledge_base",
+      "data": {
+        "type": "workspace/knowledge_base",
+        "node_type": "workspace/knowledge_base",
+        "label": "知识库",
+        "config": {
+          "description": "01",
+          "mode": "create",
+          "name": "01",
+          "workspace_id": "22fb5167-838d-4b45-890c-60ab12bd4771"
+        },
+        "inputs": [
+          {
+            "control": "select",
+            "default": "select",
+            "description": "select: Select existing KB; list: List all KBs in workspace; create: Create new KB",
+            "enum": [
+              "select",
+              "list",
+              "create"
+            ],
+            "name": "mode",
+            "options": [
+              {
+                "label": "select",
+                "value": "select"
+              },
+              {
+                "label": "list",
+                "value": "list"
+              },
+              {
+                "label": "create",
+                "value": "create"
+              }
+            ],
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.workspace.knowledge_base.inputs.mode"
+          },
+          {
+            "description": "Target workspace",
+            "name": "workspace_id",
+            "required": true,
+            "type": "string",
+            "x-i18n-key": "nodes.workspace.knowledge_base.inputs.workspace_id"
+          },
+          {
+            "default": null,
+            "description": "Knowledge base to select (select mode)",
+            "name": "kb_id",
+            "required": false,
+            "type": "string",
+            "x-depends-on": "workspace_id",
+            "x-i18n-key": "nodes.workspace.knowledge_base.inputs.kb_id"
+          },
+          {
+            "default": null,
+            "description": "New knowledge base name (create mode)",
+            "name": "name",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.workspace.knowledge_base.inputs.name"
+          },
+          {
+            "default": null,
+            "description": "Knowledge base description (create mode, optional)",
+            "name": "description",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.workspace.knowledge_base.inputs.description"
+          },
+          {
+            "default": null,
+            "description": "Embedding model name (create mode, optional)",
+            "name": "embedding_model",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.workspace.knowledge_base.inputs.embedding_model"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "Whether the operation succeeded.",
+            "name": "success",
+            "type": "boolean"
+          },
+          {
+            "description": "Workspace ID (for direct connection)",
+            "name": "workspace_id",
+            "type": "string"
+          },
+          {
+            "description": "Knowledge base ID (for direct connection)",
+            "name": "kb_id",
+            "type": "string"
+          },
+          {
+            "description": "Single knowledge base info (select/create modes).",
+            "name": "knowledge_base",
+            "type": "string"
+          },
+          {
+            "description": "List of knowledge bases (list mode).",
+            "name": "knowledge_bases",
+            "type": "array"
+          },
+          {
+            "description": "Error message if the operation failed.",
+            "name": "error",
+            "type": "string"
+          }
+        ],
+        "status": "idle",
+        "category": "data",
+        "enabled": true,
+        "tags": []
+      },
+      "selected": false,
+      "draggable": true,
+      "deletable": true,
+      "width": 250
+    },
+    {
+      "id": "fd287e93-5141-42d7-9ab5-6407800661a6",
+      "node_type": "rag/document_indexer",
+      "name": "文档索引器",
+      "config": {
+        "workspace_id": "22fb5167-838d-4b45-890c-60ab12bd4771"
+      },
+      "position": {
+        "x": 784.6834857350367,
+        "y": 844.3226697833429
+      },
+      "type": "rag/document_indexer",
+      "data": {
+        "type": "rag/document_indexer",
+        "node_type": "rag/document_indexer",
+        "label": "文档索引器",
+        "config": {
+          "workspace_id": "22fb5167-838d-4b45-890c-60ab12bd4771"
+        },
+        "inputs": [
+          {
+            "description": "Target workspace (required for permission validation)",
+            "name": "workspace_id",
+            "required": true,
+            "type": "string",
+            "x-i18n-key": "nodes.rag.document_indexer.inputs.workspace_id"
+          },
+          {
+            "description": "Target knowledge base (collection resolved from DB, workspace-validated)",
+            "name": "kb_id",
+            "required": true,
+            "type": "string",
+            "x-depends-on": "workspace_id",
+            "x-i18n-key": "nodes.rag.document_indexer.inputs.kb_id"
+          },
+          {
+            "description": "Qdrant configuration object from config node",
+            "name": "qdrant_config",
+            "required": true,
+            "type": "object",
+            "x-i18n-key": "nodes.rag.document_indexer.inputs.qdrant_config"
+          },
+          {
+            "default": null,
+            "description": "Document text content to index (optional if chunks are provided from chunker)",
+            "name": "content",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.rag.document_indexer.inputs.content"
+          },
+          {
+            "default": null,
+            "description": "Document identifier (optional, auto-generated if not provided)",
+            "name": "document_id",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.rag.document_indexer.inputs.document_id"
+          },
+          {
+            "default": null,
+            "description": "Document version number (optional, for idempotency check)",
+            "format": "uint32",
+            "minimum": 0,
+            "name": "version",
+            "required": false,
+            "type": "integer",
+            "x-i18n-key": "nodes.rag.document_indexer.inputs.version"
+          },
+          {
+            "default": null,
+            "description": "Parent chunks from chunker node (optional, if provided skips internal chunking)",
+            "name": "parent_chunks",
+            "required": false,
+            "type": "array",
+            "x-i18n-key": "nodes.rag.document_indexer.inputs.parent_chunks"
+          },
+          {
+            "default": null,
+            "description": "Child chunks from chunker node (optional)",
+            "name": "child_chunks",
+            "required": false,
+            "type": "array",
+            "x-i18n-key": "nodes.rag.document_indexer.inputs.child_chunks"
+          },
+          {
+            "default": null,
+            "description": "Standard or enhanced mode",
+            "name": "index_mode",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.rag.document_indexer.inputs.index_mode"
+          },
+          {
+            "description": "Embedding configuration object from config node",
+            "name": "embedding_config",
+            "required": true,
+            "type": "object",
+            "x-i18n-key": "nodes.rag.document_indexer.inputs.embedding_config"
+          },
+          {
+            "default": null,
+            "description": "Use LLM to generate context descriptions for each chunk (enhanced mode)",
+            "name": "generate_context",
+            "required": false,
+            "type": "boolean",
+            "x-i18n-key": "nodes.rag.document_indexer.inputs.generate_context"
+          },
+          {
+            "default": null,
+            "description": "LLM configuration object from config node (optional, for context generation)",
+            "name": "llm_config",
+            "required": false,
+            "type": "object",
+            "x-i18n-key": "nodes.rag.document_indexer.inputs.llm_config"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "Indexed document ID",
+            "name": "document_id",
+            "type": "string"
+          },
+          {
+            "description": "Number of parent chunks created",
+            "format": {},
+            "name": "parent_chunks",
+            "type": "integer"
+          },
+          {
+            "description": "Number of child chunks created",
+            "format": {},
+            "name": "child_chunks",
+            "type": "integer"
+          },
+          {
+            "description": "Total vectors stored",
+            "format": {},
+            "name": "vectors_stored",
+            "type": "integer"
+          },
+          {
+            "description": "Whether context descriptions were generated",
+            "name": "context_generated",
+            "type": "boolean"
+          },
+          {
+            "description": "Index mode used",
+            "name": "index_mode",
+            "type": "string"
+          },
+          {
+            "description": "Target collection name",
+            "name": "collection_name",
+            "type": "string"
+          },
+          {
+            "description": "Whether skipped due to idempotency check",
+            "name": "skipped",
+            "type": "boolean"
+          },
+          {
+            "description": "Whether indexing succeeded",
+            "name": "success",
+            "type": "boolean"
+          },
+          {
+            "description": "Execution result summary",
+            "name": "summary",
+            "type": "string"
+          },
+          {
+            "description": "Error message if any",
+            "name": "error",
+            "type": "string"
+          }
+        ],
+        "status": "idle",
+        "category": "data",
+        "enabled": true,
+        "tags": []
+      },
+      "selected": false,
+      "draggable": true,
+      "deletable": true,
+      "width": 250
+    },
+    {
+      "id": "22fa51d9-7213-4055-9707-bbddab746f62",
+      "node_type": "rag/chunker",
+      "name": "文档分块器",
+      "config": {
+        "content": "这是**凭证配置问题**——你选择了 `lm-studio` 作为嵌入模型提供商，但系统提示它不支持 Embedding 功能。  ## 错误分析  ``` 凭证类型 'lm-studio' 不支持 Embedding 功能。 支持的提供商: LM Studio (lm-studio), Alibaba Cloud DashScope (Qwen) (dashscope),  Custom (OpenAI Compatible) (custom), Ollama (ollama), Google Gemini (gemini),  Cohere (cohere), Jina AI (jina), OpenAI (openai) ```  | 项目 | 详情 | |------|------| | **失败节点** | `1e30879f-d9f7-442d-a120-81400896a2c4` | | **节点类型** | `ai/embedding_config` | | **问题** | 凭证类型 `lm-studio` 不支持嵌入功能 | | **执行进度** | 知识库创建 ✅ → Qdrant 配置 ✅ → **嵌入配置 ❌** |  ---  ## 矛盾点  错误信息很奇怪：它说 `lm-studio` 不支持，但列出的支持提供商里**又有** `LM Studio (lm-studio)`。  可能的原因： 1. **凭证配置错误**：你配置的 `lm-studio` 凭证可能只配置了 Chat 功能，没配置 Embedding 功能 2. **模型选择错误**：在嵌入配置节点中，需要选择具体的嵌入模型，而不是用 LM Studio 的凭证  ---  ## 修复方案  ### 方案 1：使用 Ollama（推荐，本地免费） 如果你本地有 Ollama 运行： ```json {   \"embedding_model\": \"ollama/nomic-embed-text\" } ``` 或 ```json {   \"embedding_model\": \"ollama/mxbai-embed-large\" } ```  ### 方案 2：使用 OpenAI ```json {   \"embedding_model\": \"openai/text-embedding-3-small\" } ```  ### 方案 3：使用 Jina AI（免费，无需 API Key） ```json {   \"embedding_model\": \"jina/jina-embeddings-v2-base-en\" } ```  ### 方案 4：检查 LM Studio 配置 如果你一定要用 LM Studio，需要确认： - LM Studio 是否加载了嵌入模型（如 `nomic-embed-text`） - 凭证配置中是否启用了 Embedding 功能（不只是 Chat）  ---  ## 快速修复步骤  在 **Embedding Config 节点**（`1e30879f-d9f7-442d-a120-81400896a2c4`）中：  | 当前配置 | 建议修改为 | |---------|-----------| | `lm-studio` | `ollama/nomic-embed-text` 或 `openai/text-embedding-3-small` |  ---  ## 执行进度总结  | 节点 | 状态 | |------|------| | 知识库创建 | ✅ | | Qdrant 配置 | ✅ | | **嵌入配置** | ❌ **当前失败** | | 文档索引 | ⏳ 等待 |  修改嵌入模型提供商后应该就能继续了。你本地有 Ollama 吗？还是更倾向于用 OpenAI 的 API？"
+      },
+      "position": {
+        "x": -166.15547547469902,
+        "y": 894.127849005436
+      },
+      "type": "rag/chunker",
+      "data": {
+        "type": "rag/chunker",
+        "node_type": "rag/chunker",
+        "label": "文档分块器",
+        "config": {
+          "content": "这是**凭证配置问题**——你选择了 `lm-studio` 作为嵌入模型提供商，但系统提示它不支持 Embedding 功能。  ## 错误分析  ``` 凭证类型 'lm-studio' 不支持 Embedding 功能。 支持的提供商: LM Studio (lm-studio), Alibaba Cloud DashScope (Qwen) (dashscope),  Custom (OpenAI Compatible) (custom), Ollama (ollama), Google Gemini (gemini),  Cohere (cohere), Jina AI (jina), OpenAI (openai) ```  | 项目 | 详情 | |------|------| | **失败节点** | `1e30879f-d9f7-442d-a120-81400896a2c4` | | **节点类型** | `ai/embedding_config` | | **问题** | 凭证类型 `lm-studio` 不支持嵌入功能 | | **执行进度** | 知识库创建 ✅ → Qdrant 配置 ✅ → **嵌入配置 ❌** |  ---  ## 矛盾点  错误信息很奇怪：它说 `lm-studio` 不支持，但列出的支持提供商里**又有** `LM Studio (lm-studio)`。  可能的原因： 1. **凭证配置错误**：你配置的 `lm-studio` 凭证可能只配置了 Chat 功能，没配置 Embedding 功能 2. **模型选择错误**：在嵌入配置节点中，需要选择具体的嵌入模型，而不是用 LM Studio 的凭证  ---  ## 修复方案  ### 方案 1：使用 Ollama（推荐，本地免费） 如果你本地有 Ollama 运行： ```json {   \"embedding_model\": \"ollama/nomic-embed-text\" } ``` 或 ```json {   \"embedding_model\": \"ollama/mxbai-embed-large\" } ```  ### 方案 2：使用 OpenAI ```json {   \"embedding_model\": \"openai/text-embedding-3-small\" } ```  ### 方案 3：使用 Jina AI（免费，无需 API Key） ```json {   \"embedding_model\": \"jina/jina-embeddings-v2-base-en\" } ```  ### 方案 4：检查 LM Studio 配置 如果你一定要用 LM Studio，需要确认： - LM Studio 是否加载了嵌入模型（如 `nomic-embed-text`） - 凭证配置中是否启用了 Embedding 功能（不只是 Chat）  ---  ## 快速修复步骤  在 **Embedding Config 节点**（`1e30879f-d9f7-442d-a120-81400896a2c4`）中：  | 当前配置 | 建议修改为 | |---------|-----------| | `lm-studio` | `ollama/nomic-embed-text` 或 `openai/text-embedding-3-small` |  ---  ## 执行进度总结  | 节点 | 状态 | |------|------| | 知识库创建 | ✅ | | Qdrant 配置 | ✅ | | **嵌入配置** | ❌ **当前失败** | | 文档索引 | ⏳ 等待 |  修改嵌入模型提供商后应该就能继续了。你本地有 Ollama 吗？还是更倾向于用 OpenAI 的 API？"
+        },
+        "inputs": [
+          {
+            "description": "Document text content to chunk",
+            "name": "content",
+            "required": true,
+            "type": "string",
+            "x-i18n-key": "nodes.rag.chunker.inputs.content"
+          },
+          {
+            "default": null,
+            "description": "Document identifier (optional, auto-generated if not provided)",
+            "name": "document_id",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.rag.chunker.inputs.document_id"
+          },
+          {
+            "default": null,
+            "description": "Select document chunking method",
+            "name": "mode",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.rag.chunker.inputs.mode"
+          },
+          {
+            "default": null,
+            "description": "Parent chunk size in characters",
+            "name": "parent_chunk_chars",
+            "required": false,
+            "type": "integer",
+            "x-allow-custom": true,
+            "x-i18n-key": "nodes.rag.chunker.inputs.parent_chunk_chars"
+          },
+          {
+            "default": null,
+            "description": "Child chunk size in characters",
+            "name": "child_chunk_chars",
+            "required": false,
+            "type": "integer",
+            "x-allow-custom": true,
+            "x-i18n-key": "nodes.rag.chunker.inputs.child_chunk_chars"
+          },
+          {
+            "default": null,
+            "description": "Maximum embedding chunk size - HARD SAFETY LIMIT",
+            "name": "max_embedding_chars",
+            "required": false,
+            "type": "integer",
+            "x-allow-custom": true,
+            "x-i18n-key": "nodes.rag.chunker.inputs.max_embedding_chars"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "Processed document ID",
+            "name": "document_id",
+            "type": "string"
+          },
+          {
+            "description": "List of parent chunks",
+            "name": "parent_chunks",
+            "type": "array"
+          },
+          {
+            "description": "List of child chunks",
+            "name": "child_chunks",
+            "type": "array"
+          },
+          {
+            "description": "Total parent chunk count",
+            "format": {},
+            "name": "parent_count",
+            "type": "integer"
+          },
+          {
+            "description": "Total child chunk count",
+            "format": {},
+            "name": "child_count",
+            "type": "integer"
+          },
+          {
+            "description": "Chunking mode used",
+            "name": "mode",
+            "type": "string"
+          }
+        ],
+        "status": "idle",
+        "category": "data",
+        "enabled": true,
+        "tags": []
+      },
+      "selected": false,
+      "draggable": true,
+      "deletable": true,
+      "width": 250
+    }
+  ],
+  "edges": [
+    {
+      "id": "828a1885-4bfb-473d-90d3-0bb72bf4ef16",
+      "source_node": "2c7ec5dc-44ce-44f5-8c61-df2433dbe7ae",
+      "target_node": "fd287e93-5141-42d7-9ab5-6407800661a6",
+      "source_port": "qdrant_config",
+      "target_port": "qdrant_config",
+      "source": "2c7ec5dc-44ce-44f5-8c61-df2433dbe7ae",
+      "target": "fd287e93-5141-42d7-9ab5-6407800661a6",
+      "sourceHandle": "qdrant_config",
+      "targetHandle": "qdrant_config",
+      "type": "custom",
+      "animated": false,
+      "data": {
+        "dataType": "any",
+        "executionState": "idle"
+      },
+      "deletable": true,
+      "focusable": true,
+      "updatable": true,
+      "selectable": true
+    },
+    {
+      "id": "88a42d20-d1a4-4ba4-b0b0-9add9de77b6d",
+      "source_node": "1a28a4b0-7dc1-4ba5-ab62-fb009ff36978",
+      "target_node": "fd287e93-5141-42d7-9ab5-6407800661a6",
+      "source_port": "embedding_config",
+      "target_port": "embedding_config",
+      "source": "1a28a4b0-7dc1-4ba5-ab62-fb009ff36978",
+      "target": "fd287e93-5141-42d7-9ab5-6407800661a6",
+      "sourceHandle": "embedding_config",
+      "targetHandle": "embedding_config",
+      "type": "custom",
+      "animated": false,
+      "data": {
+        "dataType": "any",
+        "executionState": "idle"
+      },
+      "deletable": true,
+      "focusable": true,
+      "updatable": true,
+      "selectable": true
+    },
+    {
+      "id": "6608eebb-d3b9-4b63-be6f-19067a46bcdc",
+      "source_node": "ac820b91-9b68-4d51-baf4-6e2af466d4e7",
+      "target_node": "fd287e93-5141-42d7-9ab5-6407800661a6",
+      "source_port": "workspace_id",
+      "target_port": "workspace_id",
+      "source": "ac820b91-9b68-4d51-baf4-6e2af466d4e7",
+      "target": "fd287e93-5141-42d7-9ab5-6407800661a6",
+      "sourceHandle": "workspace_id",
+      "targetHandle": "workspace_id",
+      "type": "custom",
+      "animated": false,
+      "data": {
+        "dataType": "any",
+        "executionState": "idle"
+      },
+      "deletable": true,
+      "focusable": true,
+      "updatable": true,
+      "selectable": true
+    },
+    {
+      "id": "21437b7d-656b-4fc6-b190-bc79dec3f42a",
+      "source_node": "ac820b91-9b68-4d51-baf4-6e2af466d4e7",
+      "target_node": "fd287e93-5141-42d7-9ab5-6407800661a6",
+      "source_port": "kb_id",
+      "target_port": "kb_id",
+      "source": "ac820b91-9b68-4d51-baf4-6e2af466d4e7",
+      "target": "fd287e93-5141-42d7-9ab5-6407800661a6",
+      "sourceHandle": "kb_id",
+      "targetHandle": "kb_id",
+      "type": "custom",
+      "animated": false,
+      "data": {
+        "dataType": "any",
+        "executionState": "idle"
+      },
+      "deletable": true,
+      "focusable": true,
+      "updatable": true,
+      "selectable": true
+    },
+    {
+      "id": "a2bdbe65-c801-4c02-8936-c8d1d3aaa693",
+      "source_node": "22fa51d9-7213-4055-9707-bbddab746f62",
+      "target_node": "fd287e93-5141-42d7-9ab5-6407800661a6",
+      "source_port": "child_chunks",
+      "target_port": "child_chunks",
+      "source": "22fa51d9-7213-4055-9707-bbddab746f62",
+      "target": "fd287e93-5141-42d7-9ab5-6407800661a6",
+      "sourceHandle": "child_chunks",
+      "targetHandle": "child_chunks",
+      "type": "custom",
+      "animated": false,
+      "data": {
+        "dataType": "any",
+        "executionState": "idle"
+      },
+      "deletable": true,
+      "focusable": true,
+      "updatable": true,
+      "selectable": true
+    }
+  ],
+  "createdAt": "2026-04-03T22:39:50.623Z",
+  "updatedAt": "2026-04-03T22:39:50.623Z"
+}

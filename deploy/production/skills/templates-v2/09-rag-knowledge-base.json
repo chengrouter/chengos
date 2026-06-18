@@ -1,0 +1,209 @@
+{
+  "workflowId": "19451d7d-5efb-5f26-a95b-095bb9796e12",
+  "name": "V2 RAG 与知识库",
+  "description": "覆盖工作区上下文、知识库选择/管理、Embedding/Qdrant 配置、分块、索引、检索和格式化。",
+  "state": "draft",
+  "nodeCount": 10,
+  "edgeCount": 10,
+  "createdAt": "2026-05-22T00:00:00.000000000+00:00",
+  "updatedAt": "2026-05-22T00:00:00.000000000+00:00",
+  "version": 2,
+  "isFavorite": false,
+  "isTemplate": true,
+  "isDraft": true,
+  "tags": [
+    "skills-v2",
+    "rag",
+    "knowledge-base"
+  ],
+  "visibility": "private",
+  "definition": {
+    "nodes": [
+      {
+        "nodeId": "a7c309a9-306a-5450-a3b6-4a883465756d",
+        "nodeType": "workspace/context",
+        "name": "workspace / context",
+        "position": {
+          "x": 120,
+          "y": 120
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "edc648f9-42d9-5d31-a26b-00366443a1a6",
+        "nodeType": "workspace/knowledge_base",
+        "name": "workspace / knowledge base",
+        "position": {
+          "x": 440,
+          "y": 120
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "1528fb93-5f7a-5d77-a377-9a519e9b2226",
+        "nodeType": "ai/embedding_config",
+        "name": "ai / embedding config",
+        "position": {
+          "x": 760,
+          "y": 120
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "b4f81449-7cf3-573d-adbe-fdc00f49b695",
+        "nodeType": "ai/qdrant_config",
+        "name": "ai / qdrant config",
+        "position": {
+          "x": 1080,
+          "y": 120
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "c5ee74c5-cf84-5fc8-ae55-f15fd44896b1",
+        "nodeType": "ai/llm_config",
+        "name": "ai / llm config",
+        "position": {
+          "x": 120,
+          "y": 340
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "1368d1af-24cc-595f-a211-ffb1aa0555e8",
+        "nodeType": "rag/chunker",
+        "name": "rag / chunker",
+        "position": {
+          "x": 440,
+          "y": 340
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "5b03f179-f64c-5bc9-a39c-47aa6b61f328",
+        "nodeType": "rag/document_indexer",
+        "name": "rag / document indexer",
+        "position": {
+          "x": 760,
+          "y": 340
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "e8700cd2-79b5-595c-afcb-1522c464224b",
+        "nodeType": "rag/retriever",
+        "name": "rag / retriever",
+        "position": {
+          "x": 1080,
+          "y": 340
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "9ca4eb82-86cb-54cb-a2b2-876b9c048bb1",
+        "nodeType": "rag/formatter",
+        "name": "rag / formatter",
+        "position": {
+          "x": 120,
+          "y": 560
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "32cc5c22-8fd6-5046-a915-186fc64205b2",
+        "nodeType": "rag/kb_manager",
+        "name": "rag / kb manager",
+        "position": {
+          "x": 440,
+          "y": 560
+        },
+        "config": {}
+      }
+    ],
+    "edges": [
+      {
+        "edgeId": "4ca552a0-d082-585f-a2fd-71ebd71c971b",
+        "sourceNode": "a7c309a9-306a-5450-a3b6-4a883465756d",
+        "sourcePort": "workspace_id",
+        "targetNode": "edc648f9-42d9-5d31-a26b-00366443a1a6",
+        "targetPort": "workspace_id"
+      },
+      {
+        "edgeId": "d722ca79-2231-54d3-a6d6-0c092acf39fd",
+        "sourceNode": "edc648f9-42d9-5d31-a26b-00366443a1a6",
+        "sourcePort": "knowledge_base",
+        "targetNode": "5b03f179-f64c-5bc9-a39c-47aa6b61f328",
+        "targetPort": "knowledge_base"
+      },
+      {
+        "edgeId": "6108dabc-b58c-5416-af01-27d09d8f13ee",
+        "sourceNode": "1528fb93-5f7a-5d77-a377-9a519e9b2226",
+        "sourcePort": "embedding_config",
+        "targetNode": "5b03f179-f64c-5bc9-a39c-47aa6b61f328",
+        "targetPort": "embedding_config"
+      },
+      {
+        "edgeId": "a3dcef00-c2cf-59af-af8f-8821eb645115",
+        "sourceNode": "b4f81449-7cf3-573d-adbe-fdc00f49b695",
+        "sourcePort": "qdrant_config",
+        "targetNode": "5b03f179-f64c-5bc9-a39c-47aa6b61f328",
+        "targetPort": "qdrant_config"
+      },
+      {
+        "edgeId": "40602e25-bab6-53a0-a45f-d96fff0cecd5",
+        "sourceNode": "1368d1af-24cc-595f-a211-ffb1aa0555e8",
+        "sourcePort": "parent_chunks",
+        "targetNode": "5b03f179-f64c-5bc9-a39c-47aa6b61f328",
+        "targetPort": "parent_chunks"
+      },
+      {
+        "edgeId": "7be04901-8d6b-51fa-ad73-3bda44bfd6f5",
+        "sourceNode": "1368d1af-24cc-595f-a211-ffb1aa0555e8",
+        "sourcePort": "child_chunks",
+        "targetNode": "5b03f179-f64c-5bc9-a39c-47aa6b61f328",
+        "targetPort": "child_chunks"
+      },
+      {
+        "edgeId": "e54c528f-17bf-515f-a389-3431ae65c6e4",
+        "sourceNode": "1528fb93-5f7a-5d77-a377-9a519e9b2226",
+        "sourcePort": "embedding_config",
+        "targetNode": "e8700cd2-79b5-595c-afcb-1522c464224b",
+        "targetPort": "embedding_config"
+      },
+      {
+        "edgeId": "895e99db-dcb7-56fb-aa88-56001da77970",
+        "sourceNode": "b4f81449-7cf3-573d-adbe-fdc00f49b695",
+        "sourcePort": "qdrant_config",
+        "targetNode": "e8700cd2-79b5-595c-afcb-1522c464224b",
+        "targetPort": "qdrant_config"
+      },
+      {
+        "edgeId": "383a0d66-d226-54b6-ae80-4d2b07c904fb",
+        "sourceNode": "e8700cd2-79b5-595c-afcb-1522c464224b",
+        "sourcePort": "results",
+        "targetNode": "9ca4eb82-86cb-54cb-a2b2-876b9c048bb1",
+        "targetPort": "results"
+      },
+      {
+        "edgeId": "57e1f2f0-010a-5489-a3e1-fe20b9d4584e",
+        "sourceNode": "b4f81449-7cf3-573d-adbe-fdc00f49b695",
+        "sourcePort": "qdrant_config",
+        "targetNode": "32cc5c22-8fd6-5046-a915-186fc64205b2",
+        "targetPort": "qdrant_config"
+      }
+    ],
+    "notes": [
+      {
+        "id": "a9a88dc4-948f-500d-a81f-224d4e9fc9e4",
+        "content": "V2 coverage template: generated from current node IDs. Fill config and add scenario-specific edges after checking live /api/v1/nodes/types schema.",
+        "x": 80,
+        "y": 40,
+        "width": 520,
+        "height": 96,
+        "color": "#fef3c7",
+        "zIndex": 0
+      }
+    ],
+    "containers": []
+  }
+}

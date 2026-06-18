@@ -1,0 +1,150 @@
+{
+  "workflowId": "53c921d5-d24f-574b-a1e4-1de745fc15b4",
+  "name": "V2 Agent 编排与工作流观察",
+  "description": "覆盖 ReAct agent 分层节点、Skill/Subflow 调用和只读工作流/执行观测工具。",
+  "state": "draft",
+  "nodeCount": 9,
+  "edgeCount": 3,
+  "createdAt": "2026-05-22T00:00:00.000000000+00:00",
+  "updatedAt": "2026-05-22T00:00:00.000000000+00:00",
+  "version": 2,
+  "isFavorite": false,
+  "isTemplate": true,
+  "isDraft": true,
+  "tags": [
+    "skills-v2",
+    "agent",
+    "workflow"
+  ],
+  "visibility": "private",
+  "definition": {
+    "nodes": [
+      {
+        "nodeId": "5a59c2b1-88a9-54c7-a9bd-b967645e37bc",
+        "nodeType": "agent/react_agent",
+        "name": "agent / react agent",
+        "position": {
+          "x": 120,
+          "y": 120
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "de965858-ec4e-53c2-a75d-c062750cbc56",
+        "nodeType": "agent/react_plan",
+        "name": "agent / react plan",
+        "position": {
+          "x": 440,
+          "y": 120
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "1989c0bc-7021-583b-a71a-f178ab37768f",
+        "nodeType": "agent/react_execute",
+        "name": "agent / react execute",
+        "position": {
+          "x": 760,
+          "y": 120
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "b75a8979-ef2f-5f9e-ae63-354071b45602",
+        "nodeType": "agent/react_review",
+        "name": "agent / react review",
+        "position": {
+          "x": 1080,
+          "y": 120
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "b1428b3f-e4bb-5b92-a9eb-30530b876a03",
+        "nodeType": "tools/workflow_inspect",
+        "name": "tools / workflow inspect",
+        "position": {
+          "x": 120,
+          "y": 340
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "fbdc17a8-13ba-5028-ac3d-20c8f4853c81",
+        "nodeType": "tools/get_execution_trace",
+        "name": "tools / get execution trace",
+        "position": {
+          "x": 440,
+          "y": 340
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "7a276cad-d24c-5a80-abeb-4ec8f8c1fa85",
+        "nodeType": "tools/skill",
+        "name": "tools / skill",
+        "position": {
+          "x": 760,
+          "y": 340
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "acc43588-a114-5756-ac16-f5fb75ae62d9",
+        "nodeType": "tools/subflow",
+        "name": "tools / subflow",
+        "position": {
+          "x": 1080,
+          "y": 340
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "f023f8a8-4d69-5937-a62b-2f13e1e27bd3",
+        "nodeType": "utils/preview",
+        "name": "utils / preview",
+        "position": {
+          "x": 120,
+          "y": 560
+        },
+        "config": {}
+      }
+    ],
+    "edges": [
+      {
+        "edgeId": "ca99312c-2c3e-59da-ad9a-596c1a57ba42",
+        "sourceNode": "5a59c2b1-88a9-54c7-a9bd-b967645e37bc",
+        "sourcePort": "final_answer",
+        "targetNode": "f023f8a8-4d69-5937-a62b-2f13e1e27bd3",
+        "targetPort": "data"
+      },
+      {
+        "edgeId": "f6b8022a-edde-5d28-af3a-3714fbc0bf43",
+        "sourceNode": "de965858-ec4e-53c2-a75d-c062750cbc56",
+        "sourcePort": "decision",
+        "targetNode": "1989c0bc-7021-583b-a71a-f178ab37768f",
+        "targetPort": "decision"
+      },
+      {
+        "edgeId": "1fd071d7-6f7b-5cb6-a01d-1b17b2bf778a",
+        "sourceNode": "1989c0bc-7021-583b-a71a-f178ab37768f",
+        "sourcePort": "context",
+        "targetNode": "b75a8979-ef2f-5f9e-ae63-354071b45602",
+        "targetPort": "context"
+      }
+    ],
+    "notes": [
+      {
+        "id": "993aed0c-ebc7-5c6e-ae5e-ac131ab6eb4e",
+        "content": "V2 coverage template: generated from current node IDs. Fill config and add scenario-specific edges after checking live /api/v1/nodes/types schema.",
+        "x": 80,
+        "y": 40,
+        "width": 520,
+        "height": 96,
+        "color": "#fef3c7",
+        "zIndex": 0
+      }
+    ],
+    "containers": []
+  }
+}

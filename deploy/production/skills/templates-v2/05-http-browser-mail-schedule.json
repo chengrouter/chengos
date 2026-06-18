@@ -1,0 +1,117 @@
+{
+  "workflowId": "9631ddc7-e222-5565-ac65-2d2abd8be1fe",
+  "name": "V2 HTTP 浏览器 邮件 定时",
+  "description": "覆盖 HTTP、浏览器自动化、邮件、调度和凭证读取节点。",
+  "state": "draft",
+  "nodeCount": 5,
+  "edgeCount": 4,
+  "createdAt": "2026-05-22T00:00:00.000000000+00:00",
+  "updatedAt": "2026-05-22T00:00:00.000000000+00:00",
+  "version": 2,
+  "isFavorite": false,
+  "isTemplate": true,
+  "isDraft": true,
+  "tags": [
+    "skills-v2",
+    "integration",
+    "automation"
+  ],
+  "visibility": "private",
+  "definition": {
+    "nodes": [
+      {
+        "nodeId": "2c64965e-1350-5ecd-ab94-a3e5f5757c67",
+        "nodeType": "utils/credential",
+        "name": "utils / credential",
+        "position": {
+          "x": 120,
+          "y": 120
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "c7792662-1d31-55d2-abb5-beb788795e74",
+        "nodeType": "tools/http",
+        "name": "tools / http",
+        "position": {
+          "x": 440,
+          "y": 120
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "46ddc761-52c8-5afb-a241-a9fe4f3e8219",
+        "nodeType": "tools/browser",
+        "name": "tools / browser",
+        "position": {
+          "x": 760,
+          "y": 120
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "cc48c68a-c5a5-5e23-a7a0-f0e0c2e097fc",
+        "nodeType": "tools/mail",
+        "name": "tools / mail",
+        "position": {
+          "x": 1080,
+          "y": 120
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "b91c93db-37d7-5adf-ae5e-a78dc63d7130",
+        "nodeType": "tools/schedule",
+        "name": "tools / schedule",
+        "position": {
+          "x": 120,
+          "y": 340
+        },
+        "config": {}
+      }
+    ],
+    "edges": [
+      {
+        "edgeId": "6dc3d385-abbc-5823-a191-3811ec182e96",
+        "sourceNode": "2c64965e-1350-5ecd-ab94-a3e5f5757c67",
+        "sourcePort": "credential",
+        "targetNode": "c7792662-1d31-55d2-abb5-beb788795e74",
+        "targetPort": "credential"
+      },
+      {
+        "edgeId": "74bfb232-09cd-56a2-aca3-9378add203cd",
+        "sourceNode": "c7792662-1d31-55d2-abb5-beb788795e74",
+        "sourcePort": "body",
+        "targetNode": "46ddc761-52c8-5afb-a241-a9fe4f3e8219",
+        "targetPort": "text"
+      },
+      {
+        "edgeId": "0e55f4cf-41a1-59e5-acea-bca7f59c23ea",
+        "sourceNode": "46ddc761-52c8-5afb-a241-a9fe4f3e8219",
+        "sourcePort": "text",
+        "targetNode": "cc48c68a-c5a5-5e23-a7a0-f0e0c2e097fc",
+        "targetPort": "body"
+      },
+      {
+        "edgeId": "1c71e5f5-c006-5a04-a4b3-b4f4c54a37dc",
+        "sourceNode": "cc48c68a-c5a5-5e23-a7a0-f0e0c2e097fc",
+        "sourcePort": "message_id",
+        "targetNode": "b91c93db-37d7-5adf-ae5e-a78dc63d7130",
+        "targetPort": "payload"
+      }
+    ],
+    "notes": [
+      {
+        "id": "47653f7c-529e-5007-aed7-4786eb5b554a",
+        "content": "V2 coverage template: generated from current node IDs. Fill config and add scenario-specific edges after checking live /api/v1/nodes/types schema.",
+        "x": 80,
+        "y": 40,
+        "width": 520,
+        "height": 96,
+        "color": "#fef3c7",
+        "zIndex": 0
+      }
+    ],
+    "containers": []
+  }
+}

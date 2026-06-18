@@ -1,0 +1,1000 @@
+{
+  "workflowId": "8d1f48f2-2a49-4a3d-8464-76d131c3f246",
+  "name": "知识库查询",
+  "description": "",
+  "state": "draft",
+  "nodeCount": 9,
+  "edgeCount": 11,
+  "createdAt": "2025-12-30T00:30:56.847348917+00:00",
+  "updatedAt": "2026-04-03T22:50:42.587463269+00:00",
+  "version": 1,
+  "isFavorite": false,
+  "isTemplate": false,
+  "isDraft": false,
+  "tags": [
+    "ai_chat"
+  ],
+  "visibility": "private",
+  "definition": {
+    "nodes": [
+      {
+        "nodeId": "0681b02f-b553-41a7-b1af-8dee4092b1e2",
+        "nodeType": "chat/output",
+        "name": "Chat 输出节点",
+        "position": {
+          "x": 2523.10809091906,
+          "y": 410.84323636762406
+        },
+        "config": {},
+        "inputs": [
+          {
+            "description": "Agent 最终回复文本或 AgentContext（自动提取文本）",
+            "name": "context",
+            "required": true,
+            "type": "agent_context"
+          },
+          {
+            "default": null,
+            "description": "Agent 执行轨迹（思考过程）",
+            "name": "trace",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "control": "select",
+            "default": "system",
+            "description": "显示主题",
+            "enum": [
+              "light",
+              "dark",
+              "system"
+            ],
+            "name": "theme",
+            "options": [
+              {
+                "label": "light",
+                "value": "light"
+              },
+              {
+                "label": "dark",
+                "value": "dark"
+              },
+              {
+                "label": "system",
+                "value": "system"
+              }
+            ],
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": true,
+            "description": "是否自动滚动到最新消息",
+            "name": "autoscroll",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "default": 1000,
+            "description": "内存中保留的最大消息数量",
+            "format": "uint",
+            "maximum": 10000,
+            "minimum": 10,
+            "name": "keep_messages",
+            "required": false,
+            "type": "integer"
+          },
+          {
+            "default": 100,
+            "description": "消息数量超过此值时启用虚拟化",
+            "format": "uint",
+            "maximum": 1000,
+            "minimum": 10,
+            "name": "virtualize_threshold",
+            "required": false,
+            "type": "integer"
+          },
+          {
+            "default": "standard",
+            "description": "消息显示格式",
+            "name": "display_format",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": true,
+            "description": "是否显示消息时间戳",
+            "name": "show_timestamp",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "Assistant 最终回复的文本内容",
+            "name": "reply",
+            "type": "string"
+          },
+          {
+            "description": "Agent 执行轨迹（思考过程）",
+            "name": "trace",
+            "type": "string"
+          },
+          {
+            "description": "要发送给前端的 UI 事件",
+            "name": "ui_events",
+            "type": "array"
+          },
+          {
+            "description": "当前保留的消息总数",
+            "format": {},
+            "name": "message_count",
+            "type": "integer"
+          },
+          {
+            "description": "是否启用了虚拟化渲染",
+            "name": "virtualized",
+            "type": "boolean"
+          },
+          {
+            "description": "处理统计信息",
+            "name": "stats",
+            "type": "string"
+          }
+        ]
+      },
+      {
+        "nodeId": "05cbc1e3-00f4-4f9a-8810-b91303d9ddb7",
+        "nodeType": "workspace/knowledge_base",
+        "name": "知识库",
+        "position": {
+          "x": 615.0294271899166,
+          "y": -310.51121877359367
+        },
+        "config": {
+          "kb_id": "7c8c159d-c4fa-4a75-a380-1230c784e584",
+          "workspace_id": "22fb5167-838d-4b45-890c-60ab12bd4771"
+        },
+        "inputs": [
+          {
+            "control": "select",
+            "default": "select",
+            "description": "select: Select existing KB; list: List all KBs in workspace; create: Create new KB",
+            "enum": [
+              "select",
+              "list",
+              "create"
+            ],
+            "name": "mode",
+            "options": [
+              {
+                "label": "select",
+                "value": "select"
+              },
+              {
+                "label": "list",
+                "value": "list"
+              },
+              {
+                "label": "create",
+                "value": "create"
+              }
+            ],
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.workspace.knowledge_base.inputs.mode"
+          },
+          {
+            "description": "Target workspace",
+            "name": "workspace_id",
+            "required": true,
+            "type": "string",
+            "x-i18n-key": "nodes.workspace.knowledge_base.inputs.workspace_id"
+          },
+          {
+            "default": null,
+            "description": "Knowledge base to select (select mode)",
+            "name": "kb_id",
+            "required": false,
+            "type": "string",
+            "x-depends-on": "workspace_id",
+            "x-i18n-key": "nodes.workspace.knowledge_base.inputs.kb_id"
+          },
+          {
+            "default": null,
+            "description": "New knowledge base name (create mode)",
+            "name": "name",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.workspace.knowledge_base.inputs.name"
+          },
+          {
+            "default": null,
+            "description": "Knowledge base description (create mode, optional)",
+            "name": "description",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.workspace.knowledge_base.inputs.description"
+          },
+          {
+            "default": null,
+            "description": "Embedding model name (create mode, optional)",
+            "name": "embedding_model",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.workspace.knowledge_base.inputs.embedding_model"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "Whether the operation succeeded.",
+            "name": "success",
+            "type": "boolean"
+          },
+          {
+            "description": "Workspace ID (for direct connection)",
+            "name": "workspace_id",
+            "type": "string"
+          },
+          {
+            "description": "Knowledge base ID (for direct connection)",
+            "name": "kb_id",
+            "type": "string"
+          },
+          {
+            "description": "Single knowledge base info (select/create modes).",
+            "name": "knowledge_base",
+            "type": "string"
+          },
+          {
+            "description": "List of knowledge bases (list mode).",
+            "name": "knowledge_bases",
+            "type": "array"
+          },
+          {
+            "description": "Error message if the operation failed.",
+            "name": "error",
+            "type": "string"
+          }
+        ]
+      },
+      {
+        "nodeId": "aaa03e9d-b41d-4c81-baab-bdfc30b4e0d6",
+        "nodeType": "ai/llm",
+        "name": "AI 对话",
+        "position": {
+          "x": 2034.8761870009723,
+          "y": 374.3565250441408
+        },
+        "config": {},
+        "inputs": [
+          {
+            "default": null,
+            "description": "AgentContext（可选，用于承接历史对话）",
+            "name": "context",
+            "required": false,
+            "type": "agent_context"
+          },
+          {
+            "description": "LLM 配置（JSON 字符串或对象）",
+            "name": "llm_config",
+            "required": true,
+            "type": "object"
+          },
+          {
+            "default": "",
+            "description": "系统提示词（可选）",
+            "name": "system_prompt",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": "",
+            "description": "用户消息（如果 context.history 中已有用户消息，可以为空）",
+            "name": "user_message",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": null,
+            "description": "工具/函数定义（JSON 数组，用于函数调用）",
+            "name": "tools",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "AgentContext 输出端口（包含对话历史）",
+            "name": "context",
+            "type": "agent_context"
+          },
+          {
+            "description": "生成的文本响应",
+            "name": "response",
+            "type": "string"
+          },
+          {
+            "description": "输入使用的 Token 数",
+            "format": {},
+            "name": "prompt_tokens",
+            "type": "integer"
+          },
+          {
+            "description": "输出使用的 Token 数",
+            "format": {},
+            "name": "completion_tokens",
+            "type": "integer"
+          },
+          {
+            "description": "总 Token 数",
+            "format": {},
+            "name": "total_tokens",
+            "type": "integer"
+          },
+          {
+            "description": "结束原因",
+            "name": "finish_reason",
+            "type": "string"
+          },
+          {
+            "description": "LLM 调用的工具/函数",
+            "name": "tool_calls",
+            "type": "array"
+          },
+          {
+            "description": "工具执行结果（当连接了工具节点并自动执行时）",
+            "name": "tool_results",
+            "type": "array"
+          },
+          {
+            "description": "本次调用使用的 LLM 配置（可复用）",
+            "name": "llm_config",
+            "type": "object"
+          }
+        ]
+      },
+      {
+        "nodeId": "b9cf32a9-a4bd-4918-8a8e-76c33ee8225a",
+        "nodeType": "rag/formatter",
+        "name": "RAG 格式化",
+        "position": {
+          "x": 1584.8712254398356,
+          "y": 236.1532824859458
+        },
+        "config": {},
+        "inputs": [
+          {
+            "control": "textarea",
+            "default": null,
+            "description": "自定义提示词模板。可用占位符: {query}, {documents}, {count}",
+            "name": "custom_template",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "description": "检索到的文档列表（来自知识检索节点的 documents 输出）",
+            "name": "documents",
+            "required": true,
+            "type": "array"
+          },
+          {
+            "default": null,
+            "description": "在格式化输出中包含文档相关度分数",
+            "name": "include_scores",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "default": null,
+            "description": "在格式化输出中包含文档 ID 和来源信息",
+            "name": "include_sources",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "default": null,
+            "description": "每个文档片段的最大字符数（0 = 不限制）",
+            "format": "uint",
+            "minimum": 0,
+            "name": "max_doc_chars",
+            "required": false,
+            "type": "integer"
+          },
+          {
+            "description": "用户的查询问题（来自知识检索节点的 query 输出）",
+            "name": "query",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "control": "select",
+            "default": null,
+            "description": "选择提示词模板类型",
+            "name": "template",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "包含的文档数量",
+            "format": {},
+            "name": "document_count",
+            "type": "integer"
+          },
+          {
+            "description": "格式化后的提示词，可直接传给 LLM",
+            "name": "prompt",
+            "type": "string"
+          },
+          {
+            "description": "原始查询文本",
+            "name": "query",
+            "type": "string"
+          },
+          {
+            "description": "格式化输出的总字符数",
+            "format": {},
+            "name": "total_chars",
+            "type": "integer"
+          }
+        ]
+      },
+      {
+        "nodeId": "b46352dd-c03f-4895-952a-7a94b4cb4fff",
+        "nodeType": "ai/llm_config",
+        "name": "LLM 配置",
+        "position": {
+          "x": 606.1027265890727,
+          "y": 700.1588932330852
+        },
+        "config": {
+          "model": "43abcfdd-4a80-46d4-81a4-c6b6dbcfa6b0::MiniMax-M2.7"
+        },
+        "inputs": [
+          {
+            "description": "选择已连接的 LLM 模型",
+            "name": "model",
+            "required": true,
+            "type": "string",
+            "x-allow-custom": true
+          },
+          {
+            "default": null,
+            "description": "模型覆盖（格式: credential_id::model_name，优先级高于 model）",
+            "name": "model_override",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": 0.699999988079071,
+            "description": "控制生成的随机性，值越高越随机 (0.0 - 2.0)",
+            "format": "float",
+            "maximum": 2,
+            "minimum": 0,
+            "name": "temperature",
+            "required": false,
+            "type": "number"
+          },
+          {
+            "default": 5000,
+            "description": "限制生成的最大 Token 数 (默认 5000)",
+            "format": "uint32",
+            "minimum": 0,
+            "name": "max_tokens",
+            "required": false,
+            "type": "integer"
+          },
+          {
+            "default": 1,
+            "description": "核采样阈值 (0.0 - 1.0)",
+            "format": "float",
+            "maximum": 1,
+            "minimum": 0,
+            "name": "top_p",
+            "required": false,
+            "type": "number"
+          },
+          {
+            "default": 0,
+            "description": "降低模型重复同一句话的可能性 (-2.0 - 2.0)",
+            "format": "float",
+            "maximum": 2,
+            "minimum": -2,
+            "name": "frequency_penalty",
+            "required": false,
+            "type": "number"
+          },
+          {
+            "default": 0,
+            "description": "鼓励模型谈论新话题 (-2.0 - 2.0)",
+            "format": "float",
+            "maximum": 2,
+            "minimum": -2,
+            "name": "presence_penalty",
+            "required": false,
+            "type": "number"
+          },
+          {
+            "default": true,
+            "description": "开启后实时返回结果",
+            "name": "stream",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "default": 60,
+            "description": "API 请求超时时间（1-600 秒）",
+            "format": "uint32",
+            "maximum": 600,
+            "minimum": 1,
+            "name": "timeout_secs",
+            "required": false,
+            "type": "integer"
+          },
+          {
+            "default": false,
+            "description": "注入 response_format: json_object（适合弱模型/开源模型，减少非 JSON 文字；系统层不做二次校验）",
+            "name": "json_mode",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "完整 LLM 配置",
+            "name": "llm_config",
+            "type": "object"
+          }
+        ]
+      },
+      {
+        "nodeId": "594e5e81-281b-4f3a-806a-a98e370f19b6",
+        "nodeType": "chat/input",
+        "name": "Chat 输入节点",
+        "position": {
+          "x": 600.5638376255979,
+          "y": 483.7131487308906
+        },
+        "config": {},
+        "inputs": [
+          {
+            "description": "原始输入载荷（JSON 格式）",
+            "name": "raw_input",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "default": null,
+            "description": "对话 ID（可选），由入口生成后透传给所有下游节点",
+            "name": "conversation_id",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": false,
+            "description": "是否启用流式发送",
+            "name": "stream_mode",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "default": false,
+            "description": "是否对图片进行 OCR 识别",
+            "name": "enable_ocr",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "default": "per_file",
+            "description": "多输入的合并策略",
+            "name": "merge_strategy",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": 50,
+            "description": "最大文件大小（MB）",
+            "format": "uint64",
+            "maximum": 500,
+            "minimum": 1,
+            "name": "max_file_size_mb",
+            "required": false,
+            "type": "integer"
+          },
+          {
+            "default": null,
+            "description": "模型覆盖（格式: credential_id::model_name）",
+            "name": "model_override",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "处理后的上下文（packets）",
+            "name": "context",
+            "type": "object"
+          },
+          {
+            "description": "用户消息文本",
+            "name": "user_message",
+            "type": "string"
+          },
+          {
+            "description": "对话 ID（透传给下游节点）",
+            "name": "conversation_id",
+            "type": "string"
+          },
+          {
+            "description": "处理统计信息",
+            "name": "stats",
+            "type": "string"
+          },
+          {
+            "description": "UI 事件",
+            "name": "ui_event",
+            "type": "string"
+          },
+          {
+            "description": "模型覆盖（格式: credential_id::model_name）",
+            "name": "model_override",
+            "type": "string"
+          }
+        ]
+      },
+      {
+        "nodeId": "df66a4eb-cdfa-46fe-99e9-bd96943bbb08",
+        "nodeType": "ai/embedding_config",
+        "name": "Embedding 配置",
+        "position": {
+          "x": 609.6828087260916,
+          "y": 40.41167271299477
+        },
+        "config": {
+          "embedding_model": "3daba9f8-0c75-41b2-9bea-2f24f45dccb0::text-embedding-qwen3-embedding-0.6b"
+        },
+        "inputs": [
+          {
+            "description": "选择已连接的 Embedding 模型。支持 credential_id::model_name 或 model_name（需配置 CHENG_DEFAULT_EMBEDDING_CREDENTIAL_ID）",
+            "name": "embedding_model",
+            "required": true,
+            "type": "string",
+            "x-allow-custom": true
+          },
+          {
+            "default": 1024,
+            "description": "向量维度",
+            "name": "dimension",
+            "required": false,
+            "type": "integer",
+            "x-allow-custom": true
+          },
+          {
+            "default": null,
+            "description": "批量处理大小",
+            "name": "batch_size",
+            "required": false,
+            "type": "integer",
+            "x-allow-custom": true
+          },
+          {
+            "default": null,
+            "description": "选择重排序模型（可选，用于后处理优化）",
+            "name": "reranker_model",
+            "required": false,
+            "type": "string",
+            "x-allow-custom": true
+          },
+          {
+            "default": null,
+            "description": "Reranker Top K",
+            "name": "reranker_top_k",
+            "required": false,
+            "type": "integer",
+            "x-allow-custom": true
+          }
+        ],
+        "outputs": [
+          {
+            "description": "完整 Embedding 配置",
+            "name": "embedding_config",
+            "type": "object"
+          },
+          {
+            "description": "Reranker 配置（如果配置了重排序模型）",
+            "name": "reranker_config",
+            "type": "object"
+          }
+        ]
+      },
+      {
+        "nodeId": "e642c007-eb1c-4145-acc8-4cc3146f2a85",
+        "nodeType": "rag/retriever",
+        "name": "知识检索",
+        "position": {
+          "x": 1157.8580221339078,
+          "y": -18.352912129319243
+        },
+        "config": {},
+        "inputs": [
+          {
+            "description": "Target workspace (required for permission validation)",
+            "name": "workspace_id",
+            "required": true,
+            "type": "string",
+            "x-i18n-key": "nodes.rag.retriever.inputs.workspace_id"
+          },
+          {
+            "description": "Target knowledge base (collection resolved from DB, workspace-validated)",
+            "name": "kb_id",
+            "required": true,
+            "type": "string",
+            "x-depends-on": "workspace_id",
+            "x-i18n-key": "nodes.rag.retriever.inputs.kb_id"
+          },
+          {
+            "description": "Qdrant configuration object from config node",
+            "name": "qdrant_config",
+            "required": true,
+            "type": "object",
+            "x-i18n-key": "nodes.rag.retriever.inputs.qdrant_config"
+          },
+          {
+            "description": "Query text for retrieval (accepts string or ChatContext)",
+            "name": "query",
+            "required": true,
+            "type": "string",
+            "x-i18n-key": "nodes.rag.retriever.inputs.query"
+          },
+          {
+            "default": null,
+            "description": "Select retrieval strategy",
+            "name": "retrieval_mode",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.rag.retriever.inputs.retrieval_mode"
+          },
+          {
+            "default": null,
+            "description": "Maximum number of results to return",
+            "format": "uint",
+            "minimum": 0,
+            "name": "limit",
+            "required": false,
+            "type": "integer",
+            "x-i18n-key": "nodes.rag.retriever.inputs.limit"
+          },
+          {
+            "description": "Embedding configuration object from config node",
+            "name": "embedding_config",
+            "required": true,
+            "type": "object",
+            "x-i18n-key": "nodes.rag.retriever.inputs.embedding_config"
+          },
+          {
+            "default": null,
+            "description": "LLM configuration object from config node (optional, for HyDE)",
+            "name": "llm_config",
+            "required": false,
+            "type": "object",
+            "x-i18n-key": "nodes.rag.retriever.inputs.llm_config"
+          },
+          {
+            "default": null,
+            "description": "List of document IDs to limit retrieval scope (optional)",
+            "name": "document_filter",
+            "required": false,
+            "type": "array",
+            "x-i18n-key": "nodes.rag.retriever.inputs.document_filter"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "List of retrieved documents",
+            "name": "documents",
+            "type": "array"
+          },
+          {
+            "description": "Number of results returned",
+            "format": {},
+            "name": "count",
+            "type": "integer"
+          },
+          {
+            "description": "Retrieval mode used",
+            "name": "retrieval_mode",
+            "type": "string"
+          },
+          {
+            "description": "Query text used for retrieval",
+            "name": "query",
+            "type": "string"
+          },
+          {
+            "description": "Retrieval latency in milliseconds",
+            "format": {},
+            "name": "latency_ms",
+            "type": "integer"
+          },
+          {
+            "description": "Collection name retrieved from",
+            "name": "collection_name",
+            "type": "string"
+          },
+          {
+            "description": "Estimated token usage",
+            "name": "token_usage",
+            "type": "string"
+          }
+        ]
+      },
+      {
+        "nodeId": "c64ff73f-0e9d-43cd-85ec-ac3b533093af",
+        "nodeType": "ai/qdrant_config",
+        "name": "Qdrant 配置",
+        "position": {
+          "x": 599.7957123116918,
+          "y": 300.57262714011495
+        },
+        "config": {},
+        "inputs": [
+          {
+            "default": "local",
+            "description": "选择 Qdrant 的部署方式",
+            "name": "mode",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": null,
+            "description": "Qdrant gRPC 端点 URL（本地模式默认: http://localhost:6334）",
+            "name": "url",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": null,
+            "description": "Qdrant Cloud 或需要认证的自建服务器凭证",
+            "name": "credential_id",
+            "required": false,
+            "type": "string",
+            "x-credential-providers": [
+              "qdrant"
+            ]
+          },
+          {
+            "description": "Qdrant Collection 名称（存储向量的集合）",
+            "name": "collection_name",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "default": null,
+            "description": "是否在 Collection 上启用 BM25 全文搜索索引",
+            "name": "enable_fulltext",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "Qdrant 部署模式",
+            "name": "mode",
+            "type": "string"
+          },
+          {
+            "description": "Qdrant gRPC 端点 URL",
+            "name": "url",
+            "type": "string"
+          },
+          {
+            "description": "API 密钥（云端/认证模式使用）",
+            "name": "api_key",
+            "type": "string"
+          },
+          {
+            "description": "Qdrant Collection 名称",
+            "name": "collection_name",
+            "type": "string"
+          },
+          {
+            "description": "是否启用全文搜索",
+            "name": "enable_fulltext",
+            "type": "boolean"
+          },
+          {
+            "description": "使用的凭证 ID（如有）",
+            "name": "credential_id",
+            "type": "string"
+          },
+          {
+            "description": "完整 Qdrant 配置（JSON 对象）",
+            "name": "qdrant_config",
+            "type": "object"
+          }
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "edgeId": "df5a73fe-17e6-42c1-bf5c-5f7c0d6b65bb",
+        "sourceNode": "c64ff73f-0e9d-43cd-85ec-ac3b533093af",
+        "sourcePort": "qdrant_config",
+        "targetNode": "e642c007-eb1c-4145-acc8-4cc3146f2a85",
+        "targetPort": "qdrant_config"
+      },
+      {
+        "edgeId": "fe8da1a4-c52a-4530-b23f-12a0eb2d74c0",
+        "sourceNode": "e642c007-eb1c-4145-acc8-4cc3146f2a85",
+        "sourcePort": "query",
+        "targetNode": "b9cf32a9-a4bd-4918-8a8e-76c33ee8225a",
+        "targetPort": "query"
+      },
+      {
+        "edgeId": "c24c51ea-0702-4b5c-a938-3074c4f19169",
+        "sourceNode": "b9cf32a9-a4bd-4918-8a8e-76c33ee8225a",
+        "sourcePort": "prompt",
+        "targetNode": "aaa03e9d-b41d-4c81-baab-bdfc30b4e0d6",
+        "targetPort": "user_message"
+      },
+      {
+        "edgeId": "b74f1438-c439-4a21-99f0-094aea40283c",
+        "sourceNode": "05cbc1e3-00f4-4f9a-8810-b91303d9ddb7",
+        "sourcePort": "kb_id",
+        "targetNode": "e642c007-eb1c-4145-acc8-4cc3146f2a85",
+        "targetPort": "kb_id"
+      },
+      {
+        "edgeId": "be5186f7-79da-48c8-9c7b-ad2716277283",
+        "sourceNode": "594e5e81-281b-4f3a-806a-a98e370f19b6",
+        "sourcePort": "user_message",
+        "targetNode": "e642c007-eb1c-4145-acc8-4cc3146f2a85",
+        "targetPort": "query"
+      },
+      {
+        "edgeId": "ec8013d9-9ffa-4b6c-8d56-8d94001d0fdb",
+        "sourceNode": "b46352dd-c03f-4895-952a-7a94b4cb4fff",
+        "sourcePort": "llm_config",
+        "targetNode": "aaa03e9d-b41d-4c81-baab-bdfc30b4e0d6",
+        "targetPort": "llm_config"
+      },
+      {
+        "edgeId": "86d3158b-62fb-4bb6-b717-3882a302c217",
+        "sourceNode": "05cbc1e3-00f4-4f9a-8810-b91303d9ddb7",
+        "sourcePort": "workspace_id",
+        "targetNode": "e642c007-eb1c-4145-acc8-4cc3146f2a85",
+        "targetPort": "workspace_id"
+      },
+      {
+        "edgeId": "313c84ab-d951-4f11-ba72-cd2009709ee6",
+        "sourceNode": "aaa03e9d-b41d-4c81-baab-bdfc30b4e0d6",
+        "sourcePort": "context",
+        "targetNode": "0681b02f-b553-41a7-b1af-8dee4092b1e2",
+        "targetPort": "context"
+      },
+      {
+        "edgeId": "81a9ac69-f6eb-43f3-b26d-c9748918d1ee",
+        "sourceNode": "e642c007-eb1c-4145-acc8-4cc3146f2a85",
+        "sourcePort": "documents",
+        "targetNode": "b9cf32a9-a4bd-4918-8a8e-76c33ee8225a",
+        "targetPort": "documents"
+      },
+      {
+        "edgeId": "348fee72-32cb-406b-ac60-570485ca5734",
+        "sourceNode": "b46352dd-c03f-4895-952a-7a94b4cb4fff",
+        "sourcePort": "llm_config",
+        "targetNode": "e642c007-eb1c-4145-acc8-4cc3146f2a85",
+        "targetPort": "llm_config"
+      },
+      {
+        "edgeId": "73ebdf4a-6281-48ec-bcd6-35c8b8c9a022",
+        "sourceNode": "df66a4eb-cdfa-46fe-99e9-bd96943bbb08",
+        "sourcePort": "embedding_config",
+        "targetNode": "e642c007-eb1c-4145-acc8-4cc3146f2a85",
+        "targetPort": "embedding_config"
+      }
+    ]
+  }
+}

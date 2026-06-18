@@ -1,0 +1,193 @@
+{
+  "workflowId": "5ed20600-b181-4034-98fd-a828d8d96005",
+  "name": "知识库管理",
+  "description": "",
+  "state": "draft",
+  "nodeCount": 2,
+  "edgeCount": 2,
+  "createdAt": "2025-12-30T00:28:53.283022843+00:00",
+  "updatedAt": "2026-04-03T22:50:33.893552839+00:00",
+  "version": 1,
+  "isFavorite": false,
+  "isTemplate": false,
+  "isDraft": false,
+  "tags": [
+    "ai_chat"
+  ],
+  "visibility": "private",
+  "definition": {
+    "nodes": [
+      {
+        "nodeId": "36b049f5-1717-4962-93f8-8b9d478877d9",
+        "nodeType": "rag/kb_manager",
+        "name": "知识库管理",
+        "position": {
+          "x": 2255.117386455422,
+          "y": 693.2461562127488
+        },
+        "config": {},
+        "inputs": [
+          {
+            "description": "从 Qdrant 配置节点输出的配置对象",
+            "name": "qdrant_config",
+            "required": true,
+            "type": "object"
+          },
+          {
+            "default": "list",
+            "description": "要执行的操作",
+            "name": "operation",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": null,
+            "description": "知识库名称（删除和查看信息时必填）",
+            "name": "collection_name",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "执行的操作",
+            "name": "operation",
+            "type": "string"
+          },
+          {
+            "description": "操作是否成功",
+            "name": "success",
+            "type": "boolean"
+          },
+          {
+            "description": "知识库列表",
+            "name": "collections",
+            "type": "array"
+          },
+          {
+            "description": "知识库详细信息",
+            "name": "collection_info",
+            "type": "string"
+          },
+          {
+            "description": "操作消息",
+            "name": "message",
+            "type": "string"
+          },
+          {
+            "description": "错误信息（如有）",
+            "name": "error",
+            "type": "string"
+          },
+          {
+            "description": "通用结果数据",
+            "name": "data",
+            "type": "string"
+          }
+        ]
+      },
+      {
+        "nodeId": "65244a5d-96cb-4b60-b6ae-d933b3d0081e",
+        "nodeType": "ai/qdrant_config",
+        "name": "Qdrant Config",
+        "position": {
+          "x": 1773.7091419942185,
+          "y": 671.2539266294807
+        },
+        "config": {},
+        "inputs": [
+          {
+            "default": "local",
+            "description": "Select how Qdrant is deployed",
+            "name": "mode",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": null,
+            "description": "Qdrant gRPC endpoint URL (default for local mode: http://localhost:6334)",
+            "name": "url",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": null,
+            "description": "Credential for Qdrant Cloud or an authenticated self-hosted server",
+            "name": "credential_id",
+            "required": false,
+            "type": "string",
+            "x-credential-providers": [
+              "qdrant"
+            ]
+          },
+          {
+            "description": "Name of the Qdrant collection (the vector storage set)",
+            "name": "collection_name",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "default": null,
+            "description": "Whether to enable a BM25 full-text search index on the collection",
+            "name": "enable_fulltext",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "Qdrant deployment mode",
+            "name": "mode",
+            "type": "string"
+          },
+          {
+            "description": "Qdrant gRPC endpoint URL",
+            "name": "url",
+            "type": "string"
+          },
+          {
+            "description": "API key (used in cloud/authenticated modes)",
+            "name": "api_key",
+            "type": "string"
+          },
+          {
+            "description": "Qdrant collection name",
+            "name": "collection_name",
+            "type": "string"
+          },
+          {
+            "description": "Whether full-text search is enabled",
+            "name": "enable_fulltext",
+            "type": "boolean"
+          },
+          {
+            "description": "Credential ID used, if any",
+            "name": "credential_id",
+            "type": "string"
+          },
+          {
+            "description": "Complete Qdrant configuration (JSON object)",
+            "name": "qdrant_config",
+            "type": "object"
+          }
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "edgeId": "0596644c-203e-4d56-832c-b06d7ad8b74e",
+        "sourceNode": "65244a5d-96cb-4b60-b6ae-d933b3d0081e",
+        "sourcePort": "qdrant_config",
+        "targetNode": "36b049f5-1717-4962-93f8-8b9d478877d9",
+        "targetPort": "qdrant_config"
+      },
+      {
+        "edgeId": "1f6c1e74-b592-4e43-b816-edce821320d5",
+        "sourceNode": "65244a5d-96cb-4b60-b6ae-d933b3d0081e",
+        "sourcePort": "collection_name",
+        "targetNode": "36b049f5-1717-4962-93f8-8b9d478877d9",
+        "targetPort": "collection_name"
+      }
+    ]
+  }
+}

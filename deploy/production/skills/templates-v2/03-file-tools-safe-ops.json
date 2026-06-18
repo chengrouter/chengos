@@ -1,0 +1,167 @@
+{
+  "workflowId": "d428acc7-ded7-584d-a05a-fd7c75a1bd51",
+  "name": "V2 安全文件操作",
+  "description": "覆盖文件读取、搜索、元信息、写入、编辑、删除、聚合工具箱和审批节点。",
+  "state": "draft",
+  "nodeCount": 10,
+  "edgeCount": 4,
+  "createdAt": "2026-05-22T00:00:00.000000000+00:00",
+  "updatedAt": "2026-05-22T00:00:00.000000000+00:00",
+  "version": 2,
+  "isFavorite": false,
+  "isTemplate": true,
+  "isDraft": true,
+  "tags": [
+    "skills-v2",
+    "file",
+    "approval"
+  ],
+  "visibility": "private",
+  "definition": {
+    "nodes": [
+      {
+        "nodeId": "6e42a845-666f-5866-a674-1784dae53de0",
+        "nodeType": "io/input_text",
+        "name": "io / input text",
+        "position": {
+          "x": 120,
+          "y": 120
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "8cc1d498-736b-5232-abe5-5fda56341839",
+        "nodeType": "tools/file_ops_hub",
+        "name": "tools / file ops hub",
+        "position": {
+          "x": 440,
+          "y": 120
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "ae762b38-f6bf-52af-aca7-db399644ff27",
+        "nodeType": "tools/view_file",
+        "name": "tools / view file",
+        "position": {
+          "x": 760,
+          "y": 120
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "1cabf8fb-478c-58fa-a86b-65e165b7f4bf",
+        "nodeType": "tools/list_directory",
+        "name": "tools / list directory",
+        "position": {
+          "x": 1080,
+          "y": 120
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "8434dc0f-bcde-54d3-a242-d216027a1ed4",
+        "nodeType": "tools/search_files",
+        "name": "tools / search files",
+        "position": {
+          "x": 120,
+          "y": 340
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "990e93e6-6a17-5acc-a973-e50daafc7ac9",
+        "nodeType": "tools/file_info",
+        "name": "tools / file info",
+        "position": {
+          "x": 440,
+          "y": 340
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "65cb2549-6ecc-5b3c-ac04-d7ad4d754b90",
+        "nodeType": "tools/write_file",
+        "name": "tools / write file",
+        "position": {
+          "x": 760,
+          "y": 340
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "2a960a71-d9d3-5874-abf2-ca4b6d27946a",
+        "nodeType": "tools/edit_file",
+        "name": "tools / edit file",
+        "position": {
+          "x": 1080,
+          "y": 340
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "e6c24e39-7ca0-5b88-a454-d4b6f81b2c52",
+        "nodeType": "tools/delete_file",
+        "name": "tools / delete file",
+        "position": {
+          "x": 120,
+          "y": 560
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "c5bf951a-9bc8-5317-a2f9-367979e66517",
+        "nodeType": "utils/approver",
+        "name": "utils / approver",
+        "position": {
+          "x": 440,
+          "y": 560
+        },
+        "config": {}
+      }
+    ],
+    "edges": [
+      {
+        "edgeId": "36cd642a-8c04-5b63-aa3f-d16374707ad8",
+        "sourceNode": "6e42a845-666f-5866-a674-1784dae53de0",
+        "sourcePort": "text",
+        "targetNode": "8434dc0f-bcde-54d3-a242-d216027a1ed4",
+        "targetPort": "query"
+      },
+      {
+        "edgeId": "fabda250-a23e-5a91-a0f1-b937dea41cfc",
+        "sourceNode": "ae762b38-f6bf-52af-aca7-db399644ff27",
+        "sourcePort": "content",
+        "targetNode": "2a960a71-d9d3-5874-abf2-ca4b6d27946a",
+        "targetPort": "old_content"
+      },
+      {
+        "edgeId": "4c4e8004-9455-59c5-af6e-55cd78976116",
+        "sourceNode": "c5bf951a-9bc8-5317-a2f9-367979e66517",
+        "sourcePort": "approved",
+        "targetNode": "65cb2549-6ecc-5b3c-ac04-d7ad4d754b90",
+        "targetPort": "content"
+      },
+      {
+        "edgeId": "94841122-7009-54c8-a2b0-95f5812ac3f9",
+        "sourceNode": "c5bf951a-9bc8-5317-a2f9-367979e66517",
+        "sourcePort": "approved",
+        "targetNode": "e6c24e39-7ca0-5b88-a454-d4b6f81b2c52",
+        "targetPort": "dry_run"
+      }
+    ],
+    "notes": [
+      {
+        "id": "68f4da00-cd7c-524a-a131-d2d970e473c2",
+        "content": "V2 coverage template: generated from current node IDs. Fill config and add scenario-specific edges after checking live /api/v1/nodes/types schema.",
+        "x": 80,
+        "y": 40,
+        "width": 520,
+        "height": 96,
+        "color": "#fef3c7",
+        "zIndex": 0
+      }
+    ],
+    "containers": []
+  }
+}

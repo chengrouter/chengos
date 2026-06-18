@@ -1,0 +1,607 @@
+{
+  "workflowId": "993e5718-3972-404f-8123-bf02b54298e7",
+  "name": "word 编辑",
+  "description": "",
+  "state": "draft",
+  "nodeCount": 5,
+  "edgeCount": 4,
+  "createdAt": "2026-01-06T00:48:51.151123543+00:00",
+  "updatedAt": "2026-04-03T22:50:50.925993375+00:00",
+  "version": 1,
+  "isFavorite": false,
+  "isTemplate": false,
+  "isDraft": false,
+  "tags": [
+    "word",
+    "long_task"
+  ],
+  "visibility": "private",
+  "definition": {
+    "nodes": [
+      {
+        "nodeId": "9b342d81-6672-4178-a74e-5a7850fdc2e7",
+        "nodeType": "ai/llm_config",
+        "name": "LLM 配置",
+        "position": {
+          "x": 1035.544345816735,
+          "y": 569.8493052964657
+        },
+        "config": {
+          "model": "43abcfdd-4a80-46d4-81a4-c6b6dbcfa6b0::MiniMax-M2.7"
+        },
+        "inputs": [
+          {
+            "description": "选择已连接的 LLM 模型",
+            "name": "model",
+            "required": true,
+            "type": "string",
+            "x-allow-custom": true
+          },
+          {
+            "default": null,
+            "description": "模型覆盖（格式: credential_id::model_name，优先级高于 model）",
+            "name": "model_override",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": 0.699999988079071,
+            "description": "控制生成的随机性，值越高越随机 (0.0 - 2.0)",
+            "format": "float",
+            "maximum": 2,
+            "minimum": 0,
+            "name": "temperature",
+            "required": false,
+            "type": "number"
+          },
+          {
+            "default": 5000,
+            "description": "限制生成的最大 Token 数 (默认 5000)",
+            "format": "uint32",
+            "minimum": 0,
+            "name": "max_tokens",
+            "required": false,
+            "type": "integer"
+          },
+          {
+            "default": 1,
+            "description": "核采样阈值 (0.0 - 1.0)",
+            "format": "float",
+            "maximum": 1,
+            "minimum": 0,
+            "name": "top_p",
+            "required": false,
+            "type": "number"
+          },
+          {
+            "default": 0,
+            "description": "降低模型重复同一句话的可能性 (-2.0 - 2.0)",
+            "format": "float",
+            "maximum": 2,
+            "minimum": -2,
+            "name": "frequency_penalty",
+            "required": false,
+            "type": "number"
+          },
+          {
+            "default": 0,
+            "description": "鼓励模型谈论新话题 (-2.0 - 2.0)",
+            "format": "float",
+            "maximum": 2,
+            "minimum": -2,
+            "name": "presence_penalty",
+            "required": false,
+            "type": "number"
+          },
+          {
+            "default": true,
+            "description": "开启后实时返回结果",
+            "name": "stream",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "default": 60,
+            "description": "API 请求超时时间（1-600 秒）",
+            "format": "uint32",
+            "maximum": 600,
+            "minimum": 1,
+            "name": "timeout_secs",
+            "required": false,
+            "type": "integer"
+          },
+          {
+            "default": false,
+            "description": "注入 response_format: json_object（适合弱模型/开源模型，减少非 JSON 文字；系统层不做二次校验）",
+            "name": "json_mode",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "完整 LLM 配置",
+            "name": "llm_config",
+            "type": "object"
+          }
+        ]
+      },
+      {
+        "nodeId": "2d281642-a591-40cd-90ab-63ee10c4df3b",
+        "nodeType": "agent/react_agent",
+        "name": "ReAct 决策节点",
+        "position": {
+          "x": 1581.04268851109,
+          "y": 441.79002250047154
+        },
+        "config": {},
+        "inputs": [
+          {
+            "default": null,
+            "description": "已有 AgentContext（可选，用于承接历史对话）",
+            "name": "context",
+            "required": false,
+            "type": "agent_context"
+          },
+          {
+            "default": null,
+            "description": "要完成的任务描述（可选，为空时自动从 context 对话历史中提取）",
+            "name": "task",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "description": "LLM 配置（JSON 字符串或对象）",
+            "name": "llm_config",
+            "required": true,
+            "type": "object"
+          },
+          {
+            "default": 3,
+            "description": "最大迭代次数",
+            "format": "uint",
+            "minimum": 0,
+            "name": "max_iterations",
+            "required": false,
+            "type": "integer"
+          },
+          {
+            "default": [],
+            "description": "Available tools (populated from connected tool nodes via tools port)",
+            "name": "tools",
+            "required": false,
+            "type": "array"
+          },
+          {
+            "default": true,
+            "description": "使用原生函数调用模式",
+            "name": "use_function_calling",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "default": false,
+            "description": "启用 LLM 评估",
+            "name": "use_llm_evaluation",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "default": 3,
+            "description": "最大检查点次数（每次耗尽迭代时 LLM 可申请延续）",
+            "format": "uint",
+            "minimum": 0,
+            "name": "max_checkpoints",
+            "required": false,
+            "type": "integer"
+          },
+          {
+            "default": null,
+            "description": "自定义系统提示词（覆盖默认系统提示词）",
+            "name": "system_prompt",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": null,
+            "description": "用户附加指令（会拼接在任务前，例如：开始前请先读取 SKILLS_INDEX.md）",
+            "name": "user_message",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "description": "Tool slot 0",
+            "group": "dynamic-array",
+            "name": "tool_0",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "最终答案",
+            "name": "final_answer",
+            "type": "string"
+          },
+          {
+            "description": "Agent 上下文（包含对话历史）",
+            "name": "context",
+            "type": "object"
+          },
+          {
+            "description": "会话 ID（与 context.session_id 一致，方便下游直连）",
+            "name": "session_id",
+            "type": "string"
+          },
+          {
+            "description": "执行轨迹",
+            "name": "trace",
+            "type": "string"
+          },
+          {
+            "description": "累计 Token 消耗",
+            "format": {},
+            "name": "total_tokens",
+            "type": "integer"
+          },
+          {
+            "description": "执行的迭代次数",
+            "format": {},
+            "name": "iterations_used",
+            "type": "integer"
+          },
+          {
+            "description": "是否成功完成任务",
+            "name": "success",
+            "type": "boolean"
+          },
+          {
+            "description": "状态信息",
+            "name": "status",
+            "type": "string"
+          },
+          {
+            "description": "是否需要人工审核",
+            "name": "requires_review",
+            "type": "boolean"
+          }
+        ]
+      },
+      {
+        "nodeId": "7e3bae73-5031-443f-9ca1-79000a241232",
+        "nodeType": "chat/output",
+        "name": "Chat 输出节点",
+        "position": {
+          "x": 2084.2005017576857,
+          "y": 674.1504824466875
+        },
+        "config": {},
+        "inputs": [
+          {
+            "description": "Agent 最终回复文本或 AgentContext（自动提取文本）",
+            "name": "context",
+            "required": true,
+            "type": "agent_context"
+          },
+          {
+            "default": null,
+            "description": "Agent 执行轨迹（思考过程）",
+            "name": "trace",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "control": "select",
+            "default": "system",
+            "description": "显示主题",
+            "enum": [
+              "light",
+              "dark",
+              "system"
+            ],
+            "name": "theme",
+            "options": [
+              {
+                "label": "light",
+                "value": "light"
+              },
+              {
+                "label": "dark",
+                "value": "dark"
+              },
+              {
+                "label": "system",
+                "value": "system"
+              }
+            ],
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": true,
+            "description": "是否自动滚动到最新消息",
+            "name": "autoscroll",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "default": 1000,
+            "description": "内存中保留的最大消息数量",
+            "format": "uint",
+            "maximum": 10000,
+            "minimum": 10,
+            "name": "keep_messages",
+            "required": false,
+            "type": "integer"
+          },
+          {
+            "default": 100,
+            "description": "消息数量超过此值时启用虚拟化",
+            "format": "uint",
+            "maximum": 1000,
+            "minimum": 10,
+            "name": "virtualize_threshold",
+            "required": false,
+            "type": "integer"
+          },
+          {
+            "default": "standard",
+            "description": "消息显示格式",
+            "name": "display_format",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": true,
+            "description": "是否显示消息时间戳",
+            "name": "show_timestamp",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "Assistant 最终回复的文本内容",
+            "name": "reply",
+            "type": "string"
+          },
+          {
+            "description": "Agent 执行轨迹（思考过程）",
+            "name": "trace",
+            "type": "string"
+          },
+          {
+            "description": "要发送给前端的 UI 事件",
+            "name": "ui_events",
+            "type": "array"
+          },
+          {
+            "description": "当前保留的消息总数",
+            "format": {},
+            "name": "message_count",
+            "type": "integer"
+          },
+          {
+            "description": "是否启用了虚拟化渲染",
+            "name": "virtualized",
+            "type": "boolean"
+          },
+          {
+            "description": "处理统计信息",
+            "name": "stats",
+            "type": "string"
+          }
+        ]
+      },
+      {
+        "nodeId": "e561ec7f-3cd5-404f-ac2f-ddb6c53daa33",
+        "nodeType": "document/ops_hub",
+        "name": "文档操作工具箱",
+        "position": {
+          "x": 972.9809624537626,
+          "y": 813.6567631714914
+        },
+        "config": {
+          "allow_create": true,
+          "allow_update": true
+        },
+        "inputs": [
+          {
+            "default": "",
+            "description": "操作类型",
+            "name": "operation",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "description": "文档 ID（多数操作通用）",
+            "name": "document_id",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "description": "统一配置对象（可直接填写 JSON 文本）",
+            "name": "config",
+            "required": false,
+            "type": "object"
+          },
+          {
+            "default": true,
+            "description": "是否允许查询文档（只读）",
+            "name": "allow_query",
+            "required": true,
+            "type": "boolean"
+          },
+          {
+            "default": true,
+            "description": "是否允许格式化文档（只读）",
+            "name": "allow_format",
+            "required": true,
+            "type": "boolean"
+          },
+          {
+            "default": false,
+            "description": "是否允许更新文档块（中副作用）",
+            "name": "allow_update",
+            "required": true,
+            "type": "boolean"
+          },
+          {
+            "default": false,
+            "description": "是否允许创建新文档（中副作用）",
+            "name": "allow_create",
+            "required": true,
+            "type": "boolean"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "实际执行的操作类型",
+            "name": "operation",
+            "type": "string"
+          },
+          {
+            "description": "错误信息（操作被禁止或执行失败）",
+            "name": "error",
+            "type": "string"
+          },
+          {
+            "description": "操作结果（JSON 序列化的子节点输出）",
+            "name": "result",
+            "type": "string"
+          }
+        ]
+      },
+      {
+        "nodeId": "1dfbe685-7e89-4d89-ba1e-144a19ff606d",
+        "nodeType": "chat/input",
+        "name": "Chat 输入节点",
+        "position": {
+          "x": 1029.579742118813,
+          "y": 348.24657353291695
+        },
+        "config": {},
+        "inputs": [
+          {
+            "description": "原始输入载荷（JSON 格式）",
+            "name": "raw_input",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "default": null,
+            "description": "对话 ID（可选），由入口生成后透传给所有下游节点",
+            "name": "conversation_id",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": false,
+            "description": "是否启用流式发送",
+            "name": "stream_mode",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "default": false,
+            "description": "是否对图片进行 OCR 识别",
+            "name": "enable_ocr",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "default": "per_file",
+            "description": "多输入的合并策略",
+            "name": "merge_strategy",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": 50,
+            "description": "最大文件大小（MB）",
+            "format": "uint64",
+            "maximum": 500,
+            "minimum": 1,
+            "name": "max_file_size_mb",
+            "required": false,
+            "type": "integer"
+          },
+          {
+            "default": null,
+            "description": "模型覆盖（格式: credential_id::model_name）",
+            "name": "model_override",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "处理后的上下文（packets）",
+            "name": "context",
+            "type": "object"
+          },
+          {
+            "description": "用户消息文本",
+            "name": "user_message",
+            "type": "string"
+          },
+          {
+            "description": "对话 ID（透传给下游节点）",
+            "name": "conversation_id",
+            "type": "string"
+          },
+          {
+            "description": "处理统计信息",
+            "name": "stats",
+            "type": "string"
+          },
+          {
+            "description": "UI 事件",
+            "name": "ui_event",
+            "type": "string"
+          },
+          {
+            "description": "模型覆盖（格式: credential_id::model_name）",
+            "name": "model_override",
+            "type": "string"
+          },
+          {
+            "description": "附件 JSON 数组，可直接连接 io/file_upload.files_json",
+            "name": "attachments_json",
+            "type": "string"
+          }
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "edgeId": "676df18c-f3a9-4245-85e3-5c9bdb0dc7ea",
+        "sourceNode": "1dfbe685-7e89-4d89-ba1e-144a19ff606d",
+        "sourcePort": "user_message",
+        "targetNode": "2d281642-a591-40cd-90ab-63ee10c4df3b",
+        "targetPort": "task"
+      },
+      {
+        "edgeId": "b4b0e575-027f-470c-9587-017ee599a579",
+        "sourceNode": "2d281642-a591-40cd-90ab-63ee10c4df3b",
+        "sourcePort": "context",
+        "targetNode": "7e3bae73-5031-443f-9ca1-79000a241232",
+        "targetPort": "context"
+      },
+      {
+        "edgeId": "66c4aa70-c752-4667-93c0-b9ea8bf15b34",
+        "sourceNode": "e561ec7f-3cd5-404f-ac2f-ddb6c53daa33",
+        "sourcePort": "operation",
+        "targetNode": "2d281642-a591-40cd-90ab-63ee10c4df3b",
+        "targetPort": "tool_0"
+      },
+      {
+        "edgeId": "74b1fb55-d991-43d0-b9b5-cfb9aac3a1dd",
+        "sourceNode": "9b342d81-6672-4178-a74e-5a7850fdc2e7",
+        "sourcePort": "llm_config",
+        "targetNode": "2d281642-a591-40cd-90ab-63ee10c4df3b",
+        "targetPort": "llm_config"
+      }
+    ]
+  }
+}

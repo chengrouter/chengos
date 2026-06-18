@@ -1,0 +1,229 @@
+{
+  "workflowId": "dd5daa8e-8587-5269-ad6b-7da43e65a508",
+  "name": "V2 文档工作台与 Shadow 审阅",
+  "description": "覆盖文档创建、查询、格式化、块更新、items 抽取、ops hub 和 shadow 审阅链路。",
+  "state": "draft",
+  "nodeCount": 12,
+  "edgeCount": 10,
+  "createdAt": "2026-05-22T00:00:00.000000000+00:00",
+  "updatedAt": "2026-05-22T00:00:00.000000000+00:00",
+  "version": 2,
+  "isFavorite": false,
+  "isTemplate": true,
+  "isDraft": true,
+  "tags": [
+    "skills-v2",
+    "document",
+    "shadow"
+  ],
+  "visibility": "private",
+  "definition": {
+    "nodes": [
+      {
+        "nodeId": "ae2e49b1-94ad-569b-a539-591d5b5ed538",
+        "nodeType": "document/create",
+        "name": "document / create",
+        "position": {
+          "x": 120,
+          "y": 120
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "d4c084e9-caf0-5a2f-aeb4-fbb01126a44e",
+        "nodeType": "document/query",
+        "name": "document / query",
+        "position": {
+          "x": 440,
+          "y": 120
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "92760a47-db56-5f57-a626-bfe030a74bef",
+        "nodeType": "document/format_for_llm",
+        "name": "document / format for llm",
+        "position": {
+          "x": 760,
+          "y": 120
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "ea47bb0c-e507-5dce-ae19-d48b00e6ce4e",
+        "nodeType": "document/update_block",
+        "name": "document / update block",
+        "position": {
+          "x": 1080,
+          "y": 120
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "28376cda-1880-50a0-a5bc-c01f26460f61",
+        "nodeType": "document/extract_items",
+        "name": "document / extract items",
+        "position": {
+          "x": 120,
+          "y": 340
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "6f3ac944-fcc7-5eab-a93d-820b4e646e19",
+        "nodeType": "document/ops_hub",
+        "name": "document / ops hub",
+        "position": {
+          "x": 440,
+          "y": 340
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "de70ef82-d573-5b27-ad10-88508285baa2",
+        "nodeType": "document/build_llm_context",
+        "name": "document / build llm context",
+        "position": {
+          "x": 760,
+          "y": 340
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "a6ef438a-209c-5188-ad19-458c1fb64c3b",
+        "nodeType": "document/shadow_create",
+        "name": "document / shadow create",
+        "position": {
+          "x": 1080,
+          "y": 340
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "b354d60f-1d78-590d-a0af-1264751fb302",
+        "nodeType": "document/shadow_write",
+        "name": "document / shadow write",
+        "position": {
+          "x": 120,
+          "y": 560
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "12376705-b854-5740-a0e4-5ba24d9ee7e0",
+        "nodeType": "document/shadow_await_review",
+        "name": "document / shadow await review",
+        "position": {
+          "x": 440,
+          "y": 560
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "20844a2d-be0e-58e1-ab33-683e2040f59d",
+        "nodeType": "document/shadow_complete",
+        "name": "document / shadow complete",
+        "position": {
+          "x": 760,
+          "y": 560
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "9d340298-6c01-5bff-aa62-4001eb34a6d8",
+        "nodeType": "document/apply_ops",
+        "name": "document / apply ops",
+        "position": {
+          "x": 1080,
+          "y": 560
+        },
+        "config": {}
+      }
+    ],
+    "edges": [
+      {
+        "edgeId": "8a6b55f4-1e79-56e5-a7dc-2821db4327da",
+        "sourceNode": "ae2e49b1-94ad-569b-a539-591d5b5ed538",
+        "sourcePort": "document_id",
+        "targetNode": "d4c084e9-caf0-5a2f-aeb4-fbb01126a44e",
+        "targetPort": "document_id"
+      },
+      {
+        "edgeId": "b0cbf04a-52a9-5f1a-a4e2-0b81c8d23604",
+        "sourceNode": "d4c084e9-caf0-5a2f-aeb4-fbb01126a44e",
+        "sourcePort": "document",
+        "targetNode": "92760a47-db56-5f57-a626-bfe030a74bef",
+        "targetPort": "document"
+      },
+      {
+        "edgeId": "bcf90aea-4459-5d00-a26e-188d1ba82d8a",
+        "sourceNode": "92760a47-db56-5f57-a626-bfe030a74bef",
+        "sourcePort": "formatted_content",
+        "targetNode": "de70ef82-d573-5b27-ad10-88508285baa2",
+        "targetPort": "content"
+      },
+      {
+        "edgeId": "d90c7585-90b5-555e-a260-065b58e1a303",
+        "sourceNode": "de70ef82-d573-5b27-ad10-88508285baa2",
+        "sourcePort": "context",
+        "targetNode": "a6ef438a-209c-5188-ad19-458c1fb64c3b",
+        "targetPort": "context"
+      },
+      {
+        "edgeId": "ed05c037-f883-5e10-a50d-755561ac8d27",
+        "sourceNode": "a6ef438a-209c-5188-ad19-458c1fb64c3b",
+        "sourcePort": "shadow_id",
+        "targetNode": "b354d60f-1d78-590d-a0af-1264751fb302",
+        "targetPort": "shadow_id"
+      },
+      {
+        "edgeId": "8a94c8b4-45e6-55e4-a188-6eb29ca42eb1",
+        "sourceNode": "b354d60f-1d78-590d-a0af-1264751fb302",
+        "sourcePort": "shadow_id",
+        "targetNode": "12376705-b854-5740-a0e4-5ba24d9ee7e0",
+        "targetPort": "shadow_id"
+      },
+      {
+        "edgeId": "4d2b7171-0e09-52dc-ad7a-bd9727f22a00",
+        "sourceNode": "12376705-b854-5740-a0e4-5ba24d9ee7e0",
+        "sourcePort": "shadow_id",
+        "targetNode": "20844a2d-be0e-58e1-ab33-683e2040f59d",
+        "targetPort": "shadow_id"
+      },
+      {
+        "edgeId": "1f500326-f8ac-5c5f-afb3-e7fb37298ea2",
+        "sourceNode": "20844a2d-be0e-58e1-ab33-683e2040f59d",
+        "sourcePort": "ops",
+        "targetNode": "9d340298-6c01-5bff-aa62-4001eb34a6d8",
+        "targetPort": "ops"
+      },
+      {
+        "edgeId": "cb5b103e-41af-5f2a-a701-5f3791abc677",
+        "sourceNode": "d4c084e9-caf0-5a2f-aeb4-fbb01126a44e",
+        "sourcePort": "document",
+        "targetNode": "28376cda-1880-50a0-a5bc-c01f26460f61",
+        "targetPort": "document"
+      },
+      {
+        "edgeId": "699bcde9-2ee7-50a7-a7d0-e182bc14bf1b",
+        "sourceNode": "d4c084e9-caf0-5a2f-aeb4-fbb01126a44e",
+        "sourcePort": "document_id",
+        "targetNode": "ea47bb0c-e507-5dce-ae19-d48b00e6ce4e",
+        "targetPort": "document_id"
+      }
+    ],
+    "notes": [
+      {
+        "id": "7184f2ff-ff32-57f5-a7f5-d60c814e15a4",
+        "content": "V2 coverage template: generated from current node IDs. Fill config and add scenario-specific edges after checking live /api/v1/nodes/types schema.",
+        "x": 80,
+        "y": 40,
+        "width": 520,
+        "height": 96,
+        "color": "#fef3c7",
+        "zIndex": 0
+      }
+    ],
+    "containers": []
+  }
+}

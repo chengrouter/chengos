@@ -1,0 +1,99 @@
+{
+  "workflowId": "e60da763-2a11-521d-add2-7af3cbfa47e6",
+  "name": "V2 翻译节点",
+  "description": "覆盖翻译节点和 LLM 配置在翻译场景中的组合。",
+  "state": "draft",
+  "nodeCount": 4,
+  "edgeCount": 3,
+  "createdAt": "2026-05-22T00:00:00.000000000+00:00",
+  "updatedAt": "2026-05-22T00:00:00.000000000+00:00",
+  "version": 2,
+  "isFavorite": false,
+  "isTemplate": true,
+  "isDraft": true,
+  "tags": [
+    "skills-v2",
+    "translation"
+  ],
+  "visibility": "private",
+  "definition": {
+    "nodes": [
+      {
+        "nodeId": "132511b1-a0f9-526d-ac4c-b9874b44a157",
+        "nodeType": "io/input_text",
+        "name": "io / input text",
+        "position": {
+          "x": 120,
+          "y": 120
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "77106fea-c120-597c-a69d-ffdde741199d",
+        "nodeType": "ai/llm_config",
+        "name": "ai / llm config",
+        "position": {
+          "x": 440,
+          "y": 120
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "6f4c2e69-0752-5ec1-a323-44b93c0e1e3e",
+        "nodeType": "ai/translation",
+        "name": "ai / translation",
+        "position": {
+          "x": 760,
+          "y": 120
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "0a3aa72e-fb1d-5efa-aab9-86d68cfed41d",
+        "nodeType": "chat/output",
+        "name": "chat / output",
+        "position": {
+          "x": 1080,
+          "y": 120
+        },
+        "config": {}
+      }
+    ],
+    "edges": [
+      {
+        "edgeId": "98b89556-d356-512f-ab82-5f66da23e44c",
+        "sourceNode": "132511b1-a0f9-526d-ac4c-b9874b44a157",
+        "sourcePort": "text",
+        "targetNode": "6f4c2e69-0752-5ec1-a323-44b93c0e1e3e",
+        "targetPort": "text"
+      },
+      {
+        "edgeId": "e3f37491-11a9-5607-a16b-8cf52b77ec57",
+        "sourceNode": "77106fea-c120-597c-a69d-ffdde741199d",
+        "sourcePort": "llm_config",
+        "targetNode": "6f4c2e69-0752-5ec1-a323-44b93c0e1e3e",
+        "targetPort": "llm_config"
+      },
+      {
+        "edgeId": "c04df552-b0b8-5222-accf-f115ebd83c03",
+        "sourceNode": "6f4c2e69-0752-5ec1-a323-44b93c0e1e3e",
+        "sourcePort": "translated_text",
+        "targetNode": "0a3aa72e-fb1d-5efa-aab9-86d68cfed41d",
+        "targetPort": "context"
+      }
+    ],
+    "notes": [
+      {
+        "id": "0e9177ac-83e5-50f6-a6d3-191535a61ed3",
+        "content": "V2 coverage template: generated from current node IDs. Fill config and add scenario-specific edges after checking live /api/v1/nodes/types schema.",
+        "x": 80,
+        "y": 40,
+        "width": 520,
+        "height": 96,
+        "color": "#fef3c7",
+        "zIndex": 0
+      }
+    ],
+    "containers": []
+  }
+}

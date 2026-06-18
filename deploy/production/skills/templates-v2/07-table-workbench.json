@@ -1,0 +1,82 @@
+{
+  "workflowId": "f0394f76-a98d-5c77-a94b-b3416224a13b",
+  "name": "V2 表格查询与写入",
+  "description": "覆盖表格查询、LLM 上下文构建和记录操作应用。",
+  "state": "draft",
+  "nodeCount": 3,
+  "edgeCount": 2,
+  "createdAt": "2026-05-22T00:00:00.000000000+00:00",
+  "updatedAt": "2026-05-22T00:00:00.000000000+00:00",
+  "version": 2,
+  "isFavorite": false,
+  "isTemplate": true,
+  "isDraft": true,
+  "tags": [
+    "skills-v2",
+    "table"
+  ],
+  "visibility": "private",
+  "definition": {
+    "nodes": [
+      {
+        "nodeId": "af4c6b9d-8f2b-59cd-afcf-e3caab92d641",
+        "nodeType": "table/query",
+        "name": "table / query",
+        "position": {
+          "x": 120,
+          "y": 120
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "a4753e73-3f4a-54ba-a148-ce53c1cede8d",
+        "nodeType": "table/build_llm_context",
+        "name": "table / build llm context",
+        "position": {
+          "x": 440,
+          "y": 120
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "b919f2eb-53ee-58ca-a80c-6c4dc7b93f74",
+        "nodeType": "table/apply_record_ops",
+        "name": "table / apply record ops",
+        "position": {
+          "x": 760,
+          "y": 120
+        },
+        "config": {}
+      }
+    ],
+    "edges": [
+      {
+        "edgeId": "3218a34d-28a7-51e1-a46c-ab88e4ed55a7",
+        "sourceNode": "af4c6b9d-8f2b-59cd-afcf-e3caab92d641",
+        "sourcePort": "records",
+        "targetNode": "a4753e73-3f4a-54ba-a148-ce53c1cede8d",
+        "targetPort": "records"
+      },
+      {
+        "edgeId": "9b02a634-fa29-559a-ac47-ebfd52ddbfd4",
+        "sourceNode": "a4753e73-3f4a-54ba-a148-ce53c1cede8d",
+        "sourcePort": "ops",
+        "targetNode": "b919f2eb-53ee-58ca-a80c-6c4dc7b93f74",
+        "targetPort": "ops"
+      }
+    ],
+    "notes": [
+      {
+        "id": "f8386f5f-0f6f-5e0b-a269-cd5489da447a",
+        "content": "V2 coverage template: generated from current node IDs. Fill config and add scenario-specific edges after checking live /api/v1/nodes/types schema.",
+        "x": 80,
+        "y": 40,
+        "width": 520,
+        "height": 96,
+        "color": "#fef3c7",
+        "zIndex": 0
+      }
+    ],
+    "containers": []
+  }
+}

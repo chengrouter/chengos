@@ -1,0 +1,103 @@
+{
+  "workflowId": "9d3b1ffd-27ce-5377-a398-144a17abc3d0",
+  "name": "V2 外部执行与远端工具",
+  "description": "覆盖 JS/Python/Shell/SSH/MCP 等高风险或外部运行环境节点。",
+  "state": "draft",
+  "nodeCount": 5,
+  "edgeCount": 2,
+  "createdAt": "2026-05-22T00:00:00.000000000+00:00",
+  "updatedAt": "2026-05-22T00:00:00.000000000+00:00",
+  "version": 2,
+  "isFavorite": false,
+  "isTemplate": true,
+  "isDraft": true,
+  "tags": [
+    "skills-v2",
+    "tools",
+    "execution"
+  ],
+  "visibility": "private",
+  "definition": {
+    "nodes": [
+      {
+        "nodeId": "40cede49-97c5-527e-a4e8-564ef9de11ae",
+        "nodeType": "tools/code_js",
+        "name": "tools / code js",
+        "position": {
+          "x": 120,
+          "y": 120
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "de2a4d7b-8dc5-5475-a036-74297293a575",
+        "nodeType": "tools/code_python",
+        "name": "tools / code python",
+        "position": {
+          "x": 440,
+          "y": 120
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "3e36a2e2-f4fc-5346-a285-932f6708dbbb",
+        "nodeType": "tools/code_shell",
+        "name": "tools / code shell",
+        "position": {
+          "x": 760,
+          "y": 120
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "4c021533-5a2e-53d4-a5bd-b86dde6e1e33",
+        "nodeType": "tools/ssh",
+        "name": "tools / ssh",
+        "position": {
+          "x": 1080,
+          "y": 120
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "242d64e0-8c90-5827-aa03-7e9cc2ffbb69",
+        "nodeType": "tools/mcp_hub",
+        "name": "tools / mcp hub",
+        "position": {
+          "x": 120,
+          "y": 340
+        },
+        "config": {}
+      }
+    ],
+    "edges": [
+      {
+        "edgeId": "9eddc9d1-23d2-547b-a796-52a79d06f35a",
+        "sourceNode": "40cede49-97c5-527e-a4e8-564ef9de11ae",
+        "sourcePort": "result",
+        "targetNode": "de2a4d7b-8dc5-5475-a036-74297293a575",
+        "targetPort": "input"
+      },
+      {
+        "edgeId": "3350f67f-6792-57cc-ae01-32739db45ea1",
+        "sourceNode": "de2a4d7b-8dc5-5475-a036-74297293a575",
+        "sourcePort": "stdout",
+        "targetNode": "3e36a2e2-f4fc-5346-a285-932f6708dbbb",
+        "targetPort": "stdin"
+      }
+    ],
+    "notes": [
+      {
+        "id": "1182391c-0752-5478-ac81-a35252389375",
+        "content": "V2 coverage template: generated from current node IDs. Fill config and add scenario-specific edges after checking live /api/v1/nodes/types schema.",
+        "x": 80,
+        "y": 40,
+        "width": 520,
+        "height": 96,
+        "color": "#fef3c7",
+        "zIndex": 0
+      }
+    ],
+    "containers": []
+  }
+}

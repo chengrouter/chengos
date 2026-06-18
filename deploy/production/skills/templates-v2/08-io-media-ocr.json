@@ -1,0 +1,173 @@
+{
+  "workflowId": "a97d4b72-b920-5fcc-a0f0-bba9f13d9456",
+  "name": "V2 文件上传 多媒体 OCR",
+  "description": "覆盖上传、文件读取、文档转文本、OCR、语音转文本和视频音频/帧提取。",
+  "state": "draft",
+  "nodeCount": 7,
+  "edgeCount": 9,
+  "createdAt": "2026-05-22T00:00:00.000000000+00:00",
+  "updatedAt": "2026-05-22T00:00:00.000000000+00:00",
+  "version": 2,
+  "isFavorite": false,
+  "isTemplate": true,
+  "isDraft": true,
+  "tags": [
+    "skills-v2",
+    "io",
+    "media",
+    "ocr"
+  ],
+  "visibility": "private",
+  "definition": {
+    "nodes": [
+      {
+        "nodeId": "a497e29e-89cb-5ed4-a4c1-857f21b2b133",
+        "nodeType": "io/file_upload",
+        "name": "io / file upload",
+        "position": {
+          "x": 120,
+          "y": 120
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "ef38762e-ec2e-5f74-a890-be3e64a2b79b",
+        "nodeType": "io/read_file",
+        "name": "io / read file",
+        "position": {
+          "x": 440,
+          "y": 120
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "0be51ce5-4724-53f0-a991-2446de4b787e",
+        "nodeType": "io/document_to_text",
+        "name": "io / document to text",
+        "position": {
+          "x": 760,
+          "y": 120
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "8a6c7dfd-4779-55fb-a51e-067ac47eb7f2",
+        "nodeType": "io/ocr",
+        "name": "io / ocr",
+        "position": {
+          "x": 1080,
+          "y": 120
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "84fee26a-698a-5544-a87d-605d7da1dbae",
+        "nodeType": "io/speech_to_text",
+        "name": "io / speech to text",
+        "position": {
+          "x": 120,
+          "y": 340
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "ff83c439-9bcb-5bca-afea-3a20ac5faa19",
+        "nodeType": "io/video_extract_audio",
+        "name": "io / video extract audio",
+        "position": {
+          "x": 440,
+          "y": 340
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "5600b3d9-1e65-5890-aa41-86f52ff7bb79",
+        "nodeType": "io/video_extract_frames",
+        "name": "io / video extract frames",
+        "position": {
+          "x": 760,
+          "y": 340
+        },
+        "config": {}
+      }
+    ],
+    "edges": [
+      {
+        "edgeId": "4dc34811-951c-5e62-a509-e578f763c8b0",
+        "sourceNode": "a497e29e-89cb-5ed4-a4c1-857f21b2b133",
+        "sourcePort": "document_base64",
+        "targetNode": "0be51ce5-4724-53f0-a991-2446de4b787e",
+        "targetPort": "base64_content"
+      },
+      {
+        "edgeId": "a836d7a6-d790-50ef-ab2d-af5326cf915e",
+        "sourceNode": "a497e29e-89cb-5ed4-a4c1-857f21b2b133",
+        "sourcePort": "document_filename",
+        "targetNode": "0be51ce5-4724-53f0-a991-2446de4b787e",
+        "targetPort": "filename"
+      },
+      {
+        "edgeId": "bcbdd823-41e9-55d0-a865-fe59f7a1661b",
+        "sourceNode": "a497e29e-89cb-5ed4-a4c1-857f21b2b133",
+        "sourcePort": "image_base64",
+        "targetNode": "8a6c7dfd-4779-55fb-a51e-067ac47eb7f2",
+        "targetPort": "base64_content"
+      },
+      {
+        "edgeId": "3935fe37-8edc-5187-acd0-590baca91c54",
+        "sourceNode": "a497e29e-89cb-5ed4-a4c1-857f21b2b133",
+        "sourcePort": "image_filename",
+        "targetNode": "8a6c7dfd-4779-55fb-a51e-067ac47eb7f2",
+        "targetPort": "filename"
+      },
+      {
+        "edgeId": "c35223c4-0bc9-5236-a30d-fd973e1969ab",
+        "sourceNode": "a497e29e-89cb-5ed4-a4c1-857f21b2b133",
+        "sourcePort": "audio_base64",
+        "targetNode": "84fee26a-698a-5544-a87d-605d7da1dbae",
+        "targetPort": "base64_content"
+      },
+      {
+        "edgeId": "89f8cbf4-f707-5779-a9d1-ee500d05a787",
+        "sourceNode": "a497e29e-89cb-5ed4-a4c1-857f21b2b133",
+        "sourcePort": "audio_filename",
+        "targetNode": "84fee26a-698a-5544-a87d-605d7da1dbae",
+        "targetPort": "filename"
+      },
+      {
+        "edgeId": "9bb81207-6570-55be-a44e-5f632f1e32b9",
+        "sourceNode": "a497e29e-89cb-5ed4-a4c1-857f21b2b133",
+        "sourcePort": "video_path",
+        "targetNode": "ff83c439-9bcb-5bca-afea-3a20ac5faa19",
+        "targetPort": "file_path"
+      },
+      {
+        "edgeId": "cb7735b2-4b66-533e-a45d-73469603d182",
+        "sourceNode": "a497e29e-89cb-5ed4-a4c1-857f21b2b133",
+        "sourcePort": "video_path",
+        "targetNode": "5600b3d9-1e65-5890-aa41-86f52ff7bb79",
+        "targetPort": "file_path"
+      },
+      {
+        "edgeId": "b66e50db-622c-5e9e-a65f-2ca5738e842a",
+        "sourceNode": "ef38762e-ec2e-5f74-a890-be3e64a2b79b",
+        "sourcePort": "content",
+        "targetNode": "0be51ce5-4724-53f0-a991-2446de4b787e",
+        "targetPort": "file_path"
+      }
+    ],
+    "notes": [
+      {
+        "id": "49c899c0-d43b-5233-ae0b-f6d92ba06074",
+        "content": "V2 coverage template: generated from current node IDs. Fill config and add scenario-specific edges after checking live /api/v1/nodes/types schema.",
+        "x": 80,
+        "y": 40,
+        "width": 520,
+        "height": 96,
+        "color": "#fef3c7",
+        "zIndex": 0
+      }
+    ],
+    "containers": []
+  }
+}

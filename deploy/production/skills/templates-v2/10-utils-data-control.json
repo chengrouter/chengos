@@ -1,0 +1,144 @@
+{
+  "workflowId": "89d6aa32-b3cb-5c31-a757-233f89aa1723",
+  "name": "V2 通用数据与控制节点",
+  "description": "覆盖变量、类型转换、items 标准化、条件路由、延迟、预览和 UI 控件测试节点。",
+  "state": "draft",
+  "nodeCount": 7,
+  "edgeCount": 5,
+  "createdAt": "2026-05-22T00:00:00.000000000+00:00",
+  "updatedAt": "2026-05-22T00:00:00.000000000+00:00",
+  "version": 2,
+  "isFavorite": false,
+  "isTemplate": true,
+  "isDraft": true,
+  "tags": [
+    "skills-v2",
+    "utils",
+    "control"
+  ],
+  "visibility": "private",
+  "definition": {
+    "nodes": [
+      {
+        "nodeId": "c891773b-f552-5c56-af1f-1822575d862a",
+        "nodeType": "utils/smart_var",
+        "name": "utils / smart var",
+        "position": {
+          "x": 120,
+          "y": 120
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "3c7dec32-3d26-5571-a834-0a6de50a00e5",
+        "nodeType": "utils/type_cast",
+        "name": "utils / type cast",
+        "position": {
+          "x": 440,
+          "y": 120
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "537011f4-69d6-5d44-a4fa-239babf515cf",
+        "nodeType": "utils/to_items",
+        "name": "utils / to items",
+        "position": {
+          "x": 760,
+          "y": 120
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "fb8fc931-5688-513e-a121-ff74d01511ca",
+        "nodeType": "utils/condition_router",
+        "name": "utils / condition router",
+        "position": {
+          "x": 1080,
+          "y": 120
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "b5b05310-be38-5d63-a1b2-b62551b687d7",
+        "nodeType": "utils/delay",
+        "name": "utils / delay",
+        "position": {
+          "x": 120,
+          "y": 340
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "eafa37ec-b5d0-5475-ada2-14ee67c0cc46",
+        "nodeType": "utils/preview",
+        "name": "utils / preview",
+        "position": {
+          "x": 440,
+          "y": 340
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "34a4f959-592a-580f-a4ef-b4e841c0bb89",
+        "nodeType": "utils/ui_controls_test",
+        "name": "utils / ui controls test",
+        "position": {
+          "x": 760,
+          "y": 340
+        },
+        "config": {}
+      }
+    ],
+    "edges": [
+      {
+        "edgeId": "cc2164ca-1371-576e-a63e-541247414e2a",
+        "sourceNode": "c891773b-f552-5c56-af1f-1822575d862a",
+        "sourcePort": "value",
+        "targetNode": "3c7dec32-3d26-5571-a834-0a6de50a00e5",
+        "targetPort": "input"
+      },
+      {
+        "edgeId": "154cf228-edc6-5195-a282-79c63f80974c",
+        "sourceNode": "3c7dec32-3d26-5571-a834-0a6de50a00e5",
+        "sourcePort": "output",
+        "targetNode": "537011f4-69d6-5d44-a4fa-239babf515cf",
+        "targetPort": "input"
+      },
+      {
+        "edgeId": "f5c8240f-ea0a-518b-a1ba-9e52c32fa521",
+        "sourceNode": "537011f4-69d6-5d44-a4fa-239babf515cf",
+        "sourcePort": "items",
+        "targetNode": "fb8fc931-5688-513e-a121-ff74d01511ca",
+        "targetPort": "payload"
+      },
+      {
+        "edgeId": "4c1f5f5b-a96c-574d-ae17-f715ebec1236",
+        "sourceNode": "fb8fc931-5688-513e-a121-ff74d01511ca",
+        "sourcePort": "context_out",
+        "targetNode": "b5b05310-be38-5d63-a1b2-b62551b687d7",
+        "targetPort": "input"
+      },
+      {
+        "edgeId": "4b5c30f0-1cff-50f2-acaa-dc8d83430621",
+        "sourceNode": "b5b05310-be38-5d63-a1b2-b62551b687d7",
+        "sourcePort": "output",
+        "targetNode": "eafa37ec-b5d0-5475-ada2-14ee67c0cc46",
+        "targetPort": "data"
+      }
+    ],
+    "notes": [
+      {
+        "id": "fde8483f-aa7a-538e-ad39-2e812a2e3546",
+        "content": "V2 coverage template: generated from current node IDs. Fill config and add scenario-specific edges after checking live /api/v1/nodes/types schema.",
+        "x": 80,
+        "y": 40,
+        "width": 520,
+        "height": 96,
+        "color": "#fef3c7",
+        "zIndex": 0
+      }
+    ],
+    "containers": []
+  }
+}

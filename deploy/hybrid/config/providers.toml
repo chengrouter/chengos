@@ -1,0 +1,387 @@
+# LLM 提供商白名单配置
+# 所有支持的提供商必须在此注册
+# 
+# 配置字段说明：
+# - name: 显示名称
+# - type: builtin | openai_compatible | custom
+# - credential_schema: 引用 credential_schemas 中定义的 Schema
+# - supports_chat: 是否支持对话
+# - supports_embedding: 是否支持向量嵌入
+# - supports_reranker: 是否支持重排序
+# - fetch_models_enabled: 是否支持动态拉取模型列表
+# - default_*_models: 默认模型列表（无法动态拉取时使用）
+
+# ==================== 凭证 Schema 定义 ====================
+# 定义每种凭证类型需要的字段，前端根据此配置动态渲染表单
+# 字段类型: string | integer | boolean
+# secret: 标记敏感字段，前端显示为密码框，后端脱敏处理
+
+[credential_schemas.api_key_only]
+name = "API Key Auth"
+[[credential_schemas.api_key_only.fields]]
+name = "api_key"
+type = "string"
+title = "API Key"
+required = true
+secret = true
+
+[credential_schemas.api_key_with_endpoint]
+name = "API Key + Endpoint"
+[[credential_schemas.api_key_with_endpoint.fields]]
+name = "api_key"
+type = "string"
+title = "API Key"
+required = true
+secret = true
+[[credential_schemas.api_key_with_endpoint.fields]]
+name = "endpoint"
+type = "string"
+title = "Endpoint URL"
+required = false
+secret = false
+
+[credential_schemas.endpoint_only]
+name = "Self-hosted Service"
+[[credential_schemas.endpoint_only.fields]]
+name = "endpoint"
+type = "string"
+title = "Endpoint URL"
+required = true
+secret = false
+
+[credential_schemas.custom_llm]
+name = "Custom LLM"
+[[credential_schemas.custom_llm.fields]]
+name = "provider_name"
+type = "string"
+title = "Provider Name"
+required = true
+secret = false
+[[credential_schemas.custom_llm.fields]]
+name = "api_key"
+type = "string"
+title = "API Key"
+required = true
+secret = true
+[[credential_schemas.custom_llm.fields]]
+name = "endpoint"
+type = "string"
+title = "Endpoint URL"
+required = true
+secret = false
+
+[credential_schemas.database]
+name = "Database Connection"
+[[credential_schemas.database.fields]]
+name = "host"
+type = "string"
+title = "Host"
+required = true
+secret = false
+[[credential_schemas.database.fields]]
+name = "port"
+type = "integer"
+title = "Port"
+required = true
+secret = false
+[[credential_schemas.database.fields]]
+name = "database"
+type = "string"
+title = "Database"
+required = true
+secret = false
+[[credential_schemas.database.fields]]
+name = "username"
+type = "string"
+title = "Username"
+required = true
+secret = false
+[[credential_schemas.database.fields]]
+name = "password"
+type = "string"
+title = "Password"
+required = true
+secret = true
+
+[credential_schemas.qdrant]
+name = "Qdrant Vector Database"
+[[credential_schemas.qdrant.fields]]
+name = "api_key"
+type = "string"
+title = "API Key"
+required = true
+secret = true
+[[credential_schemas.qdrant.fields]]
+name = "endpoint"
+type = "string"
+title = "Cluster URL"
+required = true
+secret = false
+
+[credential_schemas.basic_auth]
+name = "Basic Auth"
+[[credential_schemas.basic_auth.fields]]
+name = "username"
+type = "string"
+title = "Username"
+required = true
+secret = false
+[[credential_schemas.basic_auth.fields]]
+name = "password"
+type = "string"
+title = "Password"
+required = true
+secret = true
+
+[credential_schemas.bearer_token]
+name = "Bearer Token"
+[[credential_schemas.bearer_token.fields]]
+name = "token"
+type = "string"
+title = "Token"
+required = true
+secret = true
+
+[credential_schemas.oauth2]
+name = "OAuth 2.0"
+[[credential_schemas.oauth2.fields]]
+name = "client_id"
+type = "string"
+title = "Client ID"
+required = true
+secret = false
+[[credential_schemas.oauth2.fields]]
+name = "client_secret"
+type = "string"
+title = "Client Secret"
+required = true
+secret = true
+[[credential_schemas.oauth2.fields]]
+name = "access_token"
+type = "string"
+title = "Access Token"
+required = false
+secret = true
+[[credential_schemas.oauth2.fields]]
+name = "refresh_token"
+type = "string"
+title = "Refresh Token"
+required = false
+secret = true
+
+[credential_schemas.smtp]
+name = "SMTP Mail Service"
+[[credential_schemas.smtp.fields]]
+name = "host"
+type = "string"
+title = "Host"
+required = true
+secret = false
+[[credential_schemas.smtp.fields]]
+name = "port"
+type = "integer"
+title = "Port"
+required = true
+secret = false
+[[credential_schemas.smtp.fields]]
+name = "username"
+type = "string"
+title = "Username"
+required = true
+secret = false
+[[credential_schemas.smtp.fields]]
+name = "password"
+type = "string"
+title = "Password"
+required = true
+secret = true
+[[credential_schemas.smtp.fields]]
+name = "use_tls"
+type = "boolean"
+title = "Use TLS"
+required = true
+secret = false
+
+[credential_schemas.imap]
+name = "IMAP Server"
+[[credential_schemas.imap.fields]]
+name = "host"
+type = "string"
+title = "IMAP Server"
+required = true
+secret = false
+[[credential_schemas.imap.fields]]
+name = "port"
+type = "integer"
+title = "Port"
+required = false
+secret = false
+default_value = "993"
+[[credential_schemas.imap.fields]]
+name = "username"
+type = "string"
+title = "Email Address"
+required = true
+secret = false
+[[credential_schemas.imap.fields]]
+name = "password"
+type = "string"
+title = "Password / App Password"
+required = true
+secret = true
+
+[credential_schemas.s3]
+name = "S3 Storage"
+[[credential_schemas.s3.fields]]
+name = "access_key_id"
+type = "string"
+title = "Access Key ID"
+required = true
+secret = true
+[[credential_schemas.s3.fields]]
+name = "secret_access_key"
+type = "string"
+title = "Secret Access Key"
+required = true
+secret = true
+[[credential_schemas.s3.fields]]
+name = "region"
+type = "string"
+title = "Region"
+required = true
+secret = false
+[[credential_schemas.s3.fields]]
+name = "endpoint"
+type = "string"
+title = "Endpoint"
+required = false
+secret = false
+
+# ==================== 内置提供商 ====================
+
+[providers.openai]
+name = "OpenAI"
+type = "builtin"
+credential_schema = "api_key_with_endpoint"
+supports_chat = true
+supports_embedding = true
+supports_reranker = false
+fetch_models_enabled = true
+default_chat_models = ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"]
+default_embedding_models = ["text-embedding-3-small", "text-embedding-3-large", "text-embedding-ada-002"]
+
+[providers.anthropic]
+name = "Anthropic (Claude)"
+type = "builtin"
+credential_schema = "api_key_only"
+supports_chat = true
+supports_embedding = false
+supports_reranker = false
+fetch_models_enabled = true
+default_chat_models = ["claude-3-5-sonnet-latest", "claude-3-5-haiku-latest", "claude-3-opus-latest"]
+
+[providers.ollama]
+name = "Ollama"
+type = "builtin"
+credential_schema = "endpoint_only"
+supports_chat = true
+supports_embedding = true
+supports_reranker = false
+fetch_models_enabled = true
+
+[providers.lm-studio]
+name = "LM Studio"
+type = "builtin"
+credential_schema = "endpoint_only"
+supports_chat = true
+supports_embedding = true
+supports_reranker = false
+fetch_models_enabled = true
+
+[providers.gemini]
+name = "Google Gemini"
+type = "builtin"
+credential_schema = "api_key_with_endpoint"
+supports_chat = true
+supports_embedding = true
+supports_reranker = false
+fetch_models_enabled = true
+default_chat_models = ["gemini-2.0-flash-exp", "gemini-1.5-pro", "gemini-1.5-flash"]
+default_embedding_models = ["text-embedding-004", "embedding-001"]
+
+[providers.deepseek]
+name = "DeepSeek"
+type = "openai_compatible"
+credential_schema = "api_key_with_endpoint"
+supports_chat = true
+supports_embedding = false
+supports_reranker = false
+fetch_models_enabled = true
+default_chat_models = ["deepseek-chat", "deepseek-reasoner"]
+
+[providers.minimax]
+name = "MiniMax"
+type = "builtin"
+credential_schema = "api_key_with_endpoint"
+supports_chat = true
+supports_embedding = false
+supports_reranker = false
+fetch_models_enabled = true
+default_chat_models = ["MiniMax-M2.7", "MiniMax-M2.7-highspeed", "MiniMax-M2.5", "MiniMax-M2.5-highspeed", "MiniMax-M2.1", "MiniMax-M2.1-highspeed", "MiniMax-M2"]
+
+[providers.zhipu]
+name = "智谱 (ZhipuAI)"
+type = "builtin"
+credential_schema = "api_key_with_endpoint"
+supports_chat = true
+supports_embedding = false
+supports_reranker = false
+fetch_models_enabled = true
+
+[providers.dashscope]
+name = "Alibaba Cloud DashScope (Qwen)"
+type = "builtin"
+credential_schema = "api_key_with_endpoint"
+supports_chat = true
+supports_embedding = true
+supports_reranker = true
+fetch_models_enabled = false
+default_chat_models = ["qwen-turbo", "qwen-plus", "qwen-max"]
+default_embedding_models = ["text-embedding-v3"]
+default_reranker_models = ["gte-rerank"]
+
+# ==================== Reranker 专用提供商 ====================
+
+[providers.cohere]
+name = "Cohere"
+type = "builtin"
+credential_schema = "api_key_only"
+supports_chat = false
+supports_embedding = true
+supports_reranker = true
+fetch_models_enabled = false
+default_embedding_models = ["embed-english-v3.0", "embed-multilingual-v3.0"]
+default_reranker_models = ["rerank-english-v3.0", "rerank-multilingual-v3.0"]
+
+[providers.jina]
+name = "Jina AI"
+type = "builtin"
+credential_schema = "api_key_only"
+supports_chat = false
+supports_embedding = true
+supports_reranker = true
+fetch_models_enabled = false
+default_embedding_models = ["jina-embeddings-v3"]
+default_reranker_models = ["jina-reranker-v2-base-multilingual"]
+
+# ==================== 通用 OpenAI 兼容提供商 ====================
+
+[providers.custom]
+name = "Custom (OpenAI Compatible)"
+type = "openai_compatible"
+credential_schema = "custom_llm"
+supports_chat = true
+supports_embedding = true
+supports_reranker = false
+fetch_models_enabled = true
+

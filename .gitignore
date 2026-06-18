@@ -1,0 +1,33 @@
+# Ignore Source Repositories (Only deploy scripts and static files are tracked)
+chengflow/
+chengflow-ui/
+chengflow-app/
+
+# Ignore Build & Staging Directories
+dist/
+dist.bak/
+deploy/hybrid/bin/cheng-api
+deploy/hybrid/bin/chengctl
+
+# Ignore Local Configs & Variables
+.env
+.chengos_lang
+deploy/hybrid/.env
+deploy/hybrid/install/.env
+
+# Ignore Runtime State & Process IDs
+**/runtime/*.pid
+**/runtime/pg-data/
+**/runtime/qdrant-storage/
+**/runtime/redis-data/
+**/runtime/data/
+
+# Ignore Dependency Libraries
+**/node_modules/
+**/target/
+
+# Ignore Service Logs
+**/logs/*.log
+**/logs/*.out
+**/logs/*.err
+nohup.out

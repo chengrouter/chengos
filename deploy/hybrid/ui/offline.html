@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>离线模式 - ChengOS</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #1a202c;
+    }
+
+    .container {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      padding: 3rem;
+      max-width: 500px;
+      width: 90%;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+      text-align: center;
+      animation: fadeInUp 0.6s ease-out;
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .icon {
+      font-size: 5rem;
+      margin-bottom: 1.5rem;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        transform: scale(1);
+      }
+      50% {
+        transform: scale(1.05);
+      }
+    }
+
+    h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .description {
+      color: #4a5568;
+      font-size: 1.1rem;
+      line-height: 1.6;
+      margin-bottom: 2rem;
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      background: #fed7d7;
+      color: #c53030;
+      border-radius: 2rem;
+      font-size: 0.9rem;
+      margin-bottom: 2rem;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background: #e53e3e;
+      border-radius: 50%;
+      animation: blink 1.5s ease-in-out infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% {
+        opacity: 1;
+      }
+      50% {
+        opacity: 0.3;
+      }
+    }
+
+    .actions {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      padding: 0.75rem 1.5rem;
+      border: none;
+      border-radius: 0.5rem;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-secondary {
+      background: #e2e8f0;
+      color: #4a5568;
+    }
+
+    .btn-secondary:hover {
+      background: #cbd5e0;
+      transform: translateY(-1px);
+    }
+
+    .features {
+      margin-top: 2.5rem;
+      padding-top: 2rem;
+      border-top: 1px solid #e2e8f0;
+    }
+
+    .feature-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .feature-item {
+      padding: 1rem;
+      background: #f7fafc;
+      border-radius: 0.5rem;
+      transition: all 0.3s ease;
+    }
+
+    .feature-item:hover {
+      background: #edf2f7;
+      transform: translateY(-1px);
+    }
+
+    .feature-icon {
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .feature-name {
+      font-size: 0.9rem;
+      color: #4a5568;
+      font-weight: 500;
+    }
+
+    .network-info {
+      position: fixed;
+      bottom: 1rem;
+      right: 1rem;
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(10px);
+      padding: 0.5rem 1rem;
+      border-radius: 2rem;
+      font-size: 0.8rem;
+      color: #4a5568;
+      opacity: 0.7;
+    }
+
+    @media (max-width: 480px) {
+      .container {
+        padding: 2rem;
+      }
+
+      h1 {
+        font-size: 1.5rem;
+      }
+
+      .actions {
+        flex-direction: column;
+      }
+
+      .btn {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="icon">📱</div>
+
+    <h1>离线模式</h1>
+
+    <p class="description">
+      您当前处于离线状态。ChengOS 正在尝试重新连接网络。
+    </p>
+
+    <div class="status">
+      <div class="status-dot"></div>
+      <span id="status-text">检查网络连接中...</span>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-primary" onclick="retryConnection()">
+        <span>🔄</span>
+        <span>重新连接</span>
+      </button>
+
+      <a href="/" class="btn btn-secondary">
+        <span>🏠</span>
+        <span>返回首页</span>
+      </a>
+    </div>
+
+    <div class="features">
+      <h3 style="margin-bottom: 1rem; color: #2d3748;">离线可用功能</h3>
+      <div class="feature-list">
+        <div class="feature-item">
+          <div class="feature-icon">📝</div>
+          <div class="feature-name">本地编辑</div>
+        </div>
+        <div class="feature-item">
+          <div class="feature-icon">💾</div>
+          <div class="feature-name">自动保存</div>
+        </div>
+        <div class="feature-item">
+          <div class="feature-icon">🎨</div>
+          <div class="feature-name">主题切换</div>
+        </div>
+        <div class="feature-item">
+          <div class="feature-icon">⚡</div>
+          <div class="feature-name">快速操作</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="network-info" id="network-info">
+    离线模式
+  </div>
+
+  <script>
+    let retryCount = 0
+    const maxRetries = 5
+    let retryTimeout
+
+    // 检查网络状态
+    function checkNetworkStatus() {
+      const isOnline = navigator.onLine
+      const statusText = document.getElementById('status-text')
+      const statusDot = document.querySelector('.status-dot')
+      const networkInfo = document.getElementById('network-info')
+
+      if (isOnline) {
+        statusText.textContent = '网络已连接，正在恢复服务...'
+        statusDot.style.background = '#48bb78'
+        networkInfo.textContent = '在线'
+
+        // 尝试连接服务器
+        testServerConnection()
+      } else {
+        statusText.textContent = '网络连接已断开'
+        statusDot.style.background = '#e53e3e'
+        networkInfo.textContent = '离线模式'
+      }
+    }
+
+    // 测试服务器连接
+    async function testServerConnection() {
+      try {
+        const response = await fetch('/', {
+          method: 'HEAD',
+          cache: 'no-cache',
+          signal: AbortSignal.timeout(5000)
+        })
+
+        if (response.ok) {
+          // 连接成功，重定向到主页
+          statusText.textContent = '连接成功，正在跳转...'
+          setTimeout(() => {
+            window.location.href = '/'
+          }, 1000)
+        }
+      } catch (error) {
+        statusText.textContent = '服务器连接失败'
+        document.querySelector('.status-dot').style.background = '#ed8936'
+      }
+    }
+
+    // 重试连接
+    function retryConnection() {
+      if (retryCount >= maxRetries) {
+        document.getElementById('status-text').textContent = '重试次数过多，请稍后再试'
+        return
+      }
+
+      retryCount++
+      const statusText = document.getElementById('status-text')
+      const statusDot = document.querySelector('.status-dot')
+
+      statusText.textContent = `正在重试连接... (${retryCount}/${maxRetries})`
+      statusDot.style.background = '#3182ce'
+
+      // 清除之前的超时
+      if (retryTimeout) {
+        clearTimeout(retryTimeout)
+      }
+
+      // 3秒后检查结果
+      retryTimeout = setTimeout(() => {
+        checkNetworkStatus()
+      }, 3000)
+    }
+
+    // 监听网络状态变化
+    window.addEventListener('online', () => {
+      console.log('网络已连接')
+      checkNetworkStatus()
+    })
+
+    window.addEventListener('offline', () => {
+      console.log('网络已断开')
+      checkNetworkStatus()
+    })
+
+    // 页面加载时检查网络状态
+    checkNetworkStatus()
+
+    // 自动重试（每30秒）
+    setInterval(() => {
+      if (!navigator.onLine) {
+        checkNetworkStatus()
+      }
+    }, 30000)
+
+    // 显示系统信息（调试用）
+    if (window.location.search.includes('debug=true')) {
+      const debugInfo = document.createElement('div')
+      debugInfo.style.cssText = `
+        position: fixed;
+        top: 1rem;
+        left: 1rem;
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        font-family: monospace;
+        font-size: 0.8rem;
+        max-width: 300px;
+      `
+      debugInfo.innerHTML = `
+        <strong>调试信息</strong><br>
+        User Agent: ${navigator.userAgent.substring(0, 50)}...<br>
+        Language: ${navigator.language}<br>
+        Platform: ${navigator.platform}<br>
+        Cookie Enabled: ${navigator.cookieEnabled}<br>
+        On Line: ${navigator.onLine}<br>
+        Cache: ${!!window.caches}<br>
+        Service Worker: ${!!navigator.serviceWorker}
+      `
+      document.body.appendChild(debugInfo)
+    }
+  </script>
+</body>
+</html>

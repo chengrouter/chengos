@@ -1,0 +1,64 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: chengos-postgres
+    env_file:
+      - ../.env
+    environment:
+      POSTGRES_DB: master_router
+      POSTGRES_USER: tianai_db
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tianai_db -d master_router"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: chengos-redis
+    env_file:
+      - ../.env
+    command:
+      [
+        "sh",
+        "-c",
+        "exec redis-server --appendonly yes --save 900 1 --save 300 10 --maxmemory 512mb --maxmemory-policy allkeys-lru --requirepass \"$$REDIS_PASSWORD\"",
+      ]
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+    restart: unless-stopped
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: chengos-qdrant
+    ports:
+      - "127.0.0.1:6333:6333"
+      - "127.0.0.1:6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "kill -0 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  qdrant_data:

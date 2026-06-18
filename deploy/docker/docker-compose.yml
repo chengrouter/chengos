@@ -1,0 +1,131 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: chengos-postgres
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      POSTGRES_DB: master_router
+      POSTGRES_USER: tianai_db
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tianai_db -d master_router"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+
+  redis:
+    image: redis:8.6.0-alpine
+    container_name: chengos-redis
+    env_file:
+      - path: .env
+        required: false
+    command:
+      [
+        "sh",
+        "-c",
+        "exec redis-server --appendonly yes --save 900 1 --save 300 10 --maxmemory 512mb --maxmemory-policy allkeys-lru --requirepass \"$$REDIS_PASSWORD\"",
+      ]
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+    restart: unless-stopped
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: chengos-qdrant
+    ports:
+      - "127.0.0.1:6333:6333"
+      - "127.0.0.1:6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "kill -0 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+    restart: unless-stopped
+
+  api:
+    image: ${CHENGOS_API_IMAGE:-chengos/chengos:latest}
+    container_name: chengos-api
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - ./config:/app/config
+      - ./skills:/app/skills
+      - ./logs:/app/logs
+      - ./runtime:/app/runtime
+      - ./models:/home/chengos/.chengflow/models
+      - ./node_skills:/app/node_skills
+      - ./workspace:/app/workspace
+    environment:
+      SKILLS_DIR: /app/skills
+      NODE_SKILLS_DIR: /app/node_skills
+    ports:
+      - "127.0.0.1:${API_PORT:-3000}:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf --max-time 5 http://localhost:3000/health || exit 1"]
+      interval: 15s
+      timeout: 7s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+  ui:
+    image: ${CHENGOS_UI_IMAGE:-chengos/chengos_ui:latest}
+    container_name: chengos-ui
+    environment:
+      API_BASE_URL: ${UI_API_BASE_URL:-/api/v1}
+      WS_URL: ${UI_WS_URL:-/ws}
+      BACKEND_UPSTREAM: http://api:3000
+    ports:
+      - "127.0.0.1:${UI_PORT:-8080}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  app:
+    image: ${CHENGOS_APP_IMAGE:-chengos/chengos_app:latest}
+    container_name: chengos-app
+    environment:
+      API_BASE_URL: ${APP_API_BASE_URL:-/api/v1}
+      WS_URL: ${APP_WS_URL:-/ws/executions}
+      BACKEND_HTTP_URL: http://api:3000
+      BACKEND_WS_URL: http://api:3000
+      CHANNEL_ID: ${APP_CHANNEL_ID:-weather-app}
+      BOUND_WORKFLOW_ID: ${APP_BOUND_WORKFLOW_ID:-}
+    ports:
+      - "127.0.0.1:${APP_PORT:-5055}:5055"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  qdrant_data:

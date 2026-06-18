@@ -1,0 +1,849 @@
+{
+  "workflowId": "92746074-eeb4-44db-99c8-cd64ccb7381a",
+  "name": "表格编辑",
+  "description": "",
+  "state": "draft",
+  "nodeCount": 7,
+  "edgeCount": 6,
+  "createdAt": "2026-03-28T21:04:20.908064472+00:00",
+  "updatedAt": "2026-04-03T22:50:57.769253991+00:00",
+  "version": 1,
+  "isFavorite": false,
+  "isTemplate": false,
+  "isDraft": false,
+  "tags": [
+    "excel"
+  ],
+  "visibility": "private",
+  "definition": {
+    "nodes": [
+      {
+        "nodeId": "866efb15-24be-4b64-8d95-07ba3f3f2d37",
+        "nodeType": "agent/react_agent",
+        "name": "ReAct 决策节点",
+        "position": {
+          "x": 1020.0214997815572,
+          "y": 222.3261667394811
+        },
+        "config": {},
+        "inputs": [
+          {
+            "default": null,
+            "description": "已有 AgentContext（可选，用于承接历史对话）",
+            "name": "context",
+            "required": false,
+            "type": "agent_context"
+          },
+          {
+            "default": null,
+            "description": "要完成的任务描述（可选，为空时自动从 context 对话历史中提取）",
+            "name": "task",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "description": "LLM 配置（JSON 字符串或对象）",
+            "name": "llm_config",
+            "required": true,
+            "type": "object"
+          },
+          {
+            "default": 3,
+            "description": "最大迭代次数",
+            "format": "uint",
+            "minimum": 0,
+            "name": "max_iterations",
+            "required": false,
+            "type": "integer"
+          },
+          {
+            "default": [],
+            "description": "Available tools (populated from connected tool nodes via tools port)",
+            "name": "tools",
+            "required": false,
+            "type": "array"
+          },
+          {
+            "default": true,
+            "description": "使用原生函数调用模式",
+            "name": "use_function_calling",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "default": false,
+            "description": "启用 LLM 评估",
+            "name": "use_llm_evaluation",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "default": 3,
+            "description": "最大检查点次数（每次耗尽迭代时 LLM 可申请延续）",
+            "format": "uint",
+            "minimum": 0,
+            "name": "max_checkpoints",
+            "required": false,
+            "type": "integer"
+          },
+          {
+            "default": null,
+            "description": "自定义系统提示词（覆盖默认系统提示词）",
+            "name": "system_prompt",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": null,
+            "description": "用户附加指令（会拼接在任务前，例如：开始前请先读取 SKILLS_INDEX.md）",
+            "name": "user_message",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "description": "Tool slot 0",
+            "group": "dynamic-array",
+            "name": "tool_0",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "最终答案",
+            "name": "final_answer",
+            "type": "string"
+          },
+          {
+            "description": "Agent 上下文（包含对话历史）",
+            "name": "context",
+            "type": "object"
+          },
+          {
+            "description": "会话 ID（与 context.session_id 一致，方便下游直连）",
+            "name": "session_id",
+            "type": "string"
+          },
+          {
+            "description": "执行轨迹",
+            "name": "trace",
+            "type": "string"
+          },
+          {
+            "description": "累计 Token 消耗",
+            "format": {},
+            "name": "total_tokens",
+            "type": "integer"
+          },
+          {
+            "description": "执行的迭代次数",
+            "format": {},
+            "name": "iterations_used",
+            "type": "integer"
+          },
+          {
+            "description": "是否成功完成任务",
+            "name": "success",
+            "type": "boolean"
+          },
+          {
+            "description": "状态信息",
+            "name": "status",
+            "type": "string"
+          },
+          {
+            "description": "是否需要人工审核",
+            "name": "requires_review",
+            "type": "boolean"
+          }
+        ]
+      },
+      {
+        "nodeId": "e3b9fd48-c124-4a7f-97b5-36dde1d48176",
+        "nodeType": "chat/output",
+        "name": "Chat 输出节点",
+        "position": {
+          "x": 1398.2983159232106,
+          "y": 535.4627398022449
+        },
+        "config": {},
+        "inputs": [
+          {
+            "description": "Agent 最终回复文本或 AgentContext（自动提取文本）",
+            "name": "context",
+            "required": true,
+            "type": "agent_context"
+          },
+          {
+            "default": null,
+            "description": "Agent 执行轨迹（思考过程）",
+            "name": "trace",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "control": "select",
+            "default": "system",
+            "description": "显示主题",
+            "enum": [
+              "light",
+              "dark",
+              "system"
+            ],
+            "name": "theme",
+            "options": [
+              {
+                "label": "light",
+                "value": "light"
+              },
+              {
+                "label": "dark",
+                "value": "dark"
+              },
+              {
+                "label": "system",
+                "value": "system"
+              }
+            ],
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": true,
+            "description": "是否自动滚动到最新消息",
+            "name": "autoscroll",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "default": 1000,
+            "description": "内存中保留的最大消息数量",
+            "format": "uint",
+            "maximum": 10000,
+            "minimum": 10,
+            "name": "keep_messages",
+            "required": false,
+            "type": "integer"
+          },
+          {
+            "default": 100,
+            "description": "消息数量超过此值时启用虚拟化",
+            "format": "uint",
+            "maximum": 1000,
+            "minimum": 10,
+            "name": "virtualize_threshold",
+            "required": false,
+            "type": "integer"
+          },
+          {
+            "default": "standard",
+            "description": "消息显示格式",
+            "name": "display_format",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": true,
+            "description": "是否显示消息时间戳",
+            "name": "show_timestamp",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "Assistant 最终回复的文本内容",
+            "name": "reply",
+            "type": "string"
+          },
+          {
+            "description": "Agent 执行轨迹（思考过程）",
+            "name": "trace",
+            "type": "string"
+          },
+          {
+            "description": "要发送给前端的 UI 事件",
+            "name": "ui_events",
+            "type": "array"
+          },
+          {
+            "description": "当前保留的消息总数",
+            "format": {},
+            "name": "message_count",
+            "type": "integer"
+          },
+          {
+            "description": "是否启用了虚拟化渲染",
+            "name": "virtualized",
+            "type": "boolean"
+          },
+          {
+            "description": "处理统计信息",
+            "name": "stats",
+            "type": "string"
+          }
+        ]
+      },
+      {
+        "nodeId": "0c814727-5e87-4996-9be8-bd74a60e93b3",
+        "nodeType": "table/build_llm_context",
+        "name": "构建表格LLM上下文",
+        "position": {
+          "x": 519.4345576584017,
+          "y": 90.71980914956772
+        },
+        "config": {},
+        "inputs": [
+          {
+            "description": "Table ID to build context for.",
+            "name": "table_id",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "default": null,
+            "description": "Optional list of selected record IDs. If provided, only these records will be included in the context.",
+            "name": "selected_record_ids",
+            "required": false,
+            "type": "array"
+          },
+          {
+            "description": "User's editing instruction/request.",
+            "name": "instruction",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "default": "json",
+            "description": "Output format: \"json\", \"markdown\", or \"csv\".",
+            "name": "format",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": 100,
+            "description": "Maximum records to include in context (0 = unlimited).",
+            "format": "uint",
+            "minimum": 0,
+            "name": "max_records",
+            "required": false,
+            "type": "integer"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "Whether context building was successful.",
+            "name": "success",
+            "type": "boolean"
+          },
+          {
+            "description": "Table ID.",
+            "name": "table_id",
+            "type": "string"
+          },
+          {
+            "description": "Table name.",
+            "name": "table_name",
+            "type": "string"
+          },
+          {
+            "description": "System prompt for LLM.",
+            "name": "system_prompt",
+            "type": "string"
+          },
+          {
+            "description": "Table context (formatted table data).",
+            "name": "table_context",
+            "type": "string"
+          },
+          {
+            "description": "User instruction (formatted).",
+            "name": "user_prompt",
+            "type": "string"
+          },
+          {
+            "description": "Tool definitions JSON for LLM function calling.",
+            "name": "tools_json",
+            "type": "string"
+          },
+          {
+            "description": "Integrated LLM context as JSON string. Connect this to ReAct agent's `task` input.",
+            "name": "llm_context",
+            "type": "string"
+          },
+          {
+            "description": "AgentContext 端口（可直连 Agent 节点的 context 输入）",
+            "name": "agent_context",
+            "type": "agent_context"
+          },
+          {
+            "description": "Number of records included.",
+            "format": {},
+            "name": "records_included",
+            "type": "integer"
+          },
+          {
+            "description": "Number of columns.",
+            "format": {},
+            "name": "column_count",
+            "type": "integer"
+          },
+          {
+            "description": "Error message if building failed.",
+            "name": "error",
+            "type": "string"
+          },
+          {
+            "description": "Warnings generated during context building.",
+            "name": "warnings",
+            "type": "array"
+          }
+        ]
+      },
+      {
+        "nodeId": "fb963c2c-dae7-4451-ba0f-e37c80e135e8",
+        "nodeType": "table/apply_record_ops",
+        "name": "应用表格操作",
+        "position": {
+          "x": 516.4532370484307,
+          "y": 509.35996905128127
+        },
+        "config": {},
+        "inputs": [
+          {
+            "description": "Table ID to apply operations to.",
+            "name": "table_id",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "description": "List of operations to apply.",
+            "name": "operations",
+            "required": true,
+            "type": "array"
+          },
+          {
+            "default": null,
+            "description": "Optional summary of changes (for logging/audit).",
+            "name": "summary",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "Whether all operations were successful.",
+            "name": "success",
+            "type": "boolean"
+          },
+          {
+            "description": "Results for each operation.",
+            "name": "results",
+            "type": "array"
+          },
+          {
+            "description": "Summary of changes.",
+            "name": "summary",
+            "type": "string"
+          },
+          {
+            "description": "Table ID.",
+            "name": "table_id",
+            "type": "string"
+          },
+          {
+            "description": "Number of records affected.",
+            "format": {},
+            "name": "records_affected",
+            "type": "integer"
+          },
+          {
+            "description": "Number of records inserted.",
+            "format": {},
+            "name": "records_inserted",
+            "type": "integer"
+          },
+          {
+            "description": "Number of records updated.",
+            "format": {},
+            "name": "records_updated",
+            "type": "integer"
+          },
+          {
+            "description": "Number of records deleted.",
+            "format": {},
+            "name": "records_deleted",
+            "type": "integer"
+          },
+          {
+            "description": "Error message if the overall operation failed.",
+            "name": "error",
+            "type": "string"
+          }
+        ]
+      },
+      {
+        "nodeId": "03ea1374-b89e-4e9f-aed7-cdeada20f488",
+        "nodeType": "table/query",
+        "name": "查询表格",
+        "position": {
+          "x": 516.503827718799,
+          "y": 301.5545473421622
+        },
+        "config": {},
+        "inputs": [
+          {
+            "description": "ID of the table to query.",
+            "name": "table_id",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "default": null,
+            "description": "Optional list of specific record IDs to fetch. If not provided, fetches all records (paginated).",
+            "name": "record_ids",
+            "required": false,
+            "type": "array"
+          },
+          {
+            "default": true,
+            "description": "Whether to include column definitions (default: true).",
+            "name": "include_schema",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "default": 1,
+            "description": "Page number for pagination (1-based, default: 1).",
+            "format": "uint32",
+            "minimum": 0,
+            "name": "page",
+            "required": false,
+            "type": "integer"
+          },
+          {
+            "default": 100,
+            "description": "Number of records per page (default: 100, max: 1000).",
+            "format": "uint32",
+            "minimum": 0,
+            "name": "page_size",
+            "required": false,
+            "type": "integer"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "Whether the query was successful.",
+            "name": "success",
+            "type": "boolean"
+          },
+          {
+            "description": "Whether the table was found.",
+            "name": "found",
+            "type": "boolean"
+          },
+          {
+            "description": "Table metadata (if found).",
+            "name": "table",
+            "type": "string"
+          },
+          {
+            "description": "Column definitions (if include_schema=true).",
+            "name": "columns",
+            "type": "array"
+          },
+          {
+            "description": "Records data.",
+            "name": "records",
+            "type": "array"
+          },
+          {
+            "description": "Total number of records in the table.",
+            "format": {},
+            "name": "total_records",
+            "type": "integer"
+          },
+          {
+            "description": "Current page number.",
+            "format": {},
+            "name": "page",
+            "type": "integer"
+          },
+          {
+            "description": "Total number of pages.",
+            "format": {},
+            "name": "total_pages",
+            "type": "integer"
+          },
+          {
+            "description": "Error message if query failed.",
+            "name": "error",
+            "type": "string"
+          },
+          {
+            "description": "Markdown formatted table (columns + records), suitable for preview node.",
+            "name": "markdown",
+            "type": "string"
+          },
+          {
+            "description": "AgentContext 端口（可直连 Agent 节点的 context 输入）",
+            "name": "agent_context",
+            "type": "agent_context"
+          }
+        ]
+      },
+      {
+        "nodeId": "d9790238-c6bf-4ccf-bd9e-ab07df76642c",
+        "nodeType": "chat/input",
+        "name": "Chat 输入节点",
+        "position": {
+          "x": 44.63596139340939,
+          "y": 130.02540413885254
+        },
+        "config": {},
+        "inputs": [
+          {
+            "description": "原始输入载荷（JSON 格式）",
+            "name": "raw_input",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "default": null,
+            "description": "对话 ID（可选），由入口生成后透传给所有下游节点",
+            "name": "conversation_id",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": false,
+            "description": "是否启用流式发送",
+            "name": "stream_mode",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "default": false,
+            "description": "是否对图片进行 OCR 识别",
+            "name": "enable_ocr",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "default": "per_file",
+            "description": "多输入的合并策略",
+            "name": "merge_strategy",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": 50,
+            "description": "最大文件大小（MB）",
+            "format": "uint64",
+            "maximum": 500,
+            "minimum": 1,
+            "name": "max_file_size_mb",
+            "required": false,
+            "type": "integer"
+          },
+          {
+            "default": null,
+            "description": "模型覆盖（格式: credential_id::model_name）",
+            "name": "model_override",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "AgentContext 封装，可直接连接到 agent/llm 的 context 端口",
+            "name": "context",
+            "type": "agent_context"
+          },
+          {
+            "description": "用户消息文本",
+            "name": "user_message",
+            "type": "string"
+          },
+          {
+            "description": "对话 ID（透传给下游节点）",
+            "name": "conversation_id",
+            "type": "string"
+          },
+          {
+            "description": "处理统计信息",
+            "name": "stats",
+            "type": "string"
+          },
+          {
+            "description": "UI 事件",
+            "name": "ui_event",
+            "type": "string"
+          },
+          {
+            "description": "模型覆盖（格式: credential_id::model_name）",
+            "name": "model_override",
+            "type": "string"
+          },
+          {
+            "description": "附件 JSON 数组，可直接连接 io/file_upload.files_json",
+            "name": "attachments_json",
+            "type": "string"
+          }
+        ]
+      },
+      {
+        "nodeId": "a72b2d5f-29bd-4c07-826f-917e735a7b10",
+        "nodeType": "ai/llm_config",
+        "name": "LLM 配置",
+        "position": {
+          "x": 1011.8761290066624,
+          "y": 55.3843150494388
+        },
+        "config": {
+          "model": "43abcfdd-4a80-46d4-81a4-c6b6dbcfa6b0::MiniMax-M2.7"
+        },
+        "inputs": [
+          {
+            "description": "选择已连接的 LLM 模型",
+            "name": "model",
+            "required": true,
+            "type": "string",
+            "x-allow-custom": true
+          },
+          {
+            "default": null,
+            "description": "模型覆盖（格式: credential_id::model_name，优先级高于 model）",
+            "name": "model_override",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "default": 0.699999988079071,
+            "description": "控制生成的随机性，值越高越随机 (0.0 - 2.0)",
+            "format": "float",
+            "maximum": 2,
+            "minimum": 0,
+            "name": "temperature",
+            "required": false,
+            "type": "number"
+          },
+          {
+            "default": 5000,
+            "description": "限制生成的最大 Token 数 (默认 5000)",
+            "format": "uint32",
+            "minimum": 0,
+            "name": "max_tokens",
+            "required": false,
+            "type": "integer"
+          },
+          {
+            "default": 1,
+            "description": "核采样阈值 (0.0 - 1.0)",
+            "format": "float",
+            "maximum": 1,
+            "minimum": 0,
+            "name": "top_p",
+            "required": false,
+            "type": "number"
+          },
+          {
+            "default": 0,
+            "description": "降低模型重复同一句话的可能性 (-2.0 - 2.0)",
+            "format": "float",
+            "maximum": 2,
+            "minimum": -2,
+            "name": "frequency_penalty",
+            "required": false,
+            "type": "number"
+          },
+          {
+            "default": 0,
+            "description": "鼓励模型谈论新话题 (-2.0 - 2.0)",
+            "format": "float",
+            "maximum": 2,
+            "minimum": -2,
+            "name": "presence_penalty",
+            "required": false,
+            "type": "number"
+          },
+          {
+            "default": true,
+            "description": "开启后实时返回结果",
+            "name": "stream",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "default": 60,
+            "description": "API 请求超时时间（1-600 秒）",
+            "format": "uint32",
+            "maximum": 600,
+            "minimum": 1,
+            "name": "timeout_secs",
+            "required": false,
+            "type": "integer"
+          },
+          {
+            "default": false,
+            "description": "注入 response_format: json_object（适合弱模型/开源模型，减少非 JSON 文字；系统层不做二次校验）",
+            "name": "json_mode",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "完整 LLM 配置",
+            "name": "llm_config",
+            "type": "object"
+          }
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "edgeId": "ad788bd3-e156-43dd-a9ab-3a34e10bca3e",
+        "sourceNode": "0c814727-5e87-4996-9be8-bd74a60e93b3",
+        "sourcePort": "agent_context",
+        "targetNode": "866efb15-24be-4b64-8d95-07ba3f3f2d37",
+        "targetPort": "context"
+      },
+      {
+        "edgeId": "19680ac9-bc34-49ce-b993-496d6e79a198",
+        "sourceNode": "03ea1374-b89e-4e9f-aed7-cdeada20f488",
+        "sourcePort": "markdown",
+        "targetNode": "866efb15-24be-4b64-8d95-07ba3f3f2d37",
+        "targetPort": "system_prompt"
+      },
+      {
+        "edgeId": "b588d558-d9a0-432f-b138-3a34793f3fe2",
+        "sourceNode": "866efb15-24be-4b64-8d95-07ba3f3f2d37",
+        "sourcePort": "context",
+        "targetNode": "e3b9fd48-c124-4a7f-97b5-36dde1d48176",
+        "targetPort": "context"
+      },
+      {
+        "edgeId": "2c32ef9c-b6fd-4716-a7e8-5c08a18539c2",
+        "sourceNode": "a72b2d5f-29bd-4c07-826f-917e735a7b10",
+        "sourcePort": "llm_config",
+        "targetNode": "866efb15-24be-4b64-8d95-07ba3f3f2d37",
+        "targetPort": "llm_config"
+      },
+      {
+        "edgeId": "fc069d3f-e79c-47e1-873b-223b801681f4",
+        "sourceNode": "d9790238-c6bf-4ccf-bd9e-ab07df76642c",
+        "sourcePort": "user_message",
+        "targetNode": "0c814727-5e87-4996-9be8-bd74a60e93b3",
+        "targetPort": "instruction"
+      },
+      {
+        "edgeId": "605f4a89-44a6-407a-9e72-290812701231",
+        "sourceNode": "fb963c2c-dae7-4451-ba0f-e37c80e135e8",
+        "sourcePort": "summary",
+        "targetNode": "866efb15-24be-4b64-8d95-07ba3f3f2d37",
+        "targetPort": "tool_0"
+      }
+    ]
+  }
+}

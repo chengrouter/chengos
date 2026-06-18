@@ -1,0 +1,188 @@
+{
+  "workflowId": "6fc035bc-afea-5b1d-ab4c-d97616468dea",
+  "name": "V2 基础对话与 LLM",
+  "description": "覆盖 Chat 输入输出、LLM 配置、LLM 调用、上下文合并、LLM 字段路由和短期会话记忆。",
+  "state": "draft",
+  "nodeCount": 8,
+  "edgeCount": 9,
+  "createdAt": "2026-05-22T00:00:00.000000000+00:00",
+  "updatedAt": "2026-05-22T00:00:00.000000000+00:00",
+  "version": 2,
+  "isFavorite": false,
+  "isTemplate": true,
+  "isDraft": true,
+  "tags": [
+    "skills-v2",
+    "chat",
+    "llm"
+  ],
+  "visibility": "private",
+  "definition": {
+    "nodes": [
+      {
+        "nodeId": "0d4fe2b2-c61f-5ada-a3be-c9dc38b2e726",
+        "nodeType": "chat/input",
+        "name": "chat / input",
+        "position": {
+          "x": 120,
+          "y": 120
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "a16fb3da-d77f-5e2a-a76f-e39e7070a5fc",
+        "nodeType": "ai/llm_config",
+        "name": "ai / llm config",
+        "position": {
+          "x": 440,
+          "y": 120
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "28318c3c-f013-5a58-a6f2-2f8a7e966d8c",
+        "nodeType": "ai/llm",
+        "name": "ai / llm",
+        "position": {
+          "x": 760,
+          "y": 120
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "05e151d0-6092-5354-a035-5ea0a583dcdb",
+        "nodeType": "ai/context_merge",
+        "name": "ai / context merge",
+        "position": {
+          "x": 1080,
+          "y": 120
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "de6b5196-c4c3-508f-ae9b-fc15cc79db71",
+        "nodeType": "ai/llm_branch",
+        "name": "ai / llm branch",
+        "position": {
+          "x": 120,
+          "y": 340
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "82ed7cb7-0a9a-5704-a401-13d91bae3867",
+        "nodeType": "chat/memory",
+        "name": "chat / memory",
+        "position": {
+          "x": 440,
+          "y": 340
+        },
+        "config": {
+          "persistence_mode": "database",
+          "enabled": true,
+          "strategy": "truncate",
+          "window_size": 5,
+          "enable_history_search": true
+        }
+      },
+      {
+        "nodeId": "b8dd37dc-9390-5d80-ab0c-00ee3041ce47",
+        "nodeType": "chat/save_reply",
+        "name": "chat / save reply",
+        "position": {
+          "x": 760,
+          "y": 340
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "36adace6-fd04-5d8f-acae-afd3774c4e28",
+        "nodeType": "chat/output",
+        "name": "chat / output",
+        "position": {
+          "x": 1080,
+          "y": 340
+        },
+        "config": {}
+      }
+    ],
+    "edges": [
+      {
+        "edgeId": "e1b38fda-aa05-56cb-a1b4-40fb254e4c21",
+        "sourceNode": "0d4fe2b2-c61f-5ada-a3be-c9dc38b2e726",
+        "sourcePort": "context",
+        "targetNode": "28318c3c-f013-5a58-a6f2-2f8a7e966d8c",
+        "targetPort": "context"
+      },
+      {
+        "edgeId": "c902e1b3-0598-584d-a340-fe0b6be101bb",
+        "sourceNode": "0d4fe2b2-c61f-5ada-a3be-c9dc38b2e726",
+        "sourcePort": "user_message",
+        "targetNode": "28318c3c-f013-5a58-a6f2-2f8a7e966d8c",
+        "targetPort": "user_message"
+      },
+      {
+        "edgeId": "4364cfff-eb35-50c7-a0fa-2b6af19a86d5",
+        "sourceNode": "a16fb3da-d77f-5e2a-a76f-e39e7070a5fc",
+        "sourcePort": "llm_config",
+        "targetNode": "28318c3c-f013-5a58-a6f2-2f8a7e966d8c",
+        "targetPort": "llm_config"
+      },
+      {
+        "edgeId": "57a97954-66fc-585b-aa78-3e908d7840ef",
+        "sourceNode": "0d4fe2b2-c61f-5ada-a3be-c9dc38b2e726",
+        "sourcePort": "context",
+        "targetNode": "05e151d0-6092-5354-a035-5ea0a583dcdb",
+        "targetPort": "context1"
+      },
+      {
+        "edgeId": "49db8a04-1a48-5711-aae4-ae74e696cbaf",
+        "sourceNode": "28318c3c-f013-5a58-a6f2-2f8a7e966d8c",
+        "sourcePort": "context",
+        "targetNode": "05e151d0-6092-5354-a035-5ea0a583dcdb",
+        "targetPort": "context2"
+      },
+      {
+        "edgeId": "149d1206-9412-5930-a3a6-c6db5a402842",
+        "sourceNode": "28318c3c-f013-5a58-a6f2-2f8a7e966d8c",
+        "sourcePort": "response",
+        "targetNode": "de6b5196-c4c3-508f-ae9b-fc15cc79db71",
+        "targetPort": "response"
+      },
+      {
+        "edgeId": "5c6493d6-d70f-50b3-a386-6259cc34f459",
+        "sourceNode": "0d4fe2b2-c61f-5ada-a3be-c9dc38b2e726",
+        "sourcePort": "user_message",
+        "targetNode": "82ed7cb7-0a9a-5704-a401-13d91bae3867",
+        "targetPort": "user_message"
+      },
+      {
+        "edgeId": "be261594-22ad-5193-a83a-d0ebbb37a7a8",
+        "sourceNode": "28318c3c-f013-5a58-a6f2-2f8a7e966d8c",
+        "sourcePort": "context",
+        "targetNode": "b8dd37dc-9390-5d80-ab0c-00ee3041ce47",
+        "targetPort": "context"
+      },
+      {
+        "edgeId": "1b4762dd-fa80-5091-aed5-dffb2c1e2d26",
+        "sourceNode": "28318c3c-f013-5a58-a6f2-2f8a7e966d8c",
+        "sourcePort": "context",
+        "targetNode": "36adace6-fd04-5d8f-acae-afd3774c4e28",
+        "targetPort": "context"
+      }
+    ],
+    "notes": [
+      {
+        "id": "b8e47ad0-0e98-55e3-a0bb-265d2dd1e689",
+        "content": "V2 coverage template: generated from current node IDs. Fill config and add scenario-specific edges after checking live /api/v1/nodes/types schema.",
+        "x": 80,
+        "y": 40,
+        "width": 520,
+        "height": 96,
+        "color": "#fef3c7",
+        "zIndex": 0
+      }
+    ],
+    "containers": []
+  }
+}

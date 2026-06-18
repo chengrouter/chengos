@@ -1,0 +1,179 @@
+{
+  "workflowId": "0c070e16-6141-4e9e-b7b1-f8e2548730df",
+  "name": "CLI Workspace Agent",
+  "description": "Reference terminal-chat workflow for the `cheng` CLI: conversation memory, an LLM with Tool Hub (file operations read-enabled, writes approval-gated, sandboxed shell available but disabled) and Skills Hub for skill discovery/execution. Consumes the ambient conversation_id/workspace_id/user_id and the typed execution sandbox; no host path is hardcoded.",
+  "state": "draft",
+  "nodeCount": 8,
+  "edgeCount": 7,
+  "createdAt": "2026-06-11T00:00:00+00:00",
+  "updatedAt": "2026-06-11T00:00:00+00:00",
+  "version": 1,
+  "isFavorite": false,
+  "isTemplate": true,
+  "isDraft": false,
+  "tags": [
+    "ai_chat",
+    "cli",
+    "terminal_chat"
+  ],
+  "visibility": "public",
+  "capabilities": {
+    "terminal_chat": true,
+    "execution_sandbox": true
+  },
+  "definition": {
+    "nodes": [
+      {
+        "nodeId": "a7085ffa-91d6-4731-a69c-ef66ef602acc",
+        "nodeType": "chat/input",
+        "name": "Chat Input",
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "9a1288e3-f506-4b7d-81b4-ceda72818cbe",
+        "nodeType": "chat/memory",
+        "name": "Conversation Memory",
+        "position": {
+          "x": 320,
+          "y": 0
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "4727973d-c2e4-4453-b8f1-4a59eac26406",
+        "nodeType": "ai/llm_config",
+        "name": "LLM Config",
+        "position": {
+          "x": 320,
+          "y": -260
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "419af8d5-2479-41e3-b4de-1e083d71d31d",
+        "nodeType": "ai/llm",
+        "name": "AI Chat",
+        "position": {
+          "x": 680,
+          "y": 0
+        },
+        "config": {
+          "instruction_prompt": "You are a careful workspace agent running inside a sandboxed launch directory. All file paths are relative to the execution sandbox root; you cannot read or write outside it, and write operations require user approval. Use the enabled tools to inspect and modify files when the user asks; prefer reading before writing, explain destructive changes before requesting approval, and keep replies concise. Use the Skills Hub to discover installed skills when a task matches one."
+        }
+      },
+      {
+        "nodeId": "08c394aa-6707-4917-a48c-47c88578bfa9",
+        "nodeType": "tools/tool_hub",
+        "name": "Tool Hub",
+        "position": {
+          "x": 680,
+          "y": 320
+        },
+        "config": {
+          "mode": "user",
+          "enabled_tools": [
+            {
+              "tool": "tools/file_ops_hub",
+              "enabled": true,
+              "operations": [],
+              "read_only": false,
+              "config": {}
+            },
+            {
+              "tool": "tools/code_shell",
+              "enabled": false,
+              "operations": [],
+              "read_only": false,
+              "config": {}
+            }
+          ]
+        }
+      },
+      {
+        "nodeId": "fc95e9a6-72ce-4707-b8f1-c39604dbfe3e",
+        "nodeType": "tools/skills_hub",
+        "name": "Skills Hub",
+        "position": {
+          "x": 1000,
+          "y": 320
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "019d4244-ee17-4604-bc7b-4ac283fc5e91",
+        "nodeType": "chat/save_reply",
+        "name": "Save Reply",
+        "position": {
+          "x": 1040,
+          "y": 0
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "a0233f08-7180-43ab-969b-69e9417fa6a8",
+        "nodeType": "chat/output",
+        "name": "Chat Output",
+        "position": {
+          "x": 1400,
+          "y": 0
+        },
+        "config": {}
+      }
+    ],
+    "edges": [
+      {
+        "edgeId": "ee16cfec-ab2d-4b25-8c4a-0ca175ab0fc7",
+        "sourceNode": "a7085ffa-91d6-4731-a69c-ef66ef602acc",
+        "sourcePort": "user_message",
+        "targetNode": "9a1288e3-f506-4b7d-81b4-ceda72818cbe",
+        "targetPort": "user_message"
+      },
+      {
+        "edgeId": "efb36b1d-6275-4802-a132-b3ba6cebf0ee",
+        "sourceNode": "9a1288e3-f506-4b7d-81b4-ceda72818cbe",
+        "sourcePort": "agent_context",
+        "targetNode": "419af8d5-2479-41e3-b4de-1e083d71d31d",
+        "targetPort": "context"
+      },
+      {
+        "edgeId": "9f730ee9-4bd9-4687-9aee-5462e3581d64",
+        "sourceNode": "4727973d-c2e4-4453-b8f1-4a59eac26406",
+        "sourcePort": "llm_config",
+        "targetNode": "419af8d5-2479-41e3-b4de-1e083d71d31d",
+        "targetPort": "llm_config"
+      },
+      {
+        "edgeId": "b3863770-3a07-4dbd-86ea-64290bcddd16",
+        "sourceNode": "08c394aa-6707-4917-a48c-47c88578bfa9",
+        "sourcePort": "status",
+        "targetNode": "419af8d5-2479-41e3-b4de-1e083d71d31d",
+        "targetPort": "tool_0"
+      },
+      {
+        "edgeId": "1e33f512-1f11-4c8f-b4eb-cf0d2b1efd6a",
+        "sourceNode": "fc95e9a6-72ce-4707-b8f1-c39604dbfe3e",
+        "sourcePort": "status",
+        "targetNode": "419af8d5-2479-41e3-b4de-1e083d71d31d",
+        "targetPort": "tool_1"
+      },
+      {
+        "edgeId": "10864867-f44d-4f19-ae62-5b6318092f23",
+        "sourceNode": "419af8d5-2479-41e3-b4de-1e083d71d31d",
+        "sourcePort": "context",
+        "targetNode": "019d4244-ee17-4604-bc7b-4ac283fc5e91",
+        "targetPort": "context"
+      },
+      {
+        "edgeId": "9cf22c7a-d65a-43b2-a293-f056c62643ba",
+        "sourceNode": "419af8d5-2479-41e3-b4de-1e083d71d31d",
+        "sourcePort": "response",
+        "targetNode": "a0233f08-7180-43ab-969b-69e9417fa6a8",
+        "targetPort": "context"
+      }
+    ]
+  }
+}

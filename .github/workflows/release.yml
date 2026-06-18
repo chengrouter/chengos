@@ -1,0 +1,68 @@
+name: Build and Release ChengOS
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    name: Build & Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Install Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-musl
+
+      - name: Install musl-tools (Required for static compilation)
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+
+      - name: Install Pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'pnpm'
+          cache-dependency-path: |
+            chengflow-ui/pnpm-lock.yaml
+            chengflow-app/pnpm-lock.yaml
+
+      - name: Build chengflow-ui
+        run: |
+          cd chengflow-ui
+          pnpm install --no-frozen-lockfile
+          pnpm build:deploy
+
+      - name: Build chengflow-app
+        run: |
+          cd chengflow-app
+          pnpm install --no-frozen-lockfile
+          pnpm build:deploy
+
+      - name: Build Backend & Package Hybrid Bundle
+        run: |
+          cd chengflow
+          # This builds cheng-api and chengctl (with CLI tool), then bundles everything
+          # into ../dist/chengos-full-linux-amd64.tar.gz
+          ./build.sh --hybrid --with-cli
+
+      - name: Verify Staged Archive
+        run: |
+          ls -lh dist/
+          tar -tzf dist/chengos-full-linux-amd64.tar.gz | head -n 20
+
+      - name: Upload Release Archive
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/chengos-full-linux-amd64.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
