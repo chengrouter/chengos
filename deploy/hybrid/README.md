@@ -95,6 +95,24 @@ bash generate-env.sh --force
 bash start.sh
 ```
 
+You can also use the unified manager from the package/repository root:
+
+```bash
+./chengos.sh install --mode native --with api,ui,app,cli
+./chengos.sh start --mode native
+./chengos.sh status --mode native
+./chengos.sh restart --mode native
+./chengos.sh update --mode native
+./chengos.sh uninstall --mode native
+```
+
+The manager reuses an existing `.env` by default. It does not regenerate
+secrets during install, update, or restart.
+
+When `cli` is selected from a developer workspace, the manager builds the
+`cheng-cli` Cargo package and copies its `cheng` chat binary to `bin/cheng`.
+The command shortcut installer uses that binary for `/usr/local/bin/cheng`.
+
 What it does, in order:
 
 1. Validates Docker is available
@@ -176,6 +194,15 @@ chengos/
 ---
 
 ## Upgrade
+
+Recommended manager path:
+
+```bash
+./chengos.sh update --mode native
+```
+
+The update path preserves `.env`, runtime data, logs, skills, workspaces, and
+language preference.
 
 ```bash
 # 1. Stop the running app (leave infra up to preserve data)

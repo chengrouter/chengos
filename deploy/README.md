@@ -26,6 +26,8 @@ We provide a bilingual bootstrap manager script `chengos.sh` at the workspace ro
 
 我们在根目录下提供了一个中英双语的统一管理脚本 `chengos.sh`，用于调度安装、更新和启停服务。
 
+For the planned installer improvements around initialization defaults, mode-aware updates, uninstall safety, restart, shortcuts, and language switching, see [ChengOS Installer Tool Development Plan](docs/chengos-installer-development-plan.md).
+
 ### 1. Cloned Repository Deployment / 克隆仓库部署
 
 If you have cloned the deployment repository, run:

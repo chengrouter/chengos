@@ -104,11 +104,14 @@ require_hex64 CREDENTIAL_MASTER_KEY_1
 require_hex64 JWT_SECRET
 
 # Add PostgreSQL server binaries to PATH (on Debian/Ubuntu they are under /usr/lib/postgresql/*/bin)
-for pg_bin in /usr/lib/postgresql/*/bin; do
-    if [[ -d "$pg_bin" ]]; then
-        export PATH="$PATH:$pg_bin"
-    fi
-done
+add_pg_bins_to_path() {
+    for pg_bin in /usr/lib/postgresql/*/bin; do
+        if [[ -d "$pg_bin" ]]; then
+            export PATH="$pg_bin:$PATH"
+        fi
+    done
+}
+add_pg_bins_to_path
 
 setup_and_start_postgres() {
     if [[ "$DB_INSTALL_MODE" == "system-service" ]]; then
@@ -156,7 +159,8 @@ setup_and_start_postgres() {
                 fail "Postgres tools (initdb, postgres) are not installed. Please install them manually on your host (e.g. apt-get install postgresql)."
             fi
         fi
-        
+        add_pg_bins_to_path
+
         local pg_data="${SCRIPT_DIR}/runtime/pg-data"
         local pg_pid_file="${SCRIPT_DIR}/runtime/postgres.pid"
         local run_prefix=""
@@ -363,7 +367,10 @@ if has_module "api"; then
     
     if [[ ! -f "$api_pid_file" ]]; then
         [[ -f "$BINARY" ]] || fail "Binary not found: ${BINARY}"
-        [[ -x "$BINARY" ]] || fail "Binary not executable: ${BINARY}"
+        if [[ ! -x "$BINARY" ]]; then
+            log "Binary not executable, fixing permissions: ${BINARY}"
+            chmod +x "$BINARY"
+        fi
         
         # Inject empty REDIS_URL if Redis is disabled
         if [[ "$ENABLE_REDIS" != "true" ]]; then

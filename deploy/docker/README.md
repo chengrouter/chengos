@@ -46,6 +46,17 @@ left untouched.
 bash upgrade.sh
 ```
 
+Through the unified manager, use:
+
+```bash
+./chengos.sh update --mode docker
+./chengos.sh restart --mode docker
+./chengos.sh uninstall --mode docker
+```
+
+The manager preserves `.env` by default. Docker volume and image removal during
+uninstall is prompted separately.
+
 If you are using the remote compose override, run:
 
 ```bash
@@ -104,6 +115,9 @@ backend image.
 cd deploy/docker
 bash start.sh
 ```
+
+For command shortcuts, choose the manager menu item "Install Command Shortcuts";
+it installs shell commands such as `chengos` and, when available, `cheng`.
 
 Open:
 

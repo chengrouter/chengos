@@ -97,6 +97,8 @@ replace_env_line "QDRANT_URL" "http://qdrant:6334"
 replace_env_line "DB_PASSWORD" "${postgres_password}"
 replace_env_line "CREDENTIAL_MASTER_KEY_1" "${credential_master_key_1}"
 replace_env_line "JWT_SECRET" "${jwt_secret}"
+replace_env_line "CHENG_CLI_ALLOWED_ROOTS" "/app/workspace"
+mkdir -p "${SCRIPT_DIR}/workspace"
 
 if [[ -n "$CORS_ORIGIN" ]]; then
   replace_env_line "CORS_ALLOWED_ORIGINS" "${CORS_ORIGIN}"

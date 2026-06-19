@@ -3,12 +3,29 @@ set -euo pipefail
 
 # Root workspace directory
 SCRIPT_PATH="${BASH_SOURCE[0]}"
+SCRIPT_DIR_FROM_CALL="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 if [[ -L "$SCRIPT_PATH" ]]; then
-    SCRIPT_PATH="$(readlink -f "$SCRIPT_PATH")"
+    REAL_SCRIPT_PATH="$(readlink -f "$SCRIPT_PATH")"
+else
+    REAL_SCRIPT_PATH="$SCRIPT_PATH"
 fi
-ROOT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
+REAL_SCRIPT_DIR="$(cd "$(dirname "$REAL_SCRIPT_PATH")" && pwd)"
+
+if [[ -d "${SCRIPT_DIR_FROM_CALL}/deploy/hybrid" || -d "${SCRIPT_DIR_FROM_CALL}/deploy/docker" ]]; then
+    ROOT_DIR="$SCRIPT_DIR_FROM_CALL"
+elif [[ "$REAL_SCRIPT_DIR" == */deploy/hybrid && -d "${REAL_SCRIPT_DIR}/../docker" ]]; then
+    ROOT_DIR="$(cd "${REAL_SCRIPT_DIR}/../.." && pwd)"
+else
+    ROOT_DIR="$REAL_SCRIPT_DIR"
+fi
 cd "$ROOT_DIR"
 
+# Determine sudo prefix (skip when running as root)
+if [[ "$(id -u)" -eq 0 ]]; then
+    SUDO=""
+else
+    SUDO="sudo"
+fi
 
 # ── Dual Mode Detection (Bootstrap vs Local) ──────────────────────────────────
 # If the script is run standalone without the deployment folders around,
@@ -28,6 +45,7 @@ if [[ ! -f "start.sh" && ! -d "hybrid" && ! -d "deploy" ]]; then
     echo "Downloading the latest ChengOS release package..."
     REPO_URL="https://github.com/chengrouter/chengos"
     TARBALL_URL="${REPO_URL}/releases/latest/download/chengos-full-linux-amd64.tar.gz"
+    RELEASE_TAG="$(curl -fsSLI -o /dev/null -w '%{url_effective}' "${REPO_URL}/releases/latest" 2>/dev/null | sed 's#.*/tag/##' || true)"
     
     if ! curl -sSfL "$TARBALL_URL" -o chengos.tar.gz; then
         echo "ERROR: Failed to download release from $TARBALL_URL."
@@ -38,6 +56,7 @@ if [[ ! -f "start.sh" && ! -d "hybrid" && ! -d "deploy" ]]; then
     echo "Extracting release package..."
     tar -xzf chengos.tar.gz --strip-components=1
     rm -f chengos.tar.gz
+    [[ -n "$RELEASE_TAG" ]] && printf '%s\n' "$RELEASE_TAG" > .chengos_version
     
     echo "Starting ChengOS Manager..."
     exec ./chengos.sh
@@ -45,6 +64,8 @@ fi
 
 # ── Local Mode Execution ──────────────────────────────────────────────────────
 LANG_FILE="${ROOT_DIR}/.chengos_lang"
+MODE_FILE="${ROOT_DIR}/.chengos_install_mode"
+VERSION_FILE="${ROOT_DIR}/.chengos_version"
 DEFAULT_LANG="zh"
 
 # Load or ask for language preference
@@ -85,10 +106,11 @@ if [[ "$LANG_VAL" == "zh" ]]; then
     t[menu_status]="4) 查看服务状态 (Status)"
     t[menu_start]="5) 启动服务 (Start)"
     t[menu_stop]="6) 停止服务 (Stop)"
-    t[menu_link]="7) 设置系统命令软链接 (Create Symlink)"
-    t[menu_lang]="8) 切换语言 (Switch Language)"
-    t[menu_exit]="9) 退出 (Exit)"
-    t[select_op]="请选择操作 [1-9]: "
+    t[menu_restart]="7) 重启服务 (Restart)"
+    t[menu_link]="8) 安装系统命令 (Install Command Shortcuts)"
+    t[menu_lang]="9) 切换语言 (Switch Language)"
+    t[menu_exit]="10) 退出 (Exit)"
+    t[select_op]="请选择操作 [1-10]: "
     t[mode_select]="请选择安装模式:\n  1) 二进制原生安装 (Native Host)\n  2) Docker 容器化安装 (Docker)"
     t[mode_prompt]="选择 [1-2] (默认 1): "
     t[install_config]="请选择安装配置:\n  1) 全量安装 (默认)\n  2) 最小安装 (Postgres + API + UI)\n  3) 自定义选择"
@@ -106,9 +128,10 @@ if [[ "$LANG_VAL" == "zh" ]]; then
     t[uninstall_done]="卸载完成！"
     t[stopping]="正在停止所有服务..."
     t[starting]="正在启动服务..."
+    t[restarting]="正在重启服务..."
     t[status_header]="正在查询服务状态..."
-    t[symlink_done]="已创建软链接: /usr/local/bin/chengos -> %s\n现在你可以在任何地方运行 'chengos' 命令了。"
-    t[symlink_fail]="创建软链接失败，请确认是否拥有 sudo 权限。"
+    t[symlink_done]="已安装系统命令: /usr/local/bin/chengos -> %s"
+    t[symlink_fail]="安装系统命令失败，请确认是否拥有 sudo 权限。"
 else
     t[banner]="===========================================\n       ChengOS Unified Management Utility\n==========================================="
     t[menu_install]="1) Install/Initialize Modules"
@@ -117,10 +140,11 @@ else
     t[menu_status]="4) Service Status"
     t[menu_start]="5) Start Services"
     t[menu_stop]="6) Stop Services"
-    t[menu_link]="7) Create System Symlink"
-    t[menu_lang]="8) Switch Language"
-    t[menu_exit]="9) Exit"
-    t[select_op]="Select option [1-9]: "
+    t[menu_restart]="7) Restart Services"
+    t[menu_link]="8) Install Command Shortcuts"
+    t[menu_lang]="9) Switch Language"
+    t[menu_exit]="10) Exit"
+    t[select_op]="Select option [1-10]: "
     t[mode_select]="Select Installation Mode:\n  1) Native Host Binary\n  2) Docker Containers"
     t[mode_prompt]="Choose [1-2] (Default 1): "
     t[install_config]="Select Modules Configuration:\n  1) Full Installation (Default)\n  2) Minimal (Postgres + API + UI)\n  3) Custom Selection"
@@ -138,12 +162,125 @@ else
     t[uninstall_done]="Uninstall completed!"
     t[stopping]="Stopping all services..."
     t[starting]="Starting services..."
+    t[restarting]="Restarting services..."
     t[status_header]="Checking services status..."
-    t[symlink_done]="Created symlink: /usr/local/bin/chengos -> %s\nYou can now run the 'chengos' command from anywhere."
-    t[symlink_fail]="Failed to create symlink. Please make sure you have sudo rights."
+    t[symlink_done]="Installed command shortcut: /usr/local/bin/chengos -> %s"
+    t[symlink_fail]="Failed to install command shortcuts. Please make sure you have sudo rights."
 fi
 
 # ── Utility Helpers ──────────────────────────────────────────────────────────
+
+resolve_hybrid_dir() {
+    if [[ -f "${ROOT_DIR}/start.sh" && -f "${ROOT_DIR}/generate-env.sh" ]]; then
+        printf '%s\n' "$ROOT_DIR"
+    elif [[ -d "${ROOT_DIR}/deploy/hybrid" ]]; then
+        printf '%s\n' "${ROOT_DIR}/deploy/hybrid"
+    else
+        printf '%s\n' "$ROOT_DIR"
+    fi
+}
+
+resolve_docker_dir() {
+    if [[ -f "${ROOT_DIR}/docker-compose.yml" && -f "${ROOT_DIR}/generate-env.sh" ]]; then
+        printf '%s\n' "$ROOT_DIR"
+    elif [[ -d "${ROOT_DIR}/deploy/docker" ]]; then
+        printf '%s\n' "${ROOT_DIR}/deploy/docker"
+    elif [[ -d "${ROOT_DIR}/docker" ]]; then
+        printf '%s\n' "${ROOT_DIR}/docker"
+    else
+        printf '%s\n' "${ROOT_DIR}/deploy/docker"
+    fi
+}
+
+write_install_metadata() {
+    local mode="$1"
+    [[ "$mode" == "native" || "$mode" == "docker" ]] || return 0
+    printf '%s\n' "$mode" > "$MODE_FILE"
+}
+
+read_install_metadata() {
+    if [[ -f "$MODE_FILE" ]]; then
+        local mode
+        mode="$(tr -d '[:space:]' < "$MODE_FILE")"
+        if [[ "$mode" == "native" || "$mode" == "docker" ]]; then
+            printf '%s\n' "$mode"
+            return 0
+        fi
+    fi
+    return 1
+}
+
+detect_install_mode() {
+    local explicit_mode="${1:-}"
+    if [[ "$explicit_mode" == "native" || "$explicit_mode" == "docker" ]]; then
+        printf '%s\n' "$explicit_mode"
+        return 0
+    fi
+
+    if read_install_metadata; then
+        return 0
+    fi
+
+    local hybrid_dir docker_dir
+    hybrid_dir="$(resolve_hybrid_dir)"
+    docker_dir="$(resolve_docker_dir)"
+
+    if [[ -f "${docker_dir}/.env" && ! -f "${hybrid_dir}/.env" ]]; then
+        printf 'docker\n'
+    elif [[ -f "${hybrid_dir}/.env" ]]; then
+        printf 'native\n'
+    elif [[ -f "${docker_dir}/docker-compose.yml" && ! -f "${hybrid_dir}/start.sh" ]]; then
+        printf 'docker\n'
+    else
+        printf 'native\n'
+    fi
+}
+
+ensure_docker_compose() {
+    command -v docker >/dev/null 2>&1 || { echo "Missing command: docker" >&2; exit 1; }
+    docker compose version >/dev/null 2>&1 || { echo "docker compose plugin is required" >&2; exit 1; }
+}
+
+compute_native_modules() {
+    local hybrid_dir="$1"
+    local modules="api"
+    [[ -d "${hybrid_dir}/ui" && "$(ls -A "${hybrid_dir}/ui" 2>/dev/null)" ]] && modules="${modules},ui"
+    [[ -d "${hybrid_dir}/app" && "$(ls -A "${hybrid_dir}/app" 2>/dev/null)" ]] && modules="${modules},app"
+    printf '%s\n' "$modules"
+}
+
+find_chengflow_binary() {
+    local binary_name="$1"
+    local binary_path
+
+    for binary_path in \
+        "${ROOT_DIR}/chengflow/target/release/${binary_name}" \
+        "${ROOT_DIR}/chengflow/target/"*/release/"${binary_name}"
+    do
+        if [[ -f "$binary_path" ]]; then
+            printf '%s\n' "$binary_path"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+copy_chengflow_binary() {
+    local binary_name="$1"
+    local target_name="$2"
+    local target_dir="$3"
+    local source_path
+
+    source_path="$(find_chengflow_binary "$binary_name")" || {
+        echo "ERROR: Built binary not found: ${binary_name}" >&2
+        return 1
+    }
+
+    cp "$source_path" "${target_dir}/${target_name}"
+    chmod +x "${target_dir}/${target_name}"
+    echo "Copied ${binary_name}: ${source_path} -> ${target_dir}/${target_name}"
+}
 
 # Run sub-command in Docker or Native
 run_service_cmd() {
@@ -152,35 +289,32 @@ run_service_cmd() {
     local with_infra="${3:-false}"
 
     if [[ "$mode" == "docker" ]]; then
-        # Resolve docker deploy directory
-        local docker_dir=""
-        if [[ -d "${ROOT_DIR}/deploy/docker" ]]; then
-            docker_dir="${ROOT_DIR}/deploy/docker"
-        else
-            docker_dir="${ROOT_DIR}/docker"
-        fi
+        local docker_dir
+        docker_dir="$(resolve_docker_dir)"
         
         cd "$docker_dir"
         if [[ "$cmd" == "start" ]]; then
             [[ -f .env ]] || bash generate-env.sh
-            docker compose up -d
+            if [[ -f start.sh ]]; then
+                bash start.sh
+            else
+                ensure_docker_compose
+                docker compose up -d
+            fi
         elif [[ "$cmd" == "stop" ]]; then
+            ensure_docker_compose
             if [[ "$with_infra" == "true" ]]; then
                 docker compose down -v
             else
                 docker compose down
             fi
         elif [[ "$cmd" == "status" ]]; then
+            ensure_docker_compose
             docker compose ps
         fi
     else
-        # Resolve hybrid/native deploy directory
-        local hybrid_dir=""
-        if [[ -d "${ROOT_DIR}/deploy/hybrid" ]]; then
-            hybrid_dir="${ROOT_DIR}/deploy/hybrid"
-        else
-            hybrid_dir="${ROOT_DIR}"
-        fi
+        local hybrid_dir
+        hybrid_dir="$(resolve_hybrid_dir)"
         
         cd "$hybrid_dir"
         if [[ "$cmd" == "start" ]]; then
@@ -206,12 +340,8 @@ setup_native_env() {
     local ui_port="$4"
     local app_port="$5"
 
-    local hybrid_dir=""
-    if [[ -d "${ROOT_DIR}/deploy/hybrid" ]]; then
-        hybrid_dir="${ROOT_DIR}/deploy/hybrid"
-    else
-        hybrid_dir="${ROOT_DIR}"
-    fi
+    local hybrid_dir
+    hybrid_dir="$(resolve_hybrid_dir)"
 
     cd "$hybrid_dir"
     export DB_INSTALL_MODE="$db_mode"
@@ -220,8 +350,12 @@ setup_native_env() {
     export UI_PORT="$ui_port"
     export APP_PORT="$app_port"
 
-    echo "Generating environment configuration (.env)..."
-    bash generate-env.sh --force
+    if [[ -f .env ]]; then
+        echo "Using existing environment configuration: ${hybrid_dir}/.env"
+    else
+        echo "Generating environment configuration (.env)..."
+        bash generate-env.sh
+    fi
 }
 
 # Setup env for docker
@@ -231,17 +365,110 @@ setup_docker_env() {
     local ui_port="$3"
     local app_port="$4"
 
-    local docker_dir=""
-    if [[ -d "${ROOT_DIR}/deploy/docker" ]]; then
-        docker_dir="${ROOT_DIR}/deploy/docker"
-    else
-        docker_dir="${ROOT_DIR}/docker"
-    fi
+    local docker_dir
+    docker_dir="$(resolve_docker_dir)"
 
     cd "$docker_dir"
-    bash generate-env.sh --force
-    perl -0pi -e "s/^UI_PORT=.*/UI_PORT=${ui_port}/m" .env || true
-    perl -0pi -e "s/^APP_PORT=.*/APP_PORT=${app_port}/m" .env || true
+    if [[ -f .env ]]; then
+        echo "Using existing Docker environment configuration: ${docker_dir}/.env"
+    else
+        bash generate-env.sh
+        perl -0pi -e "s/^UI_PORT=.*/UI_PORT=${ui_port}/m" .env || true
+        perl -0pi -e "s/^APP_PORT=.*/APP_PORT=${app_port}/m" .env || true
+    fi
+}
+
+update_docker_install() {
+    local docker_dir
+    docker_dir="$(resolve_docker_dir)"
+    cd "$docker_dir"
+    ensure_docker_compose
+    [[ -f .env ]] || bash generate-env.sh
+    if [[ -f upgrade.sh ]]; then
+        bash upgrade.sh
+    else
+        docker compose pull
+        docker compose up -d
+    fi
+}
+
+update_native_install() {
+    local hybrid_dir latest_tag local_version
+    hybrid_dir="$(resolve_hybrid_dir)"
+    cd "$hybrid_dir"
+    [[ -f .env ]] || bash generate-env.sh
+
+    if [[ -d "${ROOT_DIR}/.git" ]]; then
+        git -C "$ROOT_DIR" pull
+        return 0
+    fi
+
+    local_version=""
+    [[ -f "$VERSION_FILE" ]] && local_version="$(tr -d '[:space:]' < "$VERSION_FILE")"
+    latest_tag="$(curl -fsSLI -o /dev/null -w '%{url_effective}' https://github.com/chengrouter/chengos/releases/latest 2>/dev/null | sed 's#.*/tag/##')"
+    if [[ -n "$local_version" && -n "$latest_tag" && "$local_version" == "$latest_tag" ]]; then
+        echo "Native package is already current (${local_version})."
+        return 0
+    fi
+
+    local temp_tar temp_dir was_running
+    temp_tar="/tmp/chengos_update_$$.tar.gz"
+    temp_dir="/tmp/chengos_update_$$"
+    was_running="false"
+    [[ -f "${hybrid_dir}/runtime/cheng-api.pid" ]] && was_running="true"
+
+    curl -fsSL "https://github.com/chengrouter/chengos/releases/latest/download/chengos-full-linux-amd64.tar.gz" -o "$temp_tar"
+    mkdir -p "$temp_dir"
+    tar -xzf "$temp_tar" -C "$temp_dir" --strip-components=1
+
+    bash "${hybrid_dir}/stop.sh" || true
+    for item in bin ui app chengos.sh start.sh stop.sh status.sh generate-env.sh .env.example; do
+        [[ -e "${temp_dir}/${item}" ]] || continue
+        rm -rf "${hybrid_dir:?}/${item}"
+        cp -a "${temp_dir}/${item}" "${hybrid_dir}/${item}"
+    done
+    chmod +x "${hybrid_dir}/"*.sh "${hybrid_dir}/bin/"* 2>/dev/null || true
+    [[ -n "$latest_tag" ]] && printf '%s\n' "$latest_tag" > "$VERSION_FILE"
+    rm -rf "$temp_tar" "$temp_dir"
+    [[ "$was_running" == "true" ]] && bash "${hybrid_dir}/start.sh"
+}
+
+uninstall_docker_install() {
+    local docker_dir
+    docker_dir="$(resolve_docker_dir)"
+    cd "$docker_dir"
+    if [[ ! -f docker-compose.yml ]]; then
+        echo "Docker installation not found."
+        return 0
+    fi
+    ensure_docker_compose
+    docker compose down
+    read -p "Remove ChengOS Docker volumes and persistent data? (y/n) [Default n]: " remove_data < /dev/tty
+    if [[ "$remove_data" =~ ^[Yy]$ ]]; then
+        docker compose down -v
+    fi
+    read -p "Remove ChengOS Docker images? (y/n) [Default n]: " remove_images < /dev/tty
+    if [[ "$remove_images" =~ ^[Yy]$ ]]; then
+        docker compose --env-file .env config --images 2>/dev/null | sort -u | xargs -r docker image rm || true
+    fi
+}
+
+uninstall_native_install() {
+    local hybrid_dir
+    hybrid_dir="$(resolve_hybrid_dir)"
+    if [[ ! -f "${hybrid_dir}/start.sh" ]]; then
+        echo "Native installation not found."
+        return 0
+    fi
+    echo "This removes package-owned binaries and static assets only. .env, logs, runtime data, skills, and workspaces are kept by default."
+    read -p "Continue uninstalling native package files? (y/n) [Default n]: " confirm < /dev/tty
+    [[ "$confirm" =~ ^[Yy]$ ]] || return 0
+    bash "${hybrid_dir}/stop.sh" || true
+    rm -rf "${hybrid_dir}/bin" "${hybrid_dir}/ui" "${hybrid_dir}/app"
+    read -p "Also remove runtime data and logs? (y/n) [Default n]: " remove_data < /dev/tty
+    if [[ "$remove_data" =~ ^[Yy]$ ]]; then
+        rm -rf "${hybrid_dir}/runtime" "${hybrid_dir}/logs"
+    fi
 }
 
 # ── CLI Commands Execution ───────────────────────────────────────────────────
@@ -250,7 +477,7 @@ if [[ $# -gt 0 ]]; then
     CMD="$1"
     shift
     
-    MODE="native"
+    MODE=""
     WITH_MODULES="api,ui,app,pg,redis,qdrant"
     DB_INSTALL_MODE="managed-process"
     UI_PORT=8080
@@ -290,6 +517,12 @@ if [[ $# -gt 0 ]]; then
         esac
     done
 
+    if [[ -n "$MODE" && "$MODE" != "native" && "$MODE" != "docker" ]]; then
+        echo "Invalid mode: $MODE"
+        exit 1
+    fi
+    MODE="$(detect_install_mode "$MODE")"
+
     case "$CMD" in
         install)
             echo "${t[install_start]}"
@@ -307,7 +540,9 @@ if [[ $# -gt 0 ]]; then
             [[ "$WITH_MODULES" == *"cli"* ]] && enable_cli="true"
 
             # Check if we are in a Developer Workspace (source folders exist)
-            if [[ -d "${ROOT_DIR}/chengflow" && -d "${ROOT_DIR}/chengflow-ui" ]]; then
+            if [[ "$MODE" == "docker" ]]; then
+                echo "Docker mode selected. Skipping native binary/frontend asset preparation."
+            elif [[ -d "${ROOT_DIR}/chengflow" && -d "${ROOT_DIR}/chengflow-ui" ]]; then
                 echo "Developer workspace detected. Compiling from source..."
                 
                 # 1. Build Frontends
@@ -326,24 +561,20 @@ if [[ $# -gt 0 ]]; then
                 echo "Building backend Cargo packages..."
                 cd "${ROOT_DIR}/chengflow"
                 CARGO_MODULES="-p cheng-api"
-                [[ "$enable_cli" == "true" ]] && CARGO_MODULES="$CARGO_MODULES -p chengctl"
+                [[ "$enable_cli" == "true" ]] && CARGO_MODULES="$CARGO_MODULES -p cheng-cli"
                 cargo build --release $CARGO_MODULES
 
                 # Copy binaries to hybrid/bin
-                mkdir -p "${ROOT_DIR}/deploy/hybrid/bin"
-                cp "${ROOT_DIR}/chengflow/target/release/cheng-api" "${ROOT_DIR}/deploy/hybrid/bin/cheng-api"
+                hybrid_dir="$(resolve_hybrid_dir)"
+                mkdir -p "${hybrid_dir}/bin"
+                copy_chengflow_binary "cheng-api" "cheng-api" "${hybrid_dir}/bin"
                 if [[ "$enable_cli" == "true" ]]; then
-                    cp "${ROOT_DIR}/chengflow/target/release/chengctl" "${ROOT_DIR}/deploy/hybrid/bin/chengctl"
+                    copy_chengflow_binary "cheng" "cheng" "${hybrid_dir}/bin"
                 fi
             else
                 echo "Release bundle detected. Skipping source compilation."
                 
-                hybrid_dir=""
-                if [[ -d "${ROOT_DIR}/deploy/hybrid" ]]; then
-                    hybrid_dir="${ROOT_DIR}/deploy/hybrid"
-                else
-                    hybrid_dir="${ROOT_DIR}"
-                fi
+                hybrid_dir="$(resolve_hybrid_dir)"
 
                 # Check if cheng-api binary or frontend static folders are missing
                 if [[ ! -f "${hybrid_dir}/bin/cheng-api" || ! -d "${hybrid_dir}/ui" || ! -d "${hybrid_dir}/app" ]]; then
@@ -368,6 +599,7 @@ if [[ $# -gt 0 ]]; then
                     # Copy bin, ui, app back to hybrid directory
                     mkdir -p "${hybrid_dir}/bin"
                     cp -a "${TEMP_DIR}/bin/." "${hybrid_dir}/bin/"
+                    chmod +x "${hybrid_dir}/bin/"*
                     cp -a "${TEMP_DIR}/ui/." "${hybrid_dir}/ui/"
                     cp -a "${TEMP_DIR}/app/." "${hybrid_dir}/app/"
                     
@@ -384,6 +616,14 @@ if [[ $# -gt 0 ]]; then
             else
                 setup_native_env "$DB_INSTALL_MODE" "$enable_redis" "$enable_qdrant" "$UI_PORT" "$APP_PORT"
             fi
+            write_install_metadata "$MODE"
+
+            # Ensure all binaries are executable
+            hybrid_dir="$(resolve_hybrid_dir)"
+            if [[ -d "${hybrid_dir}/bin" ]]; then
+                chmod +x "${hybrid_dir}/bin/"* 2>/dev/null || true
+            fi
+
             echo "${t[install_done]}"
             ;;
             
@@ -393,21 +633,14 @@ if [[ $# -gt 0 ]]; then
                 run_service_cmd start docker
             else
                 # Load config to see what modules to launch
-                hybrid_dir=""
-                if [[ -d "${ROOT_DIR}/deploy/hybrid" ]]; then
-                    hybrid_dir="${ROOT_DIR}/deploy/hybrid"
-                else
-                    hybrid_dir="${ROOT_DIR}"
-                fi
+                hybrid_dir="$(resolve_hybrid_dir)"
                 cd "$hybrid_dir"
                 if [[ -f .env ]]; then
                     # shellcheck disable=SC1090
                     set -a; source .env; set +a
                 fi
                 
-                modules="api"
-                [[ -d ui && "$(ls -A ui 2>/dev/null)" ]] && modules="${modules},ui"
-                [[ -d app && "$(ls -A app 2>/dev/null)" ]] && modules="${modules},app"
+                modules="$(compute_native_modules "$hybrid_dir")"
                 
                 run_service_cmd start native --with "$modules"
             fi
@@ -422,31 +655,37 @@ if [[ $# -gt 0 ]]; then
             echo "${t[status_header]}"
             run_service_cmd status "$MODE"
             ;;
+
+        restart)
+            echo "${t[restarting]}"
+            if [[ "$MODE" == "docker" ]]; then
+                run_service_cmd stop docker false
+                run_service_cmd start docker
+            else
+                hybrid_dir="$(resolve_hybrid_dir)"
+                modules="$(compute_native_modules "$hybrid_dir")"
+                run_service_cmd stop native false
+                run_service_cmd start native --with "$modules"
+            fi
+            ;;
             
         uninstall)
             echo "${t[uninstall_start]}"
-            run_service_cmd stop "$MODE" true
             if [[ "$MODE" == "native" ]]; then
-                target_dir=""
-                if [[ -d "${ROOT_DIR}/deploy/hybrid" ]]; then
-                    target_dir="${ROOT_DIR}/deploy/hybrid"
-                else
-                    target_dir="${ROOT_DIR}"
-                fi
-                rm -rf "${target_dir}/bin/"*
-                rm -rf "${target_dir}/ui/"*
-                rm -rf "${target_dir}/app/"*
-                rm -rf "${target_dir}/runtime/"*
+                uninstall_native_install
+            else
+                uninstall_docker_install
             fi
             echo "${t[uninstall_done]}"
             ;;
             
         update)
             echo "${t[update_start]}"
-            if [[ -d "${ROOT_DIR}/.git" ]]; then
-                git pull
+            if [[ "$MODE" == "docker" ]]; then
+                update_docker_install
+            else
+                update_native_install
             fi
-            ./chengos.sh install --mode "$MODE" --with "$WITH_MODULES" --db-install-mode "$DB_INSTALL_MODE" --ui-port "$UI_PORT" --app-port "$APP_PORT"
             echo "${t[update_done]}"
             ;;
             
@@ -469,6 +708,7 @@ while true; do
     echo "  ${t[menu_status]}"
     echo "  ${t[menu_start]}"
     echo "  ${t[menu_stop]}"
+    echo "  ${t[menu_restart]}"
     echo "  ${t[menu_link]}"
     echo "  ${t[menu_lang]}"
     echo "  ${t[menu_exit]}"
@@ -552,12 +792,7 @@ while true; do
             
         2)
             clear
-            install_mode="native"
-            if [[ -f "${ROOT_DIR}/.env" && $(grep -c "DB_INSTALL_MODE" "${ROOT_DIR}/.env" || true) -gt 0 ]] || [[ -d "${ROOT_DIR}/deploy/hybrid" ]]; then
-                install_mode="native"
-            elif [[ -d "${ROOT_DIR}/deploy/docker" || -d "${ROOT_DIR}/docker" ]]; then
-                install_mode="docker"
-            fi
+            install_mode="$(detect_install_mode)"
             echo ""
             bash "$0" update --mode "$install_mode"
             read -p "Press Enter to continue..." dummy < /dev/tty
@@ -565,12 +800,7 @@ while true; do
             
         3)
             clear
-            install_mode="native"
-            if [[ -f "${ROOT_DIR}/.env" ]] || [[ -d "${ROOT_DIR}/deploy/hybrid" ]]; then
-                install_mode="native"
-            elif [[ -d "${ROOT_DIR}/deploy/docker" || -d "${ROOT_DIR}/docker" ]]; then
-                install_mode="docker"
-            fi
+            install_mode="$(detect_install_mode)"
             echo ""
             bash "$0" uninstall --mode "$install_mode"
             read -p "Press Enter to continue..." dummy < /dev/tty
@@ -578,12 +808,7 @@ while true; do
             
         4)
             clear
-            install_mode="native"
-            if [[ -f "${ROOT_DIR}/.env" ]] || [[ -d "${ROOT_DIR}/deploy/hybrid" ]]; then
-                install_mode="native"
-            elif [[ -d "${ROOT_DIR}/deploy/docker" || -d "${ROOT_DIR}/docker" ]]; then
-                install_mode="docker"
-            fi
+            install_mode="$(detect_install_mode)"
             echo ""
             bash "$0" status --mode "$install_mode"
             read -p "Press Enter to continue..." dummy < /dev/tty
@@ -591,12 +816,7 @@ while true; do
             
         5)
             clear
-            install_mode="native"
-            if [[ -f "${ROOT_DIR}/.env" ]] || [[ -d "${ROOT_DIR}/deploy/hybrid" ]]; then
-                install_mode="native"
-            elif [[ -d "${ROOT_DIR}/deploy/docker" || -d "${ROOT_DIR}/docker" ]]; then
-                install_mode="docker"
-            fi
+            install_mode="$(detect_install_mode)"
             echo ""
             bash "$0" start --mode "$install_mode"
             read -p "Press Enter to continue..." dummy < /dev/tty
@@ -604,12 +824,7 @@ while true; do
             
         6)
             clear
-            install_mode="native"
-            if [[ -f "${ROOT_DIR}/.env" ]] || [[ -d "${ROOT_DIR}/deploy/hybrid" ]]; then
-                install_mode="native"
-            elif [[ -d "${ROOT_DIR}/deploy/docker" || -d "${ROOT_DIR}/docker" ]]; then
-                install_mode="docker"
-            fi
+            install_mode="$(detect_install_mode)"
             echo ""
             read -p "Do you also want to stop/delete database services? (y/n) [Default n]: " clean_db < /dev/tty
             if [[ "$clean_db" =~ ^[Yy]$ ]]; then
@@ -622,21 +837,27 @@ while true; do
             
         7)
             clear
-            echo "Creating system-wide symlink for chengos..."
+            install_mode="$(detect_install_mode)"
+            echo ""
+            bash "$0" restart --mode "$install_mode"
+            read -p "Press Enter to continue..." dummy < /dev/tty
+            ;;
+
+        8)
+            clear
+            echo "Installing system command shortcut for chengos..."
             success=true
-            if ! sudo ln -sf "${ROOT_DIR}/chengos.sh" /usr/local/bin/chengos 2>/dev/null; then
+            if ! ${SUDO} ln -sf "${ROOT_DIR}/chengos.sh" /usr/local/bin/chengos 2>/dev/null; then
                 success=false
             fi
             
-            hybrid_dir="${ROOT_DIR}"
-            if [[ -d "${ROOT_DIR}/deploy/hybrid" ]]; then
-                hybrid_dir="${ROOT_DIR}/deploy/hybrid"
-            fi
+            hybrid_dir="$(resolve_hybrid_dir)"
             
             if [[ -f "${hybrid_dir}/bin/cheng" ]]; then
                 echo "Creating system-wide launcher for cheng..."
-                sudo rm -f /usr/local/bin/cheng 2>/dev/null
-                if ! sudo tee /usr/local/bin/cheng >/dev/null <<EOF
+                chmod +x "${hybrid_dir}/bin/cheng" 2>/dev/null || true
+                ${SUDO} rm -f /usr/local/bin/cheng 2>/dev/null || true
+                if ! ${SUDO} tee /usr/local/bin/cheng >/dev/null <<EOF
 #!/usr/bin/env bash
 if [[ "\${1:-}" == "chat" || "\${1:-}" == "help" || "\${1:-}" == "-h" || "\${1:-}" == "--help" || "\${1:-}" == "-V" || "\${1:-}" == "--version" ]]; then
     exec "${hybrid_dir}/bin/cheng" "\$@"
@@ -647,7 +868,7 @@ EOF
                 then
                     success=false
                 fi
-                sudo chmod +x /usr/local/bin/cheng 2>/dev/null || success=false
+                ${SUDO} chmod +x /usr/local/bin/cheng 2>/dev/null || success=false
             fi
             
             if [[ "$success" == "true" ]]; then
@@ -667,13 +888,13 @@ EOF
             read -p "Press Enter to continue..." dummy < /dev/tty
             ;;
             
-        8)
+        9)
             clear
             set_language
             exec bash "$0"
             ;;
             
-        9)
+        10)
             echo "Goodbye!"
             exit 0
             ;;

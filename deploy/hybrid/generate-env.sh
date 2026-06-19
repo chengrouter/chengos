@@ -73,6 +73,9 @@ enable_qdrant="${ENABLE_QDRANT:-false}"
 db_install_mode="${DB_INSTALL_MODE:-managed-process}"
 ui_port="${UI_PORT:-8080}"
 app_port="${APP_PORT:-5055}"
+cli_workspace="${CHENG_CLI_WORKSPACE:-${SCRIPT_DIR}/workspace}"
+mkdir -p "$cli_workspace"
+cli_workspace="$(cd "$cli_workspace" && pwd)"
 
 if [[ "$enable_redis" == "true" ]]; then
     replace_env_line "REDIS_URL" "redis://:${redis_password}@127.0.0.1:6379"
@@ -89,6 +92,7 @@ replace_env_line "ENABLE_REDIS" "${enable_redis}"
 replace_env_line "ENABLE_QDRANT" "${enable_qdrant}"
 replace_env_line "UI_PORT" "${ui_port}"
 replace_env_line "APP_PORT" "${app_port}"
+replace_env_line "CHENG_CLI_ALLOWED_ROOTS" "${cli_workspace}"
 
 if [[ -n "$CORS_ORIGIN" ]]; then
     replace_env_line "CORS_ALLOWED_ORIGINS" "${CORS_ORIGIN}"
