@@ -66,6 +66,8 @@ fi
 LANG_FILE="${ROOT_DIR}/.chengos_lang"
 MODE_FILE="${ROOT_DIR}/.chengos_install_mode"
 VERSION_FILE="${ROOT_DIR}/.chengos_version"
+UPDATE_BRANCH="${CHENGOS_UPDATE_BRANCH:-main}"
+RAW_BASE_URL="${CHENGOS_RAW_BASE_URL:-https://raw.githubusercontent.com/chengrouter/chengos/${UPDATE_BRANCH}}"
 DEFAULT_LANG="zh"
 
 # Load or ask for language preference
@@ -392,20 +394,143 @@ update_docker_install() {
     fi
 }
 
+download_text_file() {
+    local url="$1"
+    local target="$2"
+    local tmp_file
+
+    tmp_file="${target}.tmp.$$"
+    if ! curl -fsSL "$url" -o "$tmp_file"; then
+        rm -f "$tmp_file"
+        return 1
+    fi
+    if [[ ! -s "$tmp_file" ]]; then
+        echo "Downloaded file is empty: ${url}" >&2
+        rm -f "$tmp_file"
+        return 1
+    fi
+    mv "$tmp_file" "$target"
+}
+
+update_script_files() {
+    local hybrid_dir docker_dir updated_any
+    hybrid_dir="$(resolve_hybrid_dir)"
+    docker_dir="$(resolve_docker_dir)"
+    updated_any="false"
+
+    echo "Refreshing ChengOS installer/deployment scripts from GitHub branch: ${UPDATE_BRANCH}"
+    echo "Source: ${RAW_BASE_URL}"
+
+    update_one_script() {
+        local relative_path="$1"
+        local target_path="$2"
+        local tmp_path
+
+        mkdir -p "$(dirname "$target_path")"
+        tmp_path="${target_path}.download.$$"
+        echo "Checking ${relative_path}"
+        if ! download_text_file "${RAW_BASE_URL}/${relative_path}" "$tmp_path"; then
+            echo "ERROR: Failed to download ${relative_path}" >&2
+            rm -f "$tmp_path"
+            return 1
+        fi
+        if [[ -f "$target_path" ]] && cmp -s "$tmp_path" "$target_path"; then
+            echo "Already current: ${target_path}"
+            rm -f "$tmp_path"
+            return 0
+        fi
+        mv "$tmp_path" "$target_path"
+        case "$target_path" in
+            *.sh|*/chengos.sh) chmod +x "$target_path" 2>/dev/null || true ;;
+        esac
+        echo "Updated: ${target_path}"
+        updated_any="true"
+    }
+
+    update_one_script "deploy/hybrid/chengos.sh" "${hybrid_dir}/chengos.sh"
+    update_one_script "deploy/hybrid/start.sh" "${hybrid_dir}/start.sh"
+    update_one_script "deploy/hybrid/stop.sh" "${hybrid_dir}/stop.sh"
+    update_one_script "deploy/hybrid/status.sh" "${hybrid_dir}/status.sh"
+    update_one_script "deploy/hybrid/generate-env.sh" "${hybrid_dir}/generate-env.sh"
+    update_one_script "deploy/hybrid/.env.example" "${hybrid_dir}/.env.example"
+
+    if [[ -d "$docker_dir" || -f "${docker_dir}/docker-compose.yml" ]]; then
+        update_one_script "deploy/docker/start.sh" "${docker_dir}/start.sh"
+        update_one_script "deploy/docker/upgrade.sh" "${docker_dir}/upgrade.sh"
+        update_one_script "deploy/docker/generate-env.sh" "${docker_dir}/generate-env.sh"
+        update_one_script "deploy/docker/docker-compose.yml" "${docker_dir}/docker-compose.yml"
+        update_one_script "deploy/docker/docker-compose.binds.yml" "${docker_dir}/docker-compose.binds.yml"
+        update_one_script "deploy/docker/docker-compose.remote.yml" "${docker_dir}/docker-compose.remote.yml"
+        update_one_script "deploy/docker/.env.example" "${docker_dir}/.env.example"
+    fi
+
+    if [[ "$updated_any" == "true" ]]; then
+        echo "Script update completed. Re-run ./chengos.sh for the refreshed manager if this command was launched from the old script."
+    else
+        echo "Installer/deployment scripts are already current."
+    fi
+}
+
 update_native_install() {
     local hybrid_dir latest_tag local_version
     hybrid_dir="$(resolve_hybrid_dir)"
     cd "$hybrid_dir"
-    [[ -f .env ]] || bash generate-env.sh
+    echo "Native deployment directory: ${hybrid_dir}"
+    if [[ -f .env ]]; then
+        echo "Using existing environment configuration: ${hybrid_dir}/.env"
+    else
+        echo "Environment file is missing; generating ${hybrid_dir}/.env"
+        bash generate-env.sh
+    fi
 
-    if [[ -d "${ROOT_DIR}/.git" ]]; then
-        git -C "$ROOT_DIR" pull
+    if git -C "$ROOT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        local before after upstream
+        before="$(git -C "$ROOT_DIR" rev-parse --short HEAD)"
+        upstream="$(git -C "$ROOT_DIR" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || true)"
+        echo "Git checkout detected: ${ROOT_DIR}"
+        echo "Current revision: ${before}"
+        if [[ -n "$upstream" ]]; then
+            echo "Updating from upstream: ${upstream}"
+        else
+            echo "No upstream branch configured; running git pull --ff-only"
+        fi
+
+        if ! git -C "$ROOT_DIR" fetch --prune; then
+            echo "ERROR: git fetch failed. Check network access and repository permissions." >&2
+            return 1
+        fi
+
+        if [[ -n "$upstream" ]]; then
+            if ! git -C "$ROOT_DIR" merge --ff-only "$upstream"; then
+                echo "ERROR: fast-forward update failed. Resolve local changes or branch divergence, then retry." >&2
+                return 1
+            fi
+        else
+            if ! git -C "$ROOT_DIR" pull --ff-only; then
+                echo "ERROR: git pull failed. Configure an upstream branch or update manually." >&2
+                return 1
+            fi
+        fi
+
+        after="$(git -C "$ROOT_DIR" rev-parse --short HEAD)"
+        if [[ "$before" == "$after" ]]; then
+            echo "Git checkout is already current (${after})."
+        else
+            echo "Updated Git checkout: ${before} -> ${after}"
+        fi
         return 0
     fi
 
     local_version=""
     [[ -f "$VERSION_FILE" ]] && local_version="$(tr -d '[:space:]' < "$VERSION_FILE")"
-    latest_tag="$(curl -fsSLI -o /dev/null -w '%{url_effective}' https://github.com/chengrouter/chengos/releases/latest 2>/dev/null | sed 's#.*/tag/##')"
+    echo "Release bundle detected. Checking latest ChengOS release..."
+    latest_url=""
+    if ! latest_url="$(curl -fsSLI -o /dev/null -w '%{url_effective}' https://github.com/chengrouter/chengos/releases/latest 2>&1)"; then
+        echo "ERROR: Failed to query latest release from GitHub." >&2
+        echo "$latest_url" >&2
+        return 1
+    fi
+    latest_tag="$(printf '%s' "$latest_url" | sed 's#.*/tag/##')"
     if [[ -n "$local_version" && -n "$latest_tag" && "$local_version" == "$latest_tag" ]]; then
         echo "Native package is already current (${local_version})."
         return 0
@@ -417,20 +542,35 @@ update_native_install() {
     was_running="false"
     [[ -f "${hybrid_dir}/runtime/cheng-api.pid" ]] && was_running="true"
 
-    curl -fsSL "https://github.com/chengrouter/chengos/releases/latest/download/chengos-full-linux-amd64.tar.gz" -o "$temp_tar"
+    echo "Downloading latest release package..."
+    if ! curl -fL "https://github.com/chengrouter/chengos/releases/latest/download/chengos-full-linux-amd64.tar.gz" -o "$temp_tar"; then
+        echo "ERROR: Failed to download ChengOS release package." >&2
+        rm -f "$temp_tar"
+        return 1
+    fi
     mkdir -p "$temp_dir"
-    tar -xzf "$temp_tar" -C "$temp_dir" --strip-components=1
+    if ! tar -xzf "$temp_tar" -C "$temp_dir" --strip-components=1; then
+        echo "ERROR: Failed to extract ChengOS release package." >&2
+        rm -rf "$temp_tar" "$temp_dir"
+        return 1
+    fi
 
+    echo "Stopping services before replacing package-owned files..."
     bash "${hybrid_dir}/stop.sh" || true
     for item in bin ui app chengos.sh start.sh stop.sh status.sh generate-env.sh .env.example; do
         [[ -e "${temp_dir}/${item}" ]] || continue
+        echo "Replacing ${item}"
         rm -rf "${hybrid_dir:?}/${item}"
         cp -a "${temp_dir}/${item}" "${hybrid_dir}/${item}"
     done
     chmod +x "${hybrid_dir}/"*.sh "${hybrid_dir}/bin/"* 2>/dev/null || true
     [[ -n "$latest_tag" ]] && printf '%s\n' "$latest_tag" > "$VERSION_FILE"
     rm -rf "$temp_tar" "$temp_dir"
-    [[ "$was_running" == "true" ]] && bash "${hybrid_dir}/start.sh"
+    if [[ "$was_running" == "true" ]]; then
+        echo "Services were running before update; restarting..."
+        bash "${hybrid_dir}/start.sh"
+    fi
+    echo "Native package update completed."
 }
 
 uninstall_docker_install() {
@@ -483,6 +623,7 @@ if [[ $# -gt 0 ]]; then
     UI_PORT=8080
     APP_PORT=5055
     WITH_INFRA_OPT="false"
+    UPDATE_KIND="auto"
     
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -508,6 +649,14 @@ if [[ $# -gt 0 ]]; then
                 ;;
             --with-infra)
                 WITH_INFRA_OPT="true"
+                shift
+                ;;
+            --scripts-only)
+                UPDATE_KIND="scripts"
+                shift
+                ;;
+            --package-only)
+                UPDATE_KIND="package"
                 shift
                 ;;
             *)
@@ -682,9 +831,23 @@ if [[ $# -gt 0 ]]; then
         update)
             echo "${t[update_start]}"
             if [[ "$MODE" == "docker" ]]; then
-                update_docker_install
+                if [[ "$UPDATE_KIND" == "scripts" ]]; then
+                    update_script_files
+                elif [[ "$UPDATE_KIND" == "package" ]]; then
+                    update_docker_install
+                else
+                    update_script_files
+                    update_docker_install
+                fi
             else
-                update_native_install
+                if [[ "$UPDATE_KIND" == "scripts" ]]; then
+                    update_script_files
+                elif [[ "$UPDATE_KIND" == "package" ]]; then
+                    update_native_install
+                else
+                    update_script_files
+                    update_native_install
+                fi
             fi
             echo "${t[update_done]}"
             ;;
@@ -793,8 +956,20 @@ while true; do
         2)
             clear
             install_mode="$(detect_install_mode)"
+            echo "Select update type:"
+            echo "  1) Script update only (chengos.sh/start.sh/stop.sh/status.sh/generate-env.sh)"
+            echo "  2) Package update only (release tar.gz or Docker images)"
+            echo "  3) Script update, then package update"
+            read -p "Choose [1-3] (Default 1): " update_choice < /dev/tty
+            update_flag="--scripts-only"
+            [[ "$update_choice" == "2" ]] && update_flag="--package-only"
+            [[ "$update_choice" == "3" ]] && update_flag=""
             echo ""
-            bash "$0" update --mode "$install_mode"
+            if [[ -n "$update_flag" ]]; then
+                bash "$0" update --mode "$install_mode" "$update_flag"
+            else
+                bash "$0" update --mode "$install_mode"
+            fi
             read -p "Press Enter to continue..." dummy < /dev/tty
             ;;
             
