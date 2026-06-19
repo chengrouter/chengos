@@ -73,7 +73,6 @@ if [[ "$DB_INSTALL_MODE" == "managed-process" ]]; then
     
     # Stop local Redis
     if [[ -f "${SCRIPT_DIR}/runtime/redis.pid" ]]; then
-        local r_pid
         r_pid=$(cat "${SCRIPT_DIR}/runtime/redis.pid")
         if kill -0 "$r_pid" 2>/dev/null; then
             log "Shutting down local Redis..."
@@ -89,11 +88,24 @@ if [[ "$DB_INSTALL_MODE" == "managed-process" ]]; then
 
     # Stop local Postgres
     if [[ -f "${SCRIPT_DIR}/runtime/postgres.pid" ]]; then
-        local pg_pid
         pg_pid=$(cat "${SCRIPT_DIR}/runtime/postgres.pid")
         if kill -0 "$pg_pid" 2>/dev/null; then
             log "Shutting down local PostgreSQL..."
-            pg_ctl -D "${SCRIPT_DIR}/runtime/pg-data" stop -m fast 2>/dev/null || kill -TERM "$pg_pid" || true
+            pg_data="${SCRIPT_DIR}/runtime/pg-data"
+            run_prefix=""
+            if [[ "$(id -u)" -eq 0 ]]; then
+                pg_data="/var/lib/chengos/pg-data"
+                run_prefix="runuser -u postgres --"
+            fi
+            
+            # Add PostgreSQL server binaries to PATH (on Debian/Ubuntu they are under /usr/lib/postgresql/*/bin)
+            for pg_bin in /usr/lib/postgresql/*/bin; do
+                if [[ -d "$pg_bin" ]]; then
+                    export PATH="$PATH:$pg_bin"
+                fi
+            done
+            
+            (cd /tmp && ${run_prefix} env PATH="$PATH" pg_ctl -D "$pg_data" stop -m fast 2>/dev/null) || kill -TERM "$pg_pid" || true
         fi
         rm -f "${SCRIPT_DIR}/runtime/postgres.pid"
         log "Local PostgreSQL stopped"

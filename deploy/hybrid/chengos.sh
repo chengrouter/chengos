@@ -2,8 +2,13 @@
 set -euo pipefail
 
 # Root workspace directory
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_PATH="${BASH_SOURCE[0]}"
+if [[ -L "$SCRIPT_PATH" ]]; then
+    SCRIPT_PATH="$(readlink -f "$SCRIPT_PATH")"
+fi
+ROOT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 cd "$ROOT_DIR"
+
 
 # ── Dual Mode Detection (Bootstrap vs Local) ──────────────────────────────────
 # If the script is run standalone without the deployment folders around,
@@ -250,6 +255,7 @@ if [[ $# -gt 0 ]]; then
     DB_INSTALL_MODE="managed-process"
     UI_PORT=8080
     APP_PORT=5055
+    WITH_INFRA_OPT="false"
     
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -272,6 +278,10 @@ if [[ $# -gt 0 ]]; then
             --app-port)
                 APP_PORT="$2"
                 shift 2
+                ;;
+            --with-infra)
+                WITH_INFRA_OPT="true"
+                shift
                 ;;
             *)
                 echo "Unknown option: $1"
@@ -328,7 +338,7 @@ if [[ $# -gt 0 ]]; then
             else
                 echo "Release bundle detected. Skipping source compilation."
                 
-                local hybrid_dir=""
+                hybrid_dir=""
                 if [[ -d "${ROOT_DIR}/deploy/hybrid" ]]; then
                     hybrid_dir="${ROOT_DIR}/deploy/hybrid"
                 else
@@ -383,7 +393,7 @@ if [[ $# -gt 0 ]]; then
                 run_service_cmd start docker
             else
                 # Load config to see what modules to launch
-                local hybrid_dir=""
+                hybrid_dir=""
                 if [[ -d "${ROOT_DIR}/deploy/hybrid" ]]; then
                     hybrid_dir="${ROOT_DIR}/deploy/hybrid"
                 else
@@ -399,17 +409,13 @@ if [[ $# -gt 0 ]]; then
                 [[ -d ui && "$(ls -A ui 2>/dev/null)" ]] && modules="${modules},ui"
                 [[ -d app && "$(ls -A app 2>/dev/null)" ]] && modules="${modules},app"
                 
-                run_service_cmd start native false --with "$modules"
+                run_service_cmd start native --with "$modules"
             fi
             ;;
             
         stop)
             echo "${t[stopping]}"
-            with_infra="false"
-            if [[ "${1:-}" == "--with-infra" ]]; then
-                with_infra="true"
-            fi
-            run_service_cmd stop "$MODE" "$with_infra"
+            run_service_cmd stop "$MODE" "$WITH_INFRA_OPT"
             ;;
             
         status)
@@ -421,7 +427,7 @@ if [[ $# -gt 0 ]]; then
             echo "${t[uninstall_start]}"
             run_service_cmd stop "$MODE" true
             if [[ "$MODE" == "native" ]]; then
-                local target_dir=""
+                target_dir=""
                 if [[ -d "${ROOT_DIR}/deploy/hybrid" ]]; then
                     target_dir="${ROOT_DIR}/deploy/hybrid"
                 else
@@ -617,8 +623,44 @@ while true; do
         7)
             clear
             echo "Creating system-wide symlink for chengos..."
-            if sudo ln -sf "${ROOT_DIR}/chengos.sh" /usr/local/bin/chengos 2>/dev/null; then
+            success=true
+            if ! sudo ln -sf "${ROOT_DIR}/chengos.sh" /usr/local/bin/chengos 2>/dev/null; then
+                success=false
+            fi
+            
+            hybrid_dir="${ROOT_DIR}"
+            if [[ -d "${ROOT_DIR}/deploy/hybrid" ]]; then
+                hybrid_dir="${ROOT_DIR}/deploy/hybrid"
+            fi
+            
+            if [[ -f "${hybrid_dir}/bin/cheng" ]]; then
+                echo "Creating system-wide launcher for cheng..."
+                sudo rm -f /usr/local/bin/cheng 2>/dev/null
+                if ! sudo tee /usr/local/bin/cheng >/dev/null <<EOF
+#!/usr/bin/env bash
+if [[ "\${1:-}" == "chat" || "\${1:-}" == "help" || "\${1:-}" == "-h" || "\${1:-}" == "--help" || "\${1:-}" == "-V" || "\${1:-}" == "--version" ]]; then
+    exec "${hybrid_dir}/bin/cheng" "\$@"
+else
+    exec "${hybrid_dir}/bin/cheng" chat --auth-storage file "\$@"
+fi
+EOF
+                then
+                    success=false
+                fi
+                sudo chmod +x /usr/local/bin/cheng 2>/dev/null || success=false
+            fi
+            
+            if [[ "$success" == "true" ]]; then
                 printf "${t[symlink_done]}\n" "${ROOT_DIR}/chengos.sh"
+                if [[ -f "${hybrid_dir}/bin/cheng" ]]; then
+                    if [[ "$LANG_VAL" == "zh" ]]; then
+                        echo "已创建快捷启动器: /usr/local/bin/cheng"
+                        echo "现在你可以在任何地方运行 'cheng' 快速开启命令行对话（默认使用免密文件存储凭证）。"
+                    else
+                        echo "Created quick launcher: /usr/local/bin/cheng"
+                        echo "Now you can run 'cheng' from anywhere to quickly start the chat (defaults to passwordless file storage)."
+                    fi
+                fi
             else
                 echo "${t[symlink_fail]}"
             fi

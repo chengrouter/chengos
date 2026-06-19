@@ -103,7 +103,12 @@ fi
 require_hex64 CREDENTIAL_MASTER_KEY_1
 require_hex64 JWT_SECRET
 
-# ── Native Database Setup & Start ───────────────────────────────────────────
+# Add PostgreSQL server binaries to PATH (on Debian/Ubuntu they are under /usr/lib/postgresql/*/bin)
+for pg_bin in /usr/lib/postgresql/*/bin; do
+    if [[ -d "$pg_bin" ]]; then
+        export PATH="$PATH:$pg_bin"
+    fi
+done
 
 setup_and_start_postgres() {
     if [[ "$DB_INSTALL_MODE" == "system-service" ]]; then
@@ -130,21 +135,59 @@ setup_and_start_postgres() {
     else
         # 2. Managed sandboxed process (without root)
         if ! command -v initdb >/dev/null 2>&1; then
-            fail "Postgres tools (initdb, postgres) are not installed. Please install them on your host first (e.g. apt-get install postgresql)."
+            if command -v apt-get >/dev/null 2>&1; then
+                log "PostgreSQL tools not found. Automatically installing PostgreSQL via apt-get..."
+                local local_sudo=""
+                if [[ "$(id -u)" -ne 0 ]]; then
+                    local_sudo="sudo"
+                fi
+                $local_sudo apt-get update
+                $local_sudo apt-get install -y postgresql postgresql-contrib
+                
+                # Stop and disable system-wide PostgreSQL so it does not block port 5432
+                log "Stopping and disabling system-wide PostgreSQL service for sandbox mode..."
+                if command -v systemctl >/dev/null 2>&1; then
+                    $local_sudo systemctl stop postgresql || true
+                    $local_sudo systemctl disable postgresql || true
+                else
+                    $local_sudo service postgresql stop || true
+                fi
+            else
+                fail "Postgres tools (initdb, postgres) are not installed. Please install them manually on your host (e.g. apt-get install postgresql)."
+            fi
         fi
         
         local pg_data="${SCRIPT_DIR}/runtime/pg-data"
         local pg_pid_file="${SCRIPT_DIR}/runtime/postgres.pid"
+        local run_prefix=""
         
-        if [[ ! -d "$pg_data" ]]; then
+        if [[ "$(id -u)" -eq 0 ]]; then
+            log "Running as root. Configuring PostgreSQL to run as 'postgres' user..."
+            if ! id -u postgres >/dev/null 2>&1; then
+                if command -v useradd >/dev/null 2>&1; then
+                    useradd -r -s /bin/bash postgres || true
+                fi
+            fi
+            if ! id -u postgres >/dev/null 2>&1; then
+                fail "Cannot run PostgreSQL as root, and failed to find or create the 'postgres' user."
+            fi
+            
+            # Use /var/lib/chengos/pg-data to avoid permission issues inside /root
+            pg_data="/var/lib/chengos/pg-data"
+            mkdir -p "$pg_data"
+            chown -R postgres:postgres "$pg_data"
+            run_prefix="runuser -u postgres --"
+        fi
+        
+        if [[ ! -f "${pg_data}/PG_VERSION" ]]; then
             log "Initializing local PostgreSQL data directory at ${pg_data}..."
-            initdb -D "$pg_data"
+            (cd /tmp && ${run_prefix} env PATH="$PATH" initdb -D "$pg_data")
         fi
         
         # Check if already running on 5432
         if ! pg_isready -h 127.0.0.1 -p 5432 >/dev/null 2>&1; then
             log "Starting local PostgreSQL process..."
-            postgres -D "$pg_data" -p 5432 > "${SCRIPT_DIR}/logs/postgres.log" 2>&1 &
+            (cd /tmp && exec ${run_prefix} env PATH="$PATH" postgres -D "$pg_data" -p 5432 > "${SCRIPT_DIR}/logs/postgres.log" 2>&1) &
             local pg_pid=$!
             echo "$pg_pid" > "$pg_pid_file"
             
@@ -161,10 +204,10 @@ setup_and_start_postgres() {
         fi
         
         # Configure DB & user natively under current user context
-        psql -h 127.0.0.1 -p 5432 -d postgres -c "CREATE USER tianai_db WITH PASSWORD '${POSTGRES_PASSWORD}';" 2>/dev/null || true
-        psql -h 127.0.0.1 -p 5432 -d postgres -c "ALTER USER tianai_db WITH PASSWORD '${POSTGRES_PASSWORD}';" 2>/dev/null || true
-        psql -h 127.0.0.1 -p 5432 -d postgres -c "CREATE DATABASE master_router OWNER tianai_db;" 2>/dev/null || true
-        psql -h 127.0.0.1 -p 5432 -d postgres -c "GRANT ALL PRIVILEGES ON DATABASE master_router TO tianai_db;" 2>/dev/null || true
+        (cd /tmp && ${run_prefix} env PATH="$PATH" psql -h 127.0.0.1 -p 5432 -d postgres -c "CREATE USER tianai_db WITH PASSWORD '${POSTGRES_PASSWORD}';" 2>/dev/null) || true
+        (cd /tmp && ${run_prefix} env PATH="$PATH" psql -h 127.0.0.1 -p 5432 -d postgres -c "ALTER USER tianai_db WITH PASSWORD '${POSTGRES_PASSWORD}';" 2>/dev/null) || true
+        (cd /tmp && ${run_prefix} env PATH="$PATH" psql -h 127.0.0.1 -p 5432 -d postgres -c "CREATE DATABASE master_router OWNER tianai_db;" 2>/dev/null) || true
+        (cd /tmp && ${run_prefix} env PATH="$PATH" psql -h 127.0.0.1 -p 5432 -d postgres -c "GRANT ALL PRIVILEGES ON DATABASE master_router TO tianai_db;" 2>/dev/null) || true
         log "Local PostgreSQL is ready"
     fi
 }
@@ -194,7 +237,26 @@ setup_and_start_redis() {
         fi
     else
         if ! command -v redis-server >/dev/null 2>&1; then
-            fail "redis-server is not installed. Please install it on your host first (e.g. apt-get install redis-server)."
+            if command -v apt-get >/dev/null 2>&1; then
+                log "redis-server not found. Automatically installing Redis via apt-get..."
+                local local_sudo=""
+                if [[ "$(id -u)" -ne 0 ]]; then
+                    local_sudo="sudo"
+                fi
+                $local_sudo apt-get update
+                $local_sudo apt-get install -y redis-server
+                
+                # Stop and disable system-wide Redis so it does not block port 6379
+                log "Stopping and disabling system-wide Redis service for sandbox mode..."
+                if command -v systemctl >/dev/null 2>&1; then
+                    $local_sudo systemctl stop redis-server || true
+                    $local_sudo systemctl disable redis-server || true
+                else
+                    $local_sudo service redis-server stop || true
+                fi
+            else
+                fail "redis-server is not installed. Please install it manually on your host (e.g. apt-get install redis-server)."
+            fi
         fi
         
         local redis_pid_file="${SCRIPT_DIR}/runtime/redis.pid"
@@ -289,9 +351,8 @@ if has_module "api"; then
     log "Starting cheng-api..."
     
     # PID guard
-    local api_pid_file="${SCRIPT_DIR}/runtime/cheng-api.pid"
+    api_pid_file="${SCRIPT_DIR}/runtime/cheng-api.pid"
     if [[ -f "$api_pid_file" ]]; then
-        local old_pid
         old_pid=$(cat "$api_pid_file")
         if kill -0 "$old_pid" 2>/dev/null; then
             log "cheng-api is already running (PID ${old_pid})"
@@ -310,13 +371,13 @@ if has_module "api"; then
         fi
         
         nohup "$BINARY" --log >> "${SCRIPT_DIR}/logs/cheng-api.log" 2>&1 &
-        local api_pid=$!
+        api_pid=$!
         echo "$api_pid" > "$api_pid_file"
         log "cheng-api started (PID ${api_pid}), logging to logs/cheng-api.log"
         
         # Wait for /health
         log "Waiting for cheng-api /health endpoint (up to 30s)..."
-        local api_deadline=$(( $(date +%s) + 30 ))
+        api_deadline=$(( $(date +%s) + 30 ))
         while true; do
             if curl -sf "http://127.0.0.1:${PORT}/health" >/dev/null 2>&1; then
                 log "cheng-api is ready"
@@ -336,13 +397,29 @@ if has_module "api"; then
     fi
 fi
 
+# Verify Node.js is installed if running UI/App
+if has_module "ui" || has_module "app"; then
+    if ! command -v node >/dev/null 2>&1; then
+        if command -v apt-get >/dev/null 2>&1; then
+            log "Node.js not found. Automatically installing Node.js via apt-get..."
+            local_sudo=""
+            if [[ "$(id -u)" -ne 0 ]]; then
+                local_sudo="sudo"
+            fi
+            $local_sudo apt-get update
+            $local_sudo apt-get install -y nodejs npm
+        else
+            fail "Node.js is not installed. Please install Node.js on your host first."
+        fi
+    fi
+fi
+
 # 2. Start cheng-ui static server
 if has_module "ui"; then
     log "Starting cheng-ui static proxy server..."
-    local ui_pid_file="${SCRIPT_DIR}/runtime/ui-server.pid"
+    ui_pid_file="${SCRIPT_DIR}/runtime/ui-server.pid"
     
     if [[ -f "$ui_pid_file" ]]; then
-        local old_pid
         old_pid=$(cat "$ui_pid_file")
         if kill -0 "$old_pid" 2>/dev/null; then
             log "cheng-ui server is already running (PID ${old_pid})"
@@ -356,7 +433,7 @@ if has_module "ui"; then
         
         UI_PORT="$UI_PORT" BACKEND_URL="http://127.0.0.1:${PORT}" \
         nohup node "${SCRIPT_DIR}/bin/ui-server.js" >> "${SCRIPT_DIR}/logs/ui-server.log" 2>&1 &
-        local ui_pid=$!
+        ui_pid=$!
         echo "$ui_pid" > "$ui_pid_file"
         log "cheng-ui server started (PID ${ui_pid}), listening on port ${UI_PORT}"
     fi
@@ -365,10 +442,9 @@ fi
 # 3. Start cheng-app static server
 if has_module "app"; then
     log "Starting cheng-app static proxy server..."
-    local app_pid_file="${SCRIPT_DIR}/runtime/app-server.pid"
+    app_pid_file="${SCRIPT_DIR}/runtime/app-server.pid"
     
     if [[ -f "$app_pid_file" ]]; then
-        local old_pid
         old_pid=$(cat "$app_pid_file")
         if kill -0 "$old_pid" 2>/dev/null; then
             log "cheng-app server is already running (PID ${old_pid})"
@@ -382,7 +458,7 @@ if has_module "app"; then
         
         APP_PORT="$APP_PORT" BACKEND_URL="http://127.0.0.1:${PORT}" \
         nohup node "${SCRIPT_DIR}/bin/app-server.js" >> "${SCRIPT_DIR}/logs/app-server.log" 2>&1 &
-        local app_pid=$!
+        app_pid=$!
         echo "$app_pid" > "$app_pid_file"
         log "cheng-app server started (PID ${app_pid}), listening on port ${APP_PORT}"
     fi
