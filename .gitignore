@@ -9,6 +9,11 @@ dist.bak/
 deploy/hybrid/bin/cheng-api
 deploy/hybrid/bin/chengctl
 
+# Ignore Project Meta & IDE Files
+.codex
+CLAUDE.md
+RELEASE_WORKFLOW.md
+
 # Ignore Local Configs & Variables
 .env
 .chengos_lang
