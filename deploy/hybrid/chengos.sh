@@ -808,14 +808,19 @@ if [[ $# -gt 0 ]]; then
         restart)
             echo "${t[restarting]}"
             if [[ "$MODE" == "docker" ]]; then
-                run_service_cmd stop docker false
+                echo "Stopping Docker services..."
+                run_service_cmd stop docker false || true
+                echo "Starting Docker services..."
                 run_service_cmd start docker
             else
                 hybrid_dir="$(resolve_hybrid_dir)"
                 modules="$(compute_native_modules "$hybrid_dir")"
-                run_service_cmd stop native false
-                run_service_cmd start native --with "$modules"
+                echo "Stopping native services..."
+                bash "${hybrid_dir}/stop.sh" || true
+                echo "Starting native services with modules: ${modules}"
+                (cd "$hybrid_dir" && bash start.sh --with "$modules")
             fi
+            echo "Restart completed."
             ;;
             
         uninstall)
