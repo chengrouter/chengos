@@ -10,13 +10,66 @@ This directory contains the files required to deploy the ChengOS system. You can
 
 ```
 deploy/
-├── docker/                 # Docker deployment files (docker-compose, etc.)
+├── .env.example            # Unified environment template (shared by all modes)
+│                           # 统一环境配置模板（各模式共用）
+├── .env                    # Generated unified environment file (created by any mode)
+│                           # 统一生成的环境配置文件（各模式共用）
+├── generate-env.sh         # Unified environment generator (all modes delegate to this)
+│                           # 统一环境生成脚本（各模式脚本均调用此脚本）
+├── app/                    # Shared cheng-app static assets
+│                           # 共享 cheng-app 静态资源
+├── bin/                    # Shared proxy server scripts and compiled binaries
+│                           # 共享代理服务器脚本和编译后的二进制程序
+├── config/                 # Shared provider config and i18n overrides
+│                           # 共享提供商配置和 i18n 覆盖文件
+├── infra/                  # Shared Postgres/Redis/Qdrant docker-compose
+│                           # 共享 Postgres/Redis/Qdrant docker-compose
+├── models/                 # Optional local OCR model files
+│                           # 可选本地 OCR 模型文件
+├── node_skills/            # Shared node skill guides
+│                           # 共享节点技能指南
+├── skills/                 # Shared workflow skill definitions
+│                           # 共享工作流技能定义
+├── ui/                     # Shared cheng-ui static assets
+│                           # 共享 cheng-ui 静态资源
+├── logs/                   # Runtime logs (created on demand)
+│                           # 运行时日志（按需创建）
+├── runtime/                # Runtime state / PID files (created on demand)
+│                           # 运行时状态 / PID 文件（按需创建）
+├── workspace/              # Cheng CLI sandbox directory (created on demand)
+│                           # Cheng CLI 沙箱目录（按需创建）
+├── hybrid/                 # Native deployment scripts
+│                           # 二进制原生部署脚本
+│   ├── chengos.sh          # Unified management script
+│   ├── generate-env.sh     # Delegates to ../generate-env.sh
+│   ├── start.sh            # Native start script
+│   ├── stop.sh             # Native stop script
+│   └── status.sh           # Native status script
+├── docker/                 # Docker orchestration files (compose files + scripts)
 │                           # Docker 部署文件 (docker-compose 等)
-├── distributed/            # Distributed deployment files
-│                           # 分布式部署文件
-└── hybrid/                 # Native deployment files (run-scripts, server-scripts, etc.)
-                            # 二进制原生部署文件 (启停脚本、代理服务器等)
+│   ├── docker-compose.yml
+│   ├── docker-compose.binds.yml
+│   ├── docker-compose.remote.yml
+│   ├── generate-env.sh     # Delegates to ../generate-env.sh
+│   ├── start.sh
+│   └── upgrade.sh
+└── distributed/            # Distributed deployment files
+                            # 分布式部署文件
+    ├── generate-env.sh     # Delegates to ../generate-env.sh, applies VPS overrides
+    ├── install_db.sh
+    ├── start.sh
+    ├── status.sh
+    └── stop.sh
 ```
+
+> **Note / 说明**: `deploy/production` was removed. Use `deploy/docker` (full Docker) or `deploy/hybrid` (native binary) for production deployments.
+> 已移除 `deploy/production`。生产环境部署请使用 `deploy/docker`（Docker 容器化）或 `deploy/hybrid`（二进制原生部署）。
+>
+> **Unified environment / 统一环境配置**: `deploy/.env` is the single environment file used by all deployment modes. Running any mode-specific `generate-env.sh` or `start.sh` creates or updates this file. Docker containers receive Docker-network overrides via `docker-compose.yml` while still reading the same `deploy/.env` for secrets and ports.
+> `deploy/.env` 是所有部署模式共用的唯一环境文件。运行任意模式下的 `generate-env.sh` 或 `start.sh` 都会创建或更新此文件。Docker 容器通过 `docker-compose.yml` 中的 `environment` 覆盖 Docker 内部网络地址，但密钥和端口仍从同一个 `deploy/.env` 读取。
+
+> **Shared resources / 共享资源**: `.env.example`, `app/`, `bin/`, `config/`, `infra/`, `models/`, `node_skills/`, `skills/`, and `ui/` are maintained at the `deploy/` root and shared by all deployment modes. Each mode directory contains only its own scripts and compose files.
+> `.env.example`、`app/`、`bin/`、`config/`、`infra/`、`models/`、`node_skills/`、`skills/` 和 `ui/` 统一维护在 `deploy/` 根目录下，各部署模式共用。每个模式子目录只包含各自的脚本和编排文件。
 
 ---
 
@@ -97,9 +150,9 @@ Standard containerized deployment using Docker Compose.
 **Manual Commands / 手动管理命令**:
 ```bash
 cd docker/
-bash generate-env.sh             # Create .env / 创建环境配置文件
-docker compose up -d             # Start containers / 启动容器
-docker compose down              # Stop containers / 停止容器
+bash generate-env.sh             # Create ../.env / 创建环境配置文件（位于 deploy/ 根目录）
+docker compose --env-file ../.env up -d   # Start containers / 启动容器
+docker compose --env-file ../.env down    # Stop containers / 停止容器
 ```
 
 ---

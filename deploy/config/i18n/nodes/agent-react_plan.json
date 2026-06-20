@@ -1,0 +1,20 @@
+{
+  "nodes.agent.react_plan.description": "分析任务状态并决定下一步操作",
+  "nodes.agent.react_plan.inputs.llm_config.description": "LLM 配置(JSON 字符串或对象)",
+  "nodes.agent.react_plan.inputs.llm_config.title": "LLM 配置",
+  "nodes.agent.react_plan.inputs.max_iterations.description": "最大迭代次数",
+  "nodes.agent.react_plan.inputs.max_iterations.title": "最大迭代次数",
+  "nodes.agent.react_plan.inputs.task.description": "要完成的任务描述",
+  "nodes.agent.react_plan.inputs.task.title": "任务",
+  "nodes.agent.react_plan.inputs.tools.description": "可用工具(通过 tools 端口连接工具节点自动填充)",
+  "nodes.agent.react_plan.inputs.tools.title": "工具",
+  "nodes.agent.react_plan.inputs.use_function_calling.description": "使用原生函数调用模式",
+  "nodes.agent.react_plan.inputs.use_function_calling.title": "使用函数调用",
+  "nodes.agent.react_plan.name": "ReAct 规划",
+  "nodes.agent.react_plan.outputs.context.description": "更新后的执行上下文",
+  "nodes.agent.react_plan.outputs.context.title": "上下文",
+  "nodes.agent.react_plan.outputs.decision.description": "Agent 的行动决策",
+  "nodes.agent.react_plan.outputs.decision.title": "行动决策",
+  "nodes.agent.react_plan.outputs.tokens_used.description": "本次规划消耗的 Token",
+  "nodes.agent.react_plan.outputs.tokens_used.title": "Token 消耗"
+}

@@ -2,9 +2,10 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$ROOT_DIR"
 
-ENV_FILE="${SCRIPT_DIR}/.env"
+ENV_FILE="${ROOT_DIR}/.env"
 
 log() { printf '[chengos] %s\n' "$*"; }
 
@@ -44,11 +45,11 @@ check_process() {
     fi
 }
 
-check_process "${SCRIPT_DIR}/runtime/cheng-api.pid" "cheng-api backend"
-check_process "${SCRIPT_DIR}/runtime/ui-server.pid" "cheng-ui server"
-check_process "${SCRIPT_DIR}/runtime/app-server.pid" "cheng-app server"
+check_process "${ROOT_DIR}/runtime/cheng-api.pid" "cheng-api backend"
+check_process "${ROOT_DIR}/runtime/ui-server.pid" "cheng-ui server"
+check_process "${ROOT_DIR}/runtime/app-server.pid" "cheng-app server"
 if [[ "$ENABLE_QDRANT" == "true" ]]; then
-    check_process "${SCRIPT_DIR}/runtime/qdrant.pid" "Qdrant Vector"
+    check_process "${ROOT_DIR}/runtime/qdrant.pid" "Qdrant Vector"
 fi
 
 HR
@@ -122,9 +123,9 @@ print_logs() {
     printf '\n'
 }
 
-print_logs "${SCRIPT_DIR}/logs/cheng-api.log" "cheng-api"
-print_logs "${SCRIPT_DIR}/logs/ui-server.log" "cheng-ui"
-print_logs "${SCRIPT_DIR}/logs/app-server.log" "cheng-app"
+print_logs "${ROOT_DIR}/logs/cheng-api.log" "cheng-api"
+print_logs "${ROOT_DIR}/logs/ui-server.log" "cheng-ui"
+print_logs "${ROOT_DIR}/logs/app-server.log" "cheng-app"
 if [[ "$ENABLE_QDRANT" == "true" ]]; then
-    print_logs "${SCRIPT_DIR}/logs/qdrant.log" "Qdrant"
+    print_logs "${ROOT_DIR}/logs/qdrant.log" "Qdrant"
 fi

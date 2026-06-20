@@ -2,17 +2,18 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$ROOT_DIR"
 
-ENV_FILE="${SCRIPT_DIR}/.env"
-ENV_EXAMPLE="${SCRIPT_DIR}/.env.example"
-BINARY="${SCRIPT_DIR}/bin/cheng-api"
+ENV_FILE="${ROOT_DIR}/.env"
+ENV_EXAMPLE="${ROOT_DIR}/.env.example"
+BINARY="${ROOT_DIR}/bin/cheng-api"
 
 log()  { printf '[chengos] %s\n' "$*"; }
 fail() { printf '[chengos] ERROR: %s\n' "$*" >&2; exit 1; }
 require_cmd() { command -v "$1" >/dev/null 2>&1 || fail "Missing command: $1"; }
 
-mkdir -p "${SCRIPT_DIR}/logs" "${SCRIPT_DIR}/runtime" "${SCRIPT_DIR}/skills" "${SCRIPT_DIR}/ui" "${SCRIPT_DIR}/app"
+mkdir -p "${ROOT_DIR}/logs" "${ROOT_DIR}/runtime" "${ROOT_DIR}/skills" "${ROOT_DIR}/ui" "${ROOT_DIR}/app"
 
 # ── Parse Arguments ──────────────────────────────────────────────────────────
 WITH_MODULES="api,ui,app"
@@ -161,8 +162,8 @@ setup_and_start_postgres() {
         fi
         add_pg_bins_to_path
 
-        local pg_data="${SCRIPT_DIR}/runtime/pg-data"
-        local pg_pid_file="${SCRIPT_DIR}/runtime/postgres.pid"
+        local pg_data="${ROOT_DIR}/runtime/pg-data"
+        local pg_pid_file="${ROOT_DIR}/runtime/postgres.pid"
         local run_prefix=""
         
         if [[ "$(id -u)" -eq 0 ]]; then
@@ -191,7 +192,7 @@ setup_and_start_postgres() {
         # Check if already running on 5432
         if ! pg_isready -h 127.0.0.1 -p 5432 >/dev/null 2>&1; then
             log "Starting local PostgreSQL process..."
-            (cd /tmp && exec ${run_prefix} env PATH="$PATH" postgres -D "$pg_data" -p 5432 > "${SCRIPT_DIR}/logs/postgres.log" 2>&1) &
+            (cd /tmp && exec ${run_prefix} env PATH="$PATH" postgres -D "$pg_data" -p 5432 > "${ROOT_DIR}/logs/postgres.log" 2>&1) &
             local pg_pid=$!
             echo "$pg_pid" > "$pg_pid_file"
             
@@ -203,7 +204,7 @@ setup_and_start_postgres() {
                 attempts=$((attempts + 1))
             done
             if [[ $attempts -ge 10 ]]; then
-                fail "Local PostgreSQL failed to start. Check: ${SCRIPT_DIR}/logs/postgres.log"
+                fail "Local PostgreSQL failed to start. Check: ${ROOT_DIR}/logs/postgres.log"
             fi
         fi
         
@@ -263,19 +264,19 @@ setup_and_start_redis() {
             fi
         fi
         
-        local redis_pid_file="${SCRIPT_DIR}/runtime/redis.pid"
+        local redis_pid_file="${ROOT_DIR}/runtime/redis.pid"
         
         # Check if already running on 6379
         if ! redis-cli -p 6379 ping >/dev/null 2>&1 && ! redis-cli -p 6379 -a "$REDIS_PASSWORD" ping >/dev/null 2>&1; then
             log "Starting local Redis process..."
-            nohup redis-server --port 6379 --requirepass "${REDIS_PASSWORD}" --dir "${SCRIPT_DIR}/runtime" > "${SCRIPT_DIR}/logs/redis.log" 2>&1 &
+            nohup redis-server --port 6379 --requirepass "${REDIS_PASSWORD}" --dir "${ROOT_DIR}/runtime" > "${ROOT_DIR}/logs/redis.log" 2>&1 &
             local redis_pid=$!
             echo "$redis_pid" > "$redis_pid_file"
             
             # Wait for Redis
             sleep 1
             if ! redis-cli -p 6379 -a "$REDIS_PASSWORD" ping | grep -q PONG; then
-                fail "Local Redis failed to start. Check: ${SCRIPT_DIR}/logs/redis.log"
+                fail "Local Redis failed to start. Check: ${ROOT_DIR}/logs/redis.log"
             fi
         fi
         log "Local Redis is ready"
@@ -283,9 +284,9 @@ setup_and_start_redis() {
 }
 
 setup_and_start_qdrant() {
-    local qdrant_bin="${SCRIPT_DIR}/bin/qdrant"
-    local qdrant_storage="${SCRIPT_DIR}/runtime/qdrant-storage"
-    local qdrant_pid_file="${SCRIPT_DIR}/runtime/qdrant.pid"
+    local qdrant_bin="${ROOT_DIR}/bin/qdrant"
+    local qdrant_storage="${ROOT_DIR}/runtime/qdrant-storage"
+    local qdrant_pid_file="${ROOT_DIR}/runtime/qdrant.pid"
     
     if [[ ! -f "$qdrant_bin" ]]; then
         log "Downloading native Qdrant binary..."
@@ -305,7 +306,7 @@ setup_and_start_qdrant() {
         mkdir -p /tmp/qdrant-install
         curl -L "https://github.com/qdrant/qdrant/releases/download/${qdrant_ver}/${tarball}" -o /tmp/qdrant-install/qdrant.tar.gz
         tar -xzf /tmp/qdrant-install/qdrant.tar.gz -C /tmp/qdrant-install
-        mkdir -p "${SCRIPT_DIR}/bin"
+        mkdir -p "${ROOT_DIR}/bin"
         cp /tmp/qdrant-install/qdrant "$qdrant_bin"
         chmod +x "$qdrant_bin"
         rm -rf /tmp/qdrant-install
@@ -319,7 +320,7 @@ setup_and_start_qdrant() {
         QDRANT__STORAGE__STORAGE_PATH="$qdrant_storage" \
         QDRANT__SERVICE__HTTP_PORT=6333 \
         QDRANT__SERVICE__GRPC_PORT=6334 \
-        nohup "$qdrant_bin" > "${SCRIPT_DIR}/logs/qdrant.log" 2>&1 &
+        nohup "$qdrant_bin" > "${ROOT_DIR}/logs/qdrant.log" 2>&1 &
         local qd_pid=$!
         echo "$qd_pid" > "$qdrant_pid_file"
         
@@ -331,7 +332,7 @@ setup_and_start_qdrant() {
             attempts=$((attempts + 1))
         done
         if [[ $attempts -ge 15 ]]; then
-            fail "Qdrant failed to start. Check: ${SCRIPT_DIR}/logs/qdrant.log"
+            fail "Qdrant failed to start. Check: ${ROOT_DIR}/logs/qdrant.log"
         fi
     fi
     log "Qdrant is ready"
@@ -355,7 +356,7 @@ if has_module "api"; then
     log "Starting cheng-api..."
     
     # PID guard
-    api_pid_file="${SCRIPT_DIR}/runtime/cheng-api.pid"
+    api_pid_file="${ROOT_DIR}/runtime/cheng-api.pid"
     if [[ -f "$api_pid_file" ]]; then
         old_pid=$(cat "$api_pid_file")
         if kill -0 "$old_pid" 2>/dev/null; then
@@ -377,7 +378,7 @@ if has_module "api"; then
             export REDIS_URL=""
         fi
         
-        nohup "$BINARY" --log >> "${SCRIPT_DIR}/logs/cheng-api.log" 2>&1 &
+        nohup "$BINARY" --log >> "${ROOT_DIR}/logs/cheng-api.log" 2>&1 &
         api_pid=$!
         echo "$api_pid" > "$api_pid_file"
         log "cheng-api started (PID ${api_pid}), logging to logs/cheng-api.log"
@@ -393,7 +394,7 @@ if has_module "api"; then
             if ! kill -0 "$api_pid" 2>/dev/null; then
                 rm -f "$api_pid_file"
                 log "cheng-api exited unexpectedly"
-                tail -n 20 "${SCRIPT_DIR}/logs/cheng-api.log" >&2
+                tail -n 20 "${ROOT_DIR}/logs/cheng-api.log" >&2
                 fail "cheng-api crashed during start"
             fi
             if [[ $(date +%s) -ge $api_deadline ]]; then
@@ -424,7 +425,7 @@ fi
 # 2. Start cheng-ui static server
 if has_module "ui"; then
     log "Starting cheng-ui static proxy server..."
-    ui_pid_file="${SCRIPT_DIR}/runtime/ui-server.pid"
+    ui_pid_file="${ROOT_DIR}/runtime/ui-server.pid"
     
     if [[ -f "$ui_pid_file" ]]; then
         old_pid=$(cat "$ui_pid_file")
@@ -436,10 +437,10 @@ if has_module "ui"; then
     fi
     
     if [[ ! -f "$ui_pid_file" ]]; then
-        [[ -f "${SCRIPT_DIR}/bin/ui-server.js" ]] || fail "UI server file not found: bin/ui-server.js"
+        [[ -f "${ROOT_DIR}/bin/ui-server.js" ]] || fail "UI server file not found: bin/ui-server.js"
         
         UI_PORT="$UI_PORT" BACKEND_URL="http://127.0.0.1:${PORT}" \
-        nohup node "${SCRIPT_DIR}/bin/ui-server.js" >> "${SCRIPT_DIR}/logs/ui-server.log" 2>&1 &
+        nohup node "${ROOT_DIR}/bin/ui-server.js" >> "${ROOT_DIR}/logs/ui-server.log" 2>&1 &
         ui_pid=$!
         echo "$ui_pid" > "$ui_pid_file"
         log "cheng-ui server started (PID ${ui_pid}), listening on port ${UI_PORT}"
@@ -449,7 +450,7 @@ fi
 # 3. Start cheng-app static server
 if has_module "app"; then
     log "Starting cheng-app static proxy server..."
-    app_pid_file="${SCRIPT_DIR}/runtime/app-server.pid"
+    app_pid_file="${ROOT_DIR}/runtime/app-server.pid"
     
     if [[ -f "$app_pid_file" ]]; then
         old_pid=$(cat "$app_pid_file")
@@ -461,10 +462,10 @@ if has_module "app"; then
     fi
     
     if [[ ! -f "$app_pid_file" ]]; then
-        [[ -f "${SCRIPT_DIR}/bin/app-server.js" ]] || fail "App server file not found: bin/app-server.js"
+        [[ -f "${ROOT_DIR}/bin/app-server.js" ]] || fail "App server file not found: bin/app-server.js"
         
         APP_PORT="$APP_PORT" BACKEND_URL="http://127.0.0.1:${PORT}" \
-        nohup node "${SCRIPT_DIR}/bin/app-server.js" >> "${SCRIPT_DIR}/logs/app-server.log" 2>&1 &
+        nohup node "${ROOT_DIR}/bin/app-server.js" >> "${ROOT_DIR}/logs/app-server.log" 2>&1 &
         app_pid=$!
         echo "$app_pid" > "$app_pid_file"
         log "cheng-app server started (PID ${app_pid}), listening on port ${APP_PORT}"

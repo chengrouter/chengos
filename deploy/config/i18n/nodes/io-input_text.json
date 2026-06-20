@@ -1,0 +1,16 @@
+{
+  "nodes.io.input_text.description": "多行文本/JSON 输入,输出文本,JSON 值和 AgentContext",
+  "nodes.io.input_text.inputs.json_text.description": "JSON 格式内容(为空时忽略)",
+  "nodes.io.input_text.inputs.json_text.title": "JSON 文本",
+  "nodes.io.input_text.inputs.text.description": "纯文本内容(支持多行输入)",
+  "nodes.io.input_text.inputs.text.title": "文本",
+  "nodes.io.input_text.name": "文本输入",
+  "nodes.io.input_text.outputs.context.description": "AgentContext 输出(可直接连接 Agent / Output 节点)",
+  "nodes.io.input_text.outputs.context.title": "上下文",
+  "nodes.io.input_text.outputs.json_value.description": "json_text 的解析结果(JSON 无效时为 null)",
+  "nodes.io.input_text.outputs.json_value.title": "JSON 值",
+  "nodes.io.input_text.outputs.length.description": "文本字段的字符数(数字)",
+  "nodes.io.input_text.outputs.length.title": "长度",
+  "nodes.io.input_text.outputs.text.description": "文本字段的原始内容(字符串)",
+  "nodes.io.input_text.outputs.text.title": "文本"
+}

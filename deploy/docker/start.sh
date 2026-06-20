@@ -4,8 +4,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-ENV_FILE="${SCRIPT_DIR}/.env"
-GENERATE_ENV="${SCRIPT_DIR}/generate-env.sh"
+ENV_FILE="${SCRIPT_DIR}/../.env"
+GENERATE_ENV="${SCRIPT_DIR}/../generate-env.sh"
 
 REMOTE=false
 WITH_BINDS=true
@@ -71,7 +71,7 @@ replace_env_line() {
 }
 
 generate_env_fallback() {
-  local env_example="${SCRIPT_DIR}/.env.example"
+  local env_example="${SCRIPT_DIR}/../.env.example"
 
   [[ -f "$env_example" ]] || fail "Missing template: ${env_example}"
   command -v openssl >/dev/null 2>&1 || fail "openssl is required to generate random secrets"
@@ -86,14 +86,14 @@ generate_env_fallback() {
   cp "$env_example" "$ENV_FILE"
   replace_env_line "POSTGRES_PASSWORD" "$postgres_password"
   replace_env_line "REDIS_PASSWORD" "$redis_password"
-  replace_env_line "DATABASE_URL" "postgres://tianai_db:${postgres_password}@postgres:5432/master_router"
-  replace_env_line "REDIS_URL" "redis://:${redis_password}@redis:6379"
-  replace_env_line "QDRANT_URL" "http://qdrant:6334"
+  replace_env_line "DATABASE_URL" "postgres://tianai_db:${postgres_password}@127.0.0.1:5432/master_router"
+  replace_env_line "REDIS_URL" "redis://:${redis_password}@127.0.0.1:6379"
+  replace_env_line "QDRANT_URL" "http://127.0.0.1:6334"
   replace_env_line "DB_PASSWORD" "$postgres_password"
   replace_env_line "CREDENTIAL_MASTER_KEY_1" "$credential_master_key_1"
   replace_env_line "JWT_SECRET" "$jwt_secret"
-  replace_env_line "CHENG_CLI_ALLOWED_ROOTS" "/app/workspace"
-  mkdir -p "${SCRIPT_DIR}/workspace"
+  mkdir -p "${SCRIPT_DIR}/../workspace"
+  replace_env_line "CHENG_CLI_ALLOWED_ROOTS" "${SCRIPT_DIR}/../workspace"
 
   if [[ "$REMOTE" == true && -n "$PUBLIC_UI_URL" && -n "$PUBLIC_APP_URL" ]]; then
     replace_env_line "CORS_ALLOWED_ORIGINS" "${PUBLIC_UI_URL},${PUBLIC_APP_URL}"
@@ -114,7 +114,7 @@ generate_env_fallback() {
   fi
 
   chmod 600 "$ENV_FILE" 2>/dev/null || true
-  log "Created ${ENV_FILE} with generated Docker-network secrets"
+  log "Created ${ENV_FILE} with generated secrets"
 }
 
 while [[ $# -gt 0 ]]; do
@@ -179,52 +179,8 @@ docker compose version >/dev/null 2>&1 || fail "docker compose plugin is require
 SOURCE_ROOT="$(find_source_root)"
 log "Using source root: ${SOURCE_ROOT}"
 
-seed_dir() {
-  local source_dir="$1"
-  local target_dir="$2"
-  local source_real target_real
-
-  mkdir -p "$target_dir"
-
-  if [[ ! -d "$source_dir" ]]; then
-    log "Skip seeding ${target_dir}; source not found: ${source_dir}"
-    return
-  fi
-
-  source_real="$(cd "$source_dir" && pwd)"
-  target_real="$(cd "$target_dir" && pwd)"
-  if [[ "$source_real" == "$target_real" ]]; then
-    log "Keep existing ${target_dir}; source and target are the same directory"
-    return
-  fi
-
-  if find "$target_dir" -mindepth 1 -maxdepth 1 | read -r _; then
-    log "Keep existing ${target_dir}"
-    return
-  fi
-
-  cp -a "${source_dir}/." "$target_dir/"
-  log "Seeded ${target_dir} from ${source_dir}"
-}
-
-dir_has_entries() {
-  local target_dir="$1"
-
-  [[ -d "$target_dir" ]] || return 1
-  find "$target_dir" -mindepth 1 -maxdepth 1 | read -r _
-}
-
 log "Preparing runtime directories..."
-mkdir -p logs runtime models/paddle
-seed_dir "${SOURCE_ROOT}/skills" "${SCRIPT_DIR}/skills"
-seed_dir "${SOURCE_ROOT}/config" "${SCRIPT_DIR}/config"
-
-if [[ "$WITH_BINDS" == true ]]; then
-  if ! dir_has_entries "${SCRIPT_DIR}/skills" || ! dir_has_entries "${SCRIPT_DIR}/config"; then
-    log "skills/ or config/ is empty; disabling bind mounts so the image built-ins stay visible"
-    WITH_BINDS=false
-  fi
-fi
+mkdir -p "${SCRIPT_DIR}/../logs" "${SCRIPT_DIR}/../runtime" "${SCRIPT_DIR}/../models/paddle" "${SCRIPT_DIR}/../workspace"
 
 if [[ ! -f "$ENV_FILE" || "$FORCE_ENV" == true ]]; then
   env_args=()

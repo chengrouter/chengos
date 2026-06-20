@@ -1,0 +1,18 @@
+{
+  "nodes.agent.react_execute.description": "执行工具调用,获取观察结果",
+  "nodes.agent.react_execute.inputs.context.description": "当前执行上下文",
+  "nodes.agent.react_execute.inputs.context.title": "上下文",
+  "nodes.agent.react_execute.inputs.decision.description": "来自 Plan 节点的行动决策",
+  "nodes.agent.react_execute.inputs.decision.title": "决策",
+  "nodes.agent.react_execute.name": "ReAct 执行",
+  "nodes.agent.react_execute.outputs.context.description": "更新后的执行上下文",
+  "nodes.agent.react_execute.outputs.context.title": "上下文",
+  "nodes.agent.react_execute.outputs.decision.description": "原始决策(透传给 Review 节点)",
+  "nodes.agent.react_execute.outputs.decision.title": "决策",
+  "nodes.agent.react_execute.outputs.is_final.description": "是否为最终决策",
+  "nodes.agent.react_execute.outputs.is_final.title": "是否最终决策",
+  "nodes.agent.react_execute.outputs.observation.description": "观察结果(用于反馈给 Plan 节点)",
+  "nodes.agent.react_execute.outputs.observation.title": "观察结果",
+  "nodes.agent.react_execute.outputs.result.description": "工具执行结果",
+  "nodes.agent.react_execute.outputs.result.title": "结果"
+}

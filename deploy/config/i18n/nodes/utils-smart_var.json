@@ -1,0 +1,20 @@
+{
+  "nodes.utils.smart_var.description": "自动检测文本变量,动态生成端口,支持完整输出和选择性提取",
+  "nodes.utils.smart_var.inputs.extract_mode.description": "提取模式:auto=自动检测键名,manual=仅 {{var}} 语法",
+  "nodes.utils.smart_var.inputs.extract_mode.title": "提取模式",
+  "nodes.utils.smart_var.inputs.output_vars.description": "要包含在输出中的变量列表",
+  "nodes.utils.smart_var.inputs.output_vars.title": "输出变量",
+  "nodes.utils.smart_var.inputs.template.description": "原始文本(支持 JSON,curl,YAML 等)",
+  "nodes.utils.smart_var.inputs.template.title": "模板",
+  "nodes.utils.smart_var.name": "智能变量",
+  "nodes.utils.smart_var.outputs.all_variables.description": "所有提取的变量名",
+  "nodes.utils.smart_var.outputs.all_variables.title": "全部变量",
+  "nodes.utils.smart_var.outputs.full_text.description": "变量替换后的完整文本",
+  "nodes.utils.smart_var.outputs.full_text.title": "完整文本",
+  "nodes.utils.smart_var.outputs.preview_content.description": "格式化后的预览内容",
+  "nodes.utils.smart_var.outputs.preview_content.title": "预览内容",
+  "nodes.utils.smart_var.outputs.selected_vars.description": "已选择的变量键值对",
+  "nodes.utils.smart_var.outputs.selected_vars.title": "已选变量",
+  "nodes.utils.smart_var.outputs.statistics.description": "变量提取统计",
+  "nodes.utils.smart_var.outputs.statistics.title": "统计信息"
+}

@@ -1,0 +1,23 @@
+{
+  "nodes.tools.cli_fallback_context.description": "从失败的 CLI 安装中构建安全,脱敏,大小受限的诊断信息,以便 LLM 可以在不看到原始日志/密钥的情况下编写更好的回退 install.yaml.",
+  "nodes.tools.cli_fallback_context.inputs.arch.title": "系统架构",
+  "nodes.tools.cli_fallback_context.inputs.attempted_source.description": "尝试的源: package_index | verified_cache | llm_fallback.",
+  "nodes.tools.cli_fallback_context.inputs.attempted_source.title": "尝试的源",
+  "nodes.tools.cli_fallback_context.inputs.attempted_steps.title": "尝试的步骤",
+  "nodes.tools.cli_fallback_context.inputs.cli_name.title": "CLI 名称",
+  "nodes.tools.cli_fallback_context.inputs.context.description": "完整的 CLI 导入上下文(主路径).存在时,所有事实均从中提取,且忽略旧的标量输入.",
+  "nodes.tools.cli_fallback_context.inputs.context.title": "上下文",
+  "nodes.tools.cli_fallback_context.inputs.detected_package_managers.title": "检测到的包管理器",
+  "nodes.tools.cli_fallback_context.inputs.expected_binary.title": "预期的二进制文件",
+  "nodes.tools.cli_fallback_context.inputs.failure_category.description": "可选的显式失败类别;若省略则从最后一个失败步骤中推断.",
+  "nodes.tools.cli_fallback_context.inputs.failure_category.title": "失败类别",
+  "nodes.tools.cli_fallback_context.inputs.os.title": "操作系统",
+  "nodes.tools.cli_fallback_context.name": "CLI 回退上下文",
+  "nodes.tools.cli_fallback_context.outputs.context_out.description": "更新后的 CLI 导入上下文(主路径).连线到回退 LLM 的 context 端口.仅在提供 context 输入时存在.",
+  "nodes.tools.cli_fallback_context.outputs.context_out.title": "输出上下文",
+  "nodes.tools.cli_fallback_context.outputs.fallback_context.description": "LLM 应该消费的结构化,脱敏后的诊断信息(调试/审计对象端口).",
+  "nodes.tools.cli_fallback_context.outputs.fallback_context.title": "回退上下文",
+  "nodes.tools.cli_fallback_context.outputs.llm_user_message.description": "从 fallback_context 渲染的纯文本提示词(已脱敏,截断并完成失败分类).连线到回退 LLM 的 user_message 端口 - 绝对不要在此处传递业务 JSON 对象.",
+  "nodes.tools.cli_fallback_context.outputs.llm_user_message.title": "LLM 用户消息",
+  "nodes.tools.cli_fallback_context.outputs.next_action.title": "下一步操作"
+}

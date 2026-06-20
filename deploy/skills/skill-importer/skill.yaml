@@ -1,0 +1,126 @@
+schema_version: "1"
+
+name: skill-importer
+display_name: Skill Importer
+description: Legacy reference package for the old skill importer. The active runtime importer is the workflow named skills_importer; keep this package only for prompts, safety notes, and migration reference.
+version: 1.0.0
+category: meta
+tags:
+  - skill
+  - import
+  - meta
+  - workflow
+
+backend:
+  type: workflow
+  workflow_id: "c253ac39-601a-4e98-94c8-29526c093574"
+  # Leave workflow_id empty here. The file watcher registers the sibling
+  # workflow.json via WorkflowRepository on first scan and links the
+  # skill row to the resulting workflow id. The watcher then patches this
+  # field in the stored canonical spec to match. To run a watcher with
+  # registration enabled, wire `SkillFileWatcher::new_with_workflow_repo`
+  # in your server bootstrap (the legacy `new(...)` constructor leaves the
+  # importer informational because it has no workflow_repo).
+
+input_schema:
+  type: object
+  required:
+    - source_type
+    - source_location
+  properties:
+    source_type:
+      type: string
+      enum: [repository, url, pasted_text, skill_md]
+    source_location:
+      type: string
+      description: Git URL, HTTP URL, or short identifier for pasted text.
+    source_content:
+      type: string
+      description: Optional raw content (for pasted_text or skill_md modes).
+    skill_name_hint:
+      type: string
+      description: Preferred slug for the resulting ChengOS skill (kebab-case).
+    branch:
+      type: string
+      description: Optional git branch for repository imports.
+
+output_schema:
+  type: object
+  properties:
+    success: { type: boolean }
+    skill_name: { type: string }
+    written_paths: { type: array, items: { type: string } }
+    normalization_status: { type: string }
+    backend_type:
+      type: string
+      description: Backend kind of the imported skill (workflow | cli | agentic | reference).
+    llm_tools:
+      type: object
+      description: LLM-visible tool surface for an agentic import (llm_tools.expose). Absent for non-agentic skills.
+    requires_tool_review:
+      type: boolean
+      description: True when llm_tools.expose or tool_hub.tools grants broad/high-risk access and must be reviewed before the skill is promoted to ready.
+    warnings: { type: array, items: { type: string } }
+
+credentials:
+  required: []
+
+runtime_dependencies:
+  bins:
+    - git
+
+permissions:
+  read_only: false
+  allowed_actions:
+    - skill.import.fetch
+    - skill.import.write
+  denied_actions: []
+
+approval:
+  required_at_or_above: high
+  default_risk: high
+  action_name_template: "skill:skill-importer:{source_location}"
+  description_template: "Import skill from {source_location}"
+  param_summary_fields:
+    - source_type
+    - source_location
+    - skill_name_hint
+  timeout_seconds: 600
+
+execution:
+  mode: workflow
+  auto_execute: false
+  async_allowed: true
+  timeout_seconds: 1800
+
+normalization:
+  status: ready
+  confidence: 1.0
+  warnings: []
+
+# Tools a parent LLM/Agent may run through Tool Hub *while applying* this Skill.
+# This is the external Tool Hub eligibility scope (surfaced by skills_hub.describe),
+# NOT the importer workflow's own internal staging nodes (fetch_repository,
+# validate_skill_spec, write_skill_package, …) which are forbidden Tool Hub targets.
+# A parent agent assisting an import legitimately needs to inspect the staged /
+# imported skill source, so only a read-only file view is declared here.
+tool_hub:
+  tools:
+    - tool: tools/file_ops_hub
+      operations:
+        - view_file
+        - list_directory
+      purpose: Inspect imported or staged skill source files while assisting an import.
+      constraints:
+        allowed_paths:
+          - skills/
+      config:
+        allow_read_content: true
+        allow_list_directory: true
+        allow_write: false
+      read_only: true
+
+source:
+  kind: native
+  format: chengos
+  path: skills/skill-importer/skill.yaml

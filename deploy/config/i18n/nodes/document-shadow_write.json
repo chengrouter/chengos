@@ -1,0 +1,22 @@
+{
+  "nodes.document.shadow_write.description": "将 LLM 生成的操作写入影子会话",
+  "nodes.document.shadow_write.inputs.llm_output.description": "输入 - Llm 输出",
+  "nodes.document.shadow_write.inputs.llm_output.title": "LLM 输出",
+  "nodes.document.shadow_write.inputs.shadow_id.description": "输入 - 影子 ID",
+  "nodes.document.shadow_write.inputs.shadow_id.title": "影子 ID",
+  "nodes.document.shadow_write.inputs.validate.description": "输入 - 验证",
+  "nodes.document.shadow_write.inputs.validate.title": "是否验证",
+  "nodes.document.shadow_write.name": "写入影子操作",
+  "nodes.document.shadow_write.outputs.error.description": "输入 - 错误",
+  "nodes.document.shadow_write.outputs.error.title": "错误信息",
+  "nodes.document.shadow_write.outputs.operations_added.description": "输入 - 操作列表 Added",
+  "nodes.document.shadow_write.outputs.operations_added.title": "已添加操作数",
+  "nodes.document.shadow_write.outputs.shadow_id.description": "输入 - 影子 ID",
+  "nodes.document.shadow_write.outputs.shadow_id.title": "影子 ID",
+  "nodes.document.shadow_write.outputs.success.description": "输入 - 成功",
+  "nodes.document.shadow_write.outputs.success.title": "是否成功",
+  "nodes.document.shadow_write.outputs.summary.description": "输入 - 摘要",
+  "nodes.document.shadow_write.outputs.summary.title": "摘要",
+  "nodes.document.shadow_write.outputs.validation_errors.description": "输入 - Validation Errors",
+  "nodes.document.shadow_write.outputs.validation_errors.title": "验证错误"
+}

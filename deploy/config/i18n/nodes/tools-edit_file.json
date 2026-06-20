@@ -1,0 +1,18 @@
+{
+  "nodes.tools.edit_file.description": "通过精确内容匹配/替换编辑文件(事务性)",
+  "nodes.tools.edit_file.inputs.file_path.description": "输入 - 文件路径",
+  "nodes.tools.edit_file.inputs.file_path.title": "文件路径",
+  "nodes.tools.edit_file.inputs.replacements.description": "输入 - Replacements",
+  "nodes.tools.edit_file.inputs.replacements.title": "替换项",
+  "nodes.tools.edit_file.name": "编辑文件",
+  "nodes.tools.edit_file.outputs.applied_count.description": "输入 - 已应用数量",
+  "nodes.tools.edit_file.outputs.applied_count.title": "已应用数量",
+  "nodes.tools.edit_file.outputs.error.description": "输入 - 错误",
+  "nodes.tools.edit_file.outputs.error.title": "错误",
+  "nodes.tools.edit_file.outputs.file_path.description": "输入 - 文件路径",
+  "nodes.tools.edit_file.outputs.file_path.title": "文件路径",
+  "nodes.tools.edit_file.outputs.total_lines_after.description": "输入 - 总数 Lines After",
+  "nodes.tools.edit_file.outputs.total_lines_after.title": "替换后总行数",
+  "nodes.tools.edit_file.outputs.total_lines_before.description": "输入 - 总数 Lines Before",
+  "nodes.tools.edit_file.outputs.total_lines_before.title": "替换前总行数"
+}

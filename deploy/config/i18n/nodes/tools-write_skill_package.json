@@ -1,0 +1,22 @@
+{
+  "nodes.tools.write_skill_package.description": "受限:安全地将技能包写入 skills/<name>/ 目录下,遵守管理员锁定并防止路径遍历.",
+  "nodes.tools.write_skill_package.inputs.files.description": "要写入的文件负载.接受结构化数组或相同数组的 JSON 字符串,因此可直接连接到返回 JSON 文本的 AI/LLM 响应.",
+  "nodes.tools.write_skill_package.inputs.files.title": "文件列表",
+  "nodes.tools.write_skill_package.inputs.force_admin_override.description": "调用方必须在获得明确管理员同意后才能设置此参数,以覆盖锁定技能.",
+  "nodes.tools.write_skill_package.inputs.force_admin_override.title": "强制管理员覆盖",
+  "nodes.tools.write_skill_package.inputs.package.description": "来自 tools/validate_skill_spec 的组合验证包.优先将 Validate.validated_package 连接到单个端口.",
+  "nodes.tools.write_skill_package.inputs.package.title": "验证包",
+  "nodes.tools.write_skill_package.inputs.skill_name.description": "稳定的技能 slug.接受普通字符串或 JSON 字符串形式 {\"skill_name\": \"...\"}(生成器提示形状).",
+  "nodes.tools.write_skill_package.inputs.skill_name.title": "技能名称",
+  "nodes.tools.write_skill_package.name": "写入技能包",
+  "nodes.tools.write_skill_package.outputs.error.description": "失败时的错误描述信息.仅当 success=false 时存在.",
+  "nodes.tools.write_skill_package.outputs.error.title": "错误信息",
+  "nodes.tools.write_skill_package.outputs.error_code.description": "结构化错误代码(如 INVALID_SKILL_NAME,EMPTY_PAYLOAD,SKILL_LOCKED,PATH_TRAVERSAL,DISALLOWED_FILE 等),便于上层做条件分支.仅当 success=false 时存在.",
+  "nodes.tools.write_skill_package.outputs.error_code.title": "错误代码",
+  "nodes.tools.write_skill_package.outputs.skill_name.description": "实际写入的技能 slug(已通过 slug 校验).",
+  "nodes.tools.write_skill_package.outputs.skill_name.title": "技能名称",
+  "nodes.tools.write_skill_package.outputs.success.description": "指示写入是否成功.",
+  "nodes.tools.write_skill_package.outputs.success.title": "是否成功",
+  "nodes.tools.write_skill_package.outputs.written_paths.description": "已写入磁盘的文件的绝对路径列表.仅写入通过白名单(SKILL.md / skill.yaml / workflow.json / references/*)的文件.",
+  "nodes.tools.write_skill_package.outputs.written_paths.title": "已写入路径"
+}

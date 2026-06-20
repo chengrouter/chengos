@@ -1,0 +1,16 @@
+{
+  "nodes.tools.cli_fallback_response_parse.description": "解析回退 LLM 的 JSON 响应,并将编写的 install.yaml 合并回 CLI 导入上下文(source=llm_fallback),准备重新验证.",
+  "nodes.tools.cli_fallback_response_parse.inputs.context.description": "从 tools/cli_fallback_context 传递的 CLI 导入上下文.",
+  "nodes.tools.cli_fallback_response_parse.inputs.context.title": "上下文",
+  "nodes.tools.cli_fallback_response_parse.inputs.response.description": "回退 LLM 响应.预期为包含 install_yaml 字段的 JSON;容忍代码块和周围的内容.",
+  "nodes.tools.cli_fallback_response_parse.inputs.response.title": "响应",
+  "nodes.tools.cli_fallback_response_parse.name": "CLI 回退响应解析",
+  "nodes.tools.cli_fallback_response_parse.outputs.context_out.description": "更新后的 CLI 导入上下文(主路径输出).",
+  "nodes.tools.cli_fallback_response_parse.outputs.context_out.title": "输出上下文",
+  "nodes.tools.cli_fallback_response_parse.outputs.error.description": "解析失败时的原因(如有).",
+  "nodes.tools.cli_fallback_response_parse.outputs.error.title": "错误",
+  "nodes.tools.cli_fallback_response_parse.outputs.install_yaml.description": "从 LLM 响应中提取的 install.yaml.",
+  "nodes.tools.cli_fallback_response_parse.outputs.install_yaml.title": "安装 YAML",
+  "nodes.tools.cli_fallback_response_parse.outputs.success.description": "成功解析 install_yaml 时为 true.",
+  "nodes.tools.cli_fallback_response_parse.outputs.success.title": "成功"
+}

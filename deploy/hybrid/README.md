@@ -3,6 +3,8 @@
 Native binary + Docker-managed infrastructure.  
 The app binary runs directly on the host; Postgres, Redis, and Qdrant run in Docker containers.
 
+This directory contains the native lifecycle scripts. Shared resources (`.env.example`, `app/`, `bin/`, `config/`, `infra/`, `models/`, `node_skills/`, `skills/`, `ui/`, `logs/`, `runtime/`, `workspace/`) live at the `deploy/` root and are used by all deployment modes. The unified manager is `deploy/chengos.sh` (also reachable as `chengos.sh` from the repository root).
+
 ## Prerequisites
 
 | Requirement | Version |
@@ -25,42 +27,42 @@ tar -xzf chengos-full-linux-amd64.tar.gz
 cd chengos
 ```
 
-### 2. Create `.env`
+### 2. Create `deploy/.env`
 
 Recommended:
 
 ```bash
-bash generate-env.sh --cors-origin https://your-frontend.example.com
+bash hybrid/generate-env.sh --cors-origin https://your-frontend.example.com
 ```
 
 This script:
 
-- copies `.env.example` to `.env`
+- copies `deploy/.env.example` to `deploy/.env`
 - generates random `POSTGRES_PASSWORD` / `REDIS_PASSWORD`
 - generates valid 64-hex `CREDENTIAL_MASTER_KEY_1` / `JWT_SECRET`
 - keeps derived values like `DATABASE_URL`, `REDIS_URL`, and `DB_PASSWORD` in sync
 
 Important behavior:
 
-- `generate-env.sh --force` overwrites `.env` with new passwords and secrets
+- `generate-env.sh --force` overwrites `deploy/.env` with new passwords and secrets
 - existing Docker data volumes do **not** automatically adopt a new `POSTGRES_PASSWORD`
-- on a fresh test machine, if you regenerate `.env`, also recreate the infra volumes before starting again
+- on a fresh test machine, if you regenerate `deploy/.env`, also recreate the infra volumes before starting again
 
 Reset infra volumes for a clean re-init:
 
 ```bash
-bash stop.sh --with-infra
-docker compose -f infra/docker-compose.yml --env-file .env down -v
+bash hybrid/stop.sh --with-infra
+docker compose -f infra/docker-compose.yml --env-file ../.env down -v
 ```
 
 If you prefer manual setup:
 
 ```bash
-cp .env.example .env
-$EDITOR .env
+cp ../.env.example ../.env
+$EDITOR ../.env
 ```
 
-Minimum required edits (start.sh will refuse to run until these are correct):
+Minimum required edits (`hybrid/start.sh` will refuse to run until these are correct):
 
 ```bash
 # Infrastructure passwords — any strong random string
@@ -85,14 +87,14 @@ CORS_ALLOWED_ORIGINS=https://your-frontend.example.com
 `generate-env.sh` options:
 
 ```bash
-bash generate-env.sh --help
-bash generate-env.sh --force
+bash hybrid/generate-env.sh --help
+bash hybrid/generate-env.sh --force
 ```
 
 ### 3. Start
 
 ```bash
-bash start.sh
+bash hybrid/start.sh
 ```
 
 You can also use the unified manager from the package/repository root:
@@ -132,13 +134,13 @@ On success:
 [chengos]   API: http://127.0.0.1:3000
 [chengos]   Health: http://127.0.0.1:3000/health
 [chengos]   Logs: tail -f logs/cheng-api.log
-[chengos]   Stop: bash stop.sh
+[chengos]   Stop: bash hybrid/stop.sh
 ```
 
 ### 4. Check status
 
 ```bash
-bash status.sh
+bash hybrid/status.sh
 ```
 
 Shows: process state, `/health` and `/ready` response bodies, `docker compose ps` output, last 20 log lines, and disk usage.
@@ -146,20 +148,20 @@ Shows: process state, `/health` and `/ready` response bodies, `docker compose ps
 ### 5. Stop
 
 ```bash
-bash stop.sh                # stop app only (infra keeps running)
-bash stop.sh --with-infra   # stop app + containers (data volumes preserved)
+bash hybrid/stop.sh                # stop app only (infra keeps running)
+bash hybrid/stop.sh --with-infra   # stop app + containers (data volumes preserved)
 ```
 
 Stop sends SIGTERM and waits up to 30 seconds, then SIGKILL if the process hasn't exited.
 
 ### 6. Reset infrastructure data for a clean test
 
-If you want PostgreSQL / Redis / Qdrant to re-initialize from scratch with the current `.env`:
+If you want PostgreSQL / Redis / Qdrant to re-initialize from scratch with the current `deploy/.env`:
 
 ```bash
-bash stop.sh --with-infra
-docker compose -f infra/docker-compose.yml --env-file .env down -v
-bash start.sh
+bash hybrid/stop.sh --with-infra
+docker compose -f infra/docker-compose.yml --env-file ../.env down -v
+bash hybrid/start.sh
 ```
 
 This removes all local test data stored in Docker volumes.
@@ -168,28 +170,36 @@ This removes all local test data stored in Docker volumes.
 
 ## Directory Layout
 
+When this package is unpacked from a release, the layout looks like this:
+
 ```
 chengos/
-├── bin/
-│   └── cheng-api          # application binary
-├── config/
-│   └── providers.toml     # LLM provider & credential schema definitions
-├── infra/
-│   └── docker-compose.yml # Postgres + Redis + Qdrant
+├── chengos.sh             # unified manager script
+├── bin/                   # application binary + proxy server scripts
+├── config/                # LLM provider & credential schema definitions
+│   └── providers.toml
+│   └── i18n/              # zh translation overrides
+├── infra/                 # Postgres + Redis + Qdrant docker-compose
 ├── skills/                # workflow skill definitions
+├── node_skills/           # node skill guides
 ├── ui/                    # static frontend files (if bundled)
 ├── app/                   # app-managed assets
-├── logs/
-│   └── cheng-api.log      # application log (appended on each start)
-├── runtime/
-│   └── cheng-api.pid      # PID of running process
-├── .env.example           # template — copy to .env
-├── generate-env.sh        # generate .env with random secrets
+├── models/                # optional local OCR model files
+├── workspace/             # Cheng CLI sandbox directory
+├── logs/                  # application log (appended on each start)
+├── runtime/               # PID and local data files
+├── .env.example           # unified template — copy to .env
 ├── .env                   # your config (not shipped, gitignored)
-├── start.sh
-├── stop.sh
-└── status.sh
+└── hybrid/                # native lifecycle scripts
+    ├── generate-env.sh    # generate .env with random secrets
+    ├── start.sh
+    ├── stop.sh
+    └── status.sh
 ```
+
+In the repository the same files are organized under `deploy/`:
+`deploy/chengos.sh` is the canonical manager, `deploy/hybrid/` holds these
+lifecycle scripts, and the shared resources sit directly at `deploy/`.
 
 ---
 
@@ -206,7 +216,7 @@ language preference.
 
 ```bash
 # 1. Stop the running app (leave infra up to preserve data)
-bash stop.sh
+bash hybrid/stop.sh
 
 # 2. Back up the binary in case rollback is needed
 cp bin/cheng-api bin/cheng-api.prev
@@ -220,7 +230,7 @@ chmod +x bin/cheng-api
 # cp -a /path/to/new/skills/. skills/
 
 # 5. Start
-bash start.sh
+bash hybrid/start.sh
 ```
 
 Database migrations run automatically on startup (`RUN_MIGRATIONS=true` in `.env`).  
@@ -231,13 +241,13 @@ To disable auto-migration: set `RUN_MIGRATIONS=false` and run migrations manuall
 ## Rollback
 
 ```bash
-bash stop.sh
+bash hybrid/stop.sh
 
 # Restore the previous binary
 cp bin/cheng-api.prev bin/cheng-api
 chmod +x bin/cheng-api
 
-bash start.sh
+bash hybrid/start.sh
 ```
 
 If the new release included a migration that needs to be reverted:
@@ -254,7 +264,7 @@ diesel migration revert --database-url "$DATABASE_URL"
 
 Logs append to `logs/cheng-api.log` indefinitely. Rotate manually or with logrotate:
 
-If you run the binary directly instead of `start.sh`, enable file logging with:
+If you run the binary directly instead of `hybrid/start.sh`, enable file logging with:
 
 ```bash
 ./bin/cheng-api --log
@@ -288,11 +298,11 @@ Generate one: `openssl rand -hex 32`
 Your PostgreSQL container was initialized with an older password. Either:
 ```bash
 # Fresh test environment: wipe and recreate local volumes
-bash stop.sh --with-infra
-docker compose -f infra/docker-compose.yml --env-file .env down -v
-bash start.sh
+bash hybrid/stop.sh --with-infra
+docker compose -f infra/docker-compose.yml --env-file ../.env down -v
+bash hybrid/start.sh
 ```
-Or keep the old PostgreSQL password in `.env` so it still matches the existing database volume.
+Or keep the old PostgreSQL password in `deploy/.env` so it still matches the existing database volume.
 
 **Infrastructure health timeout after 90s**  
 Check container logs:
@@ -302,15 +312,15 @@ docker compose -f infra/docker-compose.yml logs
 Common causes: port 5432/6379/6334 already in use on the host, or insufficient disk space for Docker volumes.
 
 **`/health` did not respond after 30s**  
-The process is still running but the app didn't bind. Check the tail of `logs/cheng-api.log` — start.sh prints it automatically on timeout. Common causes: `DATABASE_URL` mismatch with the passwords set in `.env`, or the port is already in use.
+The process is still running but the app didn't bind. Check the tail of `logs/cheng-api.log` — `hybrid/start.sh` prints it automatically on timeout. Common causes: `DATABASE_URL` mismatch with the passwords set in `deploy/.env`, or the port is already in use.
 
 **`cheng-api is already running`**  
 A previous run left a PID file. If the process is truly gone:
 ```bash
 rm runtime/cheng-api.pid
-bash start.sh
+bash hybrid/start.sh
 ```
-If the process is actually running, stop it first: `bash stop.sh`
+If the process is actually running, stop it first: `bash hybrid/stop.sh`
 
 **Port conflicts**  
 All three infrastructure ports are bound to `127.0.0.1` only (not `0.0.0.0`), so they are not accessible from other machines. If something else on the host is using 5432, 6379, or 6334, edit `infra/docker-compose.yml` to remap the host-side port, then update `DATABASE_URL` / `REDIS_URL` / `QDRANT_URL` in `.env` accordingly.
@@ -318,11 +328,11 @@ All three infrastructure ports are bound to `127.0.0.1` only (not `0.0.0.0`), so
 **Fresh VPS smoke test passed, what should I verify next?**  
 Run:
 ```bash
-bash status.sh
+bash hybrid/status.sh
 curl http://127.0.0.1:3000/health
 curl http://127.0.0.1:3000/ready
-bash stop.sh
-bash start.sh
-bash stop.sh --with-infra
+bash hybrid/stop.sh
+bash hybrid/start.sh
+bash hybrid/stop.sh --with-infra
 ```
 This confirms health, readiness, restart behavior, and infra shutdown behavior.

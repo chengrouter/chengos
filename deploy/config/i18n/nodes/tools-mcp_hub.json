@@ -1,0 +1,22 @@
+{
+  "nodes.tools.mcp_hub.description": "MCP Hub: 以服务器列表方式统一管理多个 MCP 服务器,每个服务器支持独立开关,独立表单编辑或 JSON 编辑,并将连接状态,发现结果和调用结果统一输出到单个结果端口.",
+  "nodes.tools.mcp_hub.inputs.arguments.description": "工具参数作为JSON对象(可选)",
+  "nodes.tools.mcp_hub.inputs.arguments.title": "参数",
+  "nodes.tools.mcp_hub.inputs.discover_only.description": "启用后,列出已配置服务器中的所有可用工具,而不是调用一个",
+  "nodes.tools.mcp_hub.inputs.discover_only.title": "仅发现",
+  "nodes.tools.mcp_hub.inputs.env_vars.description": "来自 `utils/credential` 节点输出的环境变量映射(可选).会优先覆盖 `${env:KEY}` 占位符,适用于 URL,Authorization,Headers,Args,Env 等所有字符串字段.",
+  "nodes.tools.mcp_hub.inputs.env_vars.title": "环境变量",
+  "nodes.tools.mcp_hub.inputs.server_registry.description": "MCP 服务器列表.每个服务器支持名称,描述,类型,命令,参数,环境变量,长时间运行模式,超时以及 JSON 配置等独立编辑.",
+  "nodes.tools.mcp_hub.inputs.server_registry.title": "服务器列表",
+  "nodes.tools.mcp_hub.inputs.timeout_ms.description": "请求超时(毫秒,0 或留空表示不限时)",
+  "nodes.tools.mcp_hub.inputs.timeout_ms.title": "超时(毫秒)",
+  "nodes.tools.mcp_hub.inputs.tool_name.description": "工具调用.对于多服务器配置,使用\"server:tool\"格式,对于单服务器配置,仅使用\"tool_name\"格式.启用\"仅发现\"时忽略.",
+  "nodes.tools.mcp_hub.inputs.tool_name.title": "工具名称",
+  "nodes.tools.mcp_hub.inputs.tool_visibility.description": "工具可见性配置(JSON字符串,可选,旧版兼容字段,建议使用可见性配置)",
+  "nodes.tools.mcp_hub.inputs.tool_visibility.title": "工具可见性",
+  "nodes.tools.mcp_hub.inputs.visibility_config.description": "结构化工具可见性配置(推荐)",
+  "nodes.tools.mcp_hub.inputs.visibility_config.title": "可见性配置",
+  "nodes.tools.mcp_hub.name": "MCP中心",
+  "nodes.tools.mcp_hub.outputs.result.description": "统一结果对象,包含配置摘要,服务器连接状态,发现到的工具以及可选的工具调用输出",
+  "nodes.tools.mcp_hub.outputs.result.title": "结果"
+}

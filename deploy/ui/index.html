@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    
+    <!-- Primary Meta Tags -->
+    <title>ChengOS - 可视化流程编排与执行平台</title>
+    <meta name="title" content="ChengOS - 可视化流程编排与执行平台" />
+    <meta name="description" content="面向运营自动化的可视化流程编排与执行平台。把 SOP 与自动化流程变成可维护的工作流资产，从分群、标签到多渠道动作的一体化链路。" />
+    <meta name="keywords" content="workflow,automation,运营自动化,流程编排,工作流,可视化编排,Rust,DDD" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://chengos.dev/" />
+    <meta property="og:title" content="ChengOS - 可视化流程编排与执行平台" />
+    <meta property="og:description" content="面向运营自动化的可视化流程编排与执行平台。把 SOP 与自动化流程变成可维护的工作流资产。" />
+    <meta property="og:image" content="/og-image.png" />
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://chengos.dev/" />
+    <meta property="twitter:title" content="ChengOS - 可视化流程编排与执行平台" />
+    <meta property="twitter:description" content="面向运营自动化的可视化流程编排与执行平台。把 SOP 与自动化流程变成可维护的工作流资产。" />
+    <meta property="twitter:image" content="/og-image.png" />
+    
+    <!-- Theme Color — Parchment light / Near Black dark -->
+    <meta name="theme-color" content="#f5f4ed" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#141413" media="(prefers-color-scheme: dark)" />
+    
+    <!-- Theme initialization script to prevent FOUC -->
+    <script>
+      (function() {
+        try {
+          var THEME_STORAGE_KEY = 'ChengOS-theme';
+          var stored = localStorage.getItem(THEME_STORAGE_KEY);
+          var theme = 'light';
+
+          if (stored === 'dark') {
+            theme = 'dark';
+          } else if (stored === 'system' || !stored) {
+            theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          }
+
+          document.documentElement.classList.add(theme);
+          document.documentElement.setAttribute('data-theme', theme);
+        } catch (e) {
+          console.warn('Failed to initialize theme:', e);
+        }
+      })();
+    </script>
+
+    <script src="/runtime-config.js"></script>
+
+    <!-- Preload Fonts (Optional - if using custom fonts) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300..700;1,14..32,300..500&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+      }
+
+      body {
+        font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background:
+          radial-gradient(circle at top left, rgba(201, 100, 66, 0.12), transparent 30%),
+          radial-gradient(circle at top right, rgba(217, 119, 87, 0.12), transparent 28%),
+          linear-gradient(180deg, #f5f4ed 0%, #efede5 100%);
+        color: #141413;
+      }
+
+      html.dark body {
+        background:
+          radial-gradient(circle at top left, rgba(201, 100, 66, 0.15), transparent 30%),
+          radial-gradient(circle at top right, rgba(120, 180, 255, 0.12), transparent 28%),
+          linear-gradient(180deg, #141413 0%, #1c1b19 100%);
+        color: #faf9f5;
+      }
+
+      .boot-shell {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+      }
+
+      .boot-logo-svg {
+        width: 176px;
+        height: 176px;
+        overflow: visible;
+        filter: drop-shadow(0 12px 30px rgba(201, 100, 66, 0.24));
+      }
+
+      .boot-orbit {
+        transform-origin: 62px 63px;
+        animation: boot-orbit 1.15s linear infinite;
+      }
+
+      @keyframes boot-orbit {
+        from {
+          transform: rotate(0deg);
+        }
+
+        to {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+    <script type="module" crossorigin src="/assets/js/index-BANLmg37.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/js/react-vendor-__7b2ISL.js">
+    <link rel="modulepreload" crossorigin href="/assets/js/markdown-ChqeB2PF.js">
+    <link rel="modulepreload" crossorigin href="/assets/js/vendor-CqPhug5z.js">
+    <link rel="modulepreload" crossorigin href="/assets/js/tanstack-query-CiWWxHFZ.js">
+    <link rel="modulepreload" crossorigin href="/assets/js/tanstack-router-DrZeVa8M.js">
+    <link rel="modulepreload" crossorigin href="/assets/js/app-shell-CNFookCR.js">
+    <link rel="modulepreload" crossorigin href="/assets/js/radix-ui-DVN_ckSo.js">
+    <link rel="modulepreload" crossorigin href="/assets/js/syntax-highlighter-CEsjOo1C.js">
+    <link rel="modulepreload" crossorigin href="/assets/js/state-CA_0HZv4.js">
+    <link rel="modulepreload" crossorigin href="/assets/js/icons-Bnb-VJau.js">
+    <link rel="modulepreload" crossorigin href="/assets/js/utils-CPDJG0lR.js">
+    <link rel="modulepreload" crossorigin href="/assets/js/toast-D-Kj3oHY.js">
+    <link rel="modulepreload" crossorigin href="/assets/js/charts-CED4K2Qa.js">
+    <link rel="modulepreload" crossorigin href="/assets/js/reactflow-c9WJnWs3.js">
+    <link rel="stylesheet" crossorigin href="/assets/css/reactflow-C4TUBwev.css">
+    <link rel="stylesheet" crossorigin href="/assets/css/index-C1Q-pSFQ.css">
+  </head>
+  <body>
+    <!-- React Root -->
+    <div id="root">
+      <div class="boot-shell" aria-label="Application boot loading">
+        <svg class="boot-logo-svg" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <defs>
+            <linearGradient id="boot-gradient" x1="30" y1="30" x2="92" y2="92">
+              <stop offset="0%" stop-color="#cd6a46" />
+              <stop offset="100%" stop-color="#c96442" />
+            </linearGradient>
+          </defs>
+
+          <path
+            d="M31 28C21.5 37 16 49.3 16 63c0 25.4 20.6 46 46 46 13.6 0 25.9-5.9 34.3-15.2"
+            stroke="#f1cfc2"
+            stroke-width="6"
+            stroke-linecap="round"
+          />
+
+          <circle cx="62" cy="63" r="43" stroke="#eadfd9" stroke-width="2.5" opacity="0.55" />
+
+          <circle cx="62" cy="63" r="31" fill="url(#boot-gradient)" />
+
+          <text x="62" y="73" text-anchor="middle" fill="white" font-size="28" font-weight="700" font-family="Inter, system-ui, sans-serif" letter-spacing="0.08em">CO</text>
+
+          <g class="boot-orbit">
+            <circle cx="62" cy="20" r="6.5" fill="#D49170" />
+          </g>
+        </svg>
+      </div>
+    </div>
+    <!-- Vite Script -->
+  </body>
+</html>

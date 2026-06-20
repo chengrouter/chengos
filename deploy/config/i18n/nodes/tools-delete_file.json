@@ -1,0 +1,18 @@
+{
+  "nodes.tools.delete_file.description": "删除文件(不可逆,支持 dry-run 模式)",
+  "nodes.tools.delete_file.inputs.dry_run.description": "输入 - 模拟运行",
+  "nodes.tools.delete_file.inputs.dry_run.title": "模拟运行",
+  "nodes.tools.delete_file.inputs.file_path.description": "输入 - 文件路径",
+  "nodes.tools.delete_file.inputs.file_path.title": "文件路径",
+  "nodes.tools.delete_file.name": "删除文件",
+  "nodes.tools.delete_file.outputs.deleted.description": "true=成功删除(dry_run=true 时表示\"可以删除\")",
+  "nodes.tools.delete_file.outputs.deleted.title": "已删除",
+  "nodes.tools.delete_file.outputs.dry_run.description": "输入 - 模拟运行",
+  "nodes.tools.delete_file.outputs.dry_run.title": "模拟运行",
+  "nodes.tools.delete_file.outputs.error.description": "输入 - 错误",
+  "nodes.tools.delete_file.outputs.error.title": "错误",
+  "nodes.tools.delete_file.outputs.file_path.description": "输入 - 文件路径",
+  "nodes.tools.delete_file.outputs.file_path.title": "文件路径",
+  "nodes.tools.delete_file.outputs.file_size_bytes.description": "输入 - 文件大小 Bytes",
+  "nodes.tools.delete_file.outputs.file_size_bytes.title": "文件大小 Bytes"
+}

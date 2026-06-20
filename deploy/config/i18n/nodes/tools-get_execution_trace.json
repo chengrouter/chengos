@@ -1,0 +1,10 @@
+{
+  "nodes.tools.get_execution_trace.description": "按 trace_key 从 session_store 读取完整执行 trace,供 LLM 按需展开查看",
+  "nodes.tools.get_execution_trace.inputs.trace_key.description": "追踪检索键,从对话历史摘要获取(格式:session_id:turn)",
+  "nodes.tools.get_execution_trace.inputs.trace_key.title": "Trace 键",
+  "nodes.tools.get_execution_trace.name": "读取执行 Trace",
+  "nodes.tools.get_execution_trace.outputs.content.description": "完整的执行追踪内容(未找到时为空字符串)",
+  "nodes.tools.get_execution_trace.outputs.content.title": "内容",
+  "nodes.tools.get_execution_trace.outputs.found.description": "是否找到对应的追踪记录",
+  "nodes.tools.get_execution_trace.outputs.found.title": "是否找到"
+}

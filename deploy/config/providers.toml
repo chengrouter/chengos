@@ -1,0 +1,655 @@
+# LLM 提供商白名单配置
+# 所有支持的提供商必须在此注册
+# 
+# 配置字段说明：
+# - name: 显示名称
+# - type: builtin | openai_compatible | custom
+# - credential_schema: 引用 credential_schemas 中定义的 Schema
+# - supports_chat: 是否支持对话
+# - supports_embedding: 是否支持向量嵌入
+# - supports_reranker: 是否支持重排序
+# - fetch_models_enabled: 是否支持动态拉取模型列表
+# - default_*_models: 默认模型列表（无法动态拉取时使用）
+
+# ==================== 凭证 Schema 定义 ====================
+# 定义每种凭证类型需要的字段，前端根据此配置动态渲染表单
+# 字段类型: string | integer | boolean
+# secret: 标记敏感字段，前端显示为密码框，后端脱敏处理
+
+[credential_schemas.api_key_only]
+name = "API Key Auth"
+[[credential_schemas.api_key_only.fields]]
+name = "api_key"
+type = "string"
+title = "API Key"
+required = true
+secret = true
+
+[credential_schemas.api_key_with_endpoint]
+name = "API Key + Endpoint"
+[[credential_schemas.api_key_with_endpoint.fields]]
+name = "api_key"
+type = "string"
+title = "API Key"
+required = true
+secret = true
+[[credential_schemas.api_key_with_endpoint.fields]]
+name = "endpoint"
+type = "string"
+title = "Endpoint URL"
+required = false
+secret = false
+
+[credential_schemas.endpoint_only]
+name = "Self-hosted Service"
+[[credential_schemas.endpoint_only.fields]]
+name = "endpoint"
+type = "string"
+title = "Endpoint URL"
+required = true
+secret = false
+
+[credential_schemas.custom_llm]
+name = "Custom LLM"
+[[credential_schemas.custom_llm.fields]]
+name = "provider_name"
+type = "string"
+title = "Provider Name"
+required = true
+secret = false
+[[credential_schemas.custom_llm.fields]]
+name = "api_key"
+type = "string"
+title = "API Key"
+required = true
+secret = true
+[[credential_schemas.custom_llm.fields]]
+name = "endpoint"
+type = "string"
+title = "Endpoint URL"
+required = true
+secret = false
+[[credential_schemas.custom_llm.fields]]
+name = "compatibility_profile"
+type = "string"
+title = "Compatibility Profile (conservative | openai | deepseek | minimax | zhipu)"
+required = false
+secret = false
+
+[credential_schemas.database]
+name = "Database Connection"
+[[credential_schemas.database.fields]]
+name = "host"
+type = "string"
+title = "Host"
+required = true
+secret = false
+[[credential_schemas.database.fields]]
+name = "port"
+type = "integer"
+title = "Port"
+required = true
+secret = false
+[[credential_schemas.database.fields]]
+name = "database"
+type = "string"
+title = "Database"
+required = true
+secret = false
+[[credential_schemas.database.fields]]
+name = "username"
+type = "string"
+title = "Username"
+required = true
+secret = false
+[[credential_schemas.database.fields]]
+name = "password"
+type = "string"
+title = "Password"
+required = true
+secret = true
+
+[credential_schemas.browser_profile]
+name = "Browser Profile"
+[[credential_schemas.browser_profile.fields]]
+name = "profile_dir"
+type = "string"
+title = "Persistent Profile Directory"
+required = true
+secret = false
+[[credential_schemas.browser_profile.fields]]
+name = "user_agent"
+type = "string"
+title = "User Agent"
+required = false
+secret = false
+
+[credential_schemas.browser_session]
+name = "Browser Session State"
+[[credential_schemas.browser_session.fields]]
+name = "cookies_json"
+type = "string"
+title = "Cookies JSON"
+required = false
+secret = true
+[[credential_schemas.browser_session.fields]]
+name = "storage_state_json"
+type = "string"
+title = "Storage State (localStorage/sessionStorage)"
+required = false
+secret = true
+
+[credential_schemas.qdrant]
+name = "Qdrant Vector Database"
+[[credential_schemas.qdrant.fields]]
+name = "api_key"
+type = "string"
+title = "API Key"
+required = true
+secret = true
+[[credential_schemas.qdrant.fields]]
+name = "endpoint"
+type = "string"
+title = "Cluster URL"
+required = true
+secret = false
+
+[credential_schemas.basic_auth]
+name = "Basic Auth"
+[[credential_schemas.basic_auth.fields]]
+name = "username"
+type = "string"
+title = "Username"
+required = true
+secret = false
+[[credential_schemas.basic_auth.fields]]
+name = "password"
+type = "string"
+title = "Password"
+required = true
+secret = true
+
+[credential_schemas.bearer_token]
+name = "Bearer Token"
+[[credential_schemas.bearer_token.fields]]
+name = "token"
+type = "string"
+title = "Token"
+required = true
+secret = true
+
+[credential_schemas.oauth2]
+name = "OAuth 2.0"
+[[credential_schemas.oauth2.fields]]
+name = "client_id"
+type = "string"
+title = "Client ID"
+required = true
+secret = false
+[[credential_schemas.oauth2.fields]]
+name = "client_secret"
+type = "string"
+title = "Client Secret"
+required = true
+secret = true
+[[credential_schemas.oauth2.fields]]
+name = "access_token"
+type = "string"
+title = "Access Token"
+required = false
+secret = true
+[[credential_schemas.oauth2.fields]]
+name = "refresh_token"
+type = "string"
+title = "Refresh Token"
+required = false
+secret = true
+
+[credential_schemas.smtp]
+name = "SMTP Mail Service"
+[[credential_schemas.smtp.fields]]
+name = "host"
+type = "string"
+title = "Host"
+required = true
+secret = false
+[[credential_schemas.smtp.fields]]
+name = "port"
+type = "integer"
+title = "Port"
+required = true
+secret = false
+[[credential_schemas.smtp.fields]]
+name = "username"
+type = "string"
+title = "Username"
+required = true
+secret = false
+[[credential_schemas.smtp.fields]]
+name = "password"
+type = "string"
+title = "Password"
+required = true
+secret = true
+[[credential_schemas.smtp.fields]]
+name = "use_tls"
+type = "boolean"
+title = "Use TLS"
+required = true
+secret = false
+
+[credential_schemas.imap]
+name = "IMAP Server"
+[[credential_schemas.imap.fields]]
+name = "host"
+type = "string"
+title = "IMAP Server"
+required = true
+secret = false
+[[credential_schemas.imap.fields]]
+name = "port"
+type = "integer"
+title = "Port"
+required = false
+secret = false
+default_value = "993"
+[[credential_schemas.imap.fields]]
+name = "username"
+type = "string"
+title = "Email Address"
+required = true
+secret = false
+[[credential_schemas.imap.fields]]
+name = "password"
+type = "string"
+title = "Password / App Password"
+required = true
+secret = true
+
+[credential_schemas.s3]
+name = "S3 Storage"
+[[credential_schemas.s3.fields]]
+name = "access_key_id"
+type = "string"
+title = "Access Key ID"
+required = true
+secret = true
+[[credential_schemas.s3.fields]]
+name = "secret_access_key"
+type = "string"
+title = "Secret Access Key"
+required = true
+secret = true
+[[credential_schemas.s3.fields]]
+name = "region"
+type = "string"
+title = "Region"
+required = true
+secret = false
+[[credential_schemas.s3.fields]]
+name = "endpoint"
+type = "string"
+title = "Endpoint"
+required = false
+secret = false
+
+# ---------- Translation provider credentials ----------
+
+[credential_schemas.translation_deepl]
+name = "DeepL Translate"
+[[credential_schemas.translation_deepl.fields]]
+name = "auth_key"
+type = "string"
+title = "Auth Key"
+required = true
+secret = true
+[[credential_schemas.translation_deepl.fields]]
+name = "plan"
+type = "string"
+title = "Plan (free | pro)"
+required = false
+secret = false
+default_value = "free"
+[[credential_schemas.translation_deepl.fields]]
+name = "endpoint"
+type = "string"
+title = "Endpoint Override"
+required = false
+secret = false
+[[credential_schemas.translation_deepl.fields]]
+name = "glossary_id"
+type = "string"
+title = "Glossary ID (optional)"
+required = false
+secret = false
+
+[credential_schemas.translation_baidu]
+name = "Baidu Translate (通用文本翻译)"
+[[credential_schemas.translation_baidu.fields]]
+name = "app_id"
+type = "string"
+title = "App ID"
+required = true
+secret = false
+[[credential_schemas.translation_baidu.fields]]
+name = "secret_key"
+type = "string"
+title = "Secret Key"
+required = true
+secret = true
+
+[credential_schemas.translation_google]
+name = "Google Cloud Translation"
+[[credential_schemas.translation_google.fields]]
+name = "api_key"
+type = "string"
+title = "API Key"
+required = true
+secret = true
+[[credential_schemas.translation_google.fields]]
+name = "project_id"
+type = "string"
+title = "GCP Project ID"
+required = true
+secret = false
+[[credential_schemas.translation_google.fields]]
+name = "glossary_resource"
+type = "string"
+title = "Glossary Resource (optional)"
+required = false
+secret = false
+
+# ==================== 内置提供商 ====================
+#
+# capabilities / behavior 段说明（能力与行为策略，按 provider + model 解析）：
+# - 未声明的能力一律视为不支持（fail-closed）：tools / JSON / 多模态默认关闭
+# - capabilities 描述模型/API 能做什么；behavior 描述适配层如何处理厂商差异
+# - [[providers.X.model_overrides]] 按 pattern（精确名或尾部通配 *）覆盖差异，
+#   最具体的匹配生效；provider 级默认即为兜底，无需配置 pattern = "*"
+# - 声明必须与 provider 实现一致，不得提前声明未实现的能力
+
+[providers.openai]
+name = "OpenAI"
+type = "builtin"
+credential_schema = "api_key_with_endpoint"
+supports_chat = true
+supports_embedding = true
+supports_reranker = false
+fetch_models_enabled = true
+default_chat_models = ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"]
+default_embedding_models = ["text-embedding-3-small", "text-embedding-3-large", "text-embedding-ada-002"]
+
+[providers.openai.capabilities]
+native_tool_calling = true
+streaming_tool_calling = true
+parallel_tool_calling = true
+json_mode = "json_object"
+system_message = "native"
+input_modalities = ["text", "image", "audio", "file"]
+
+[providers.openai.behavior]
+protocol_family = "open_ai_chat_completions"
+tool_call_recovery = "disabled"
+
+[providers.anthropic]
+name = "Anthropic (Claude)"
+type = "builtin"
+credential_schema = "api_key_only"
+supports_chat = true
+supports_embedding = false
+supports_reranker = false
+fetch_models_enabled = true
+default_chat_models = ["claude-3-5-sonnet-latest", "claude-3-5-haiku-latest", "claude-3-opus-latest"]
+
+# 当前 Anthropic provider 实现未编码 tools / JSON mode，因此不声明。
+[providers.anthropic.capabilities]
+system_message = "native"
+input_modalities = ["text", "image"]
+
+[providers.anthropic.behavior]
+protocol_family = "anthropic_messages"
+tool_call_recovery = "disabled"
+
+[providers.ollama]
+name = "Ollama"
+type = "builtin"
+credential_schema = "endpoint_only"
+supports_chat = true
+supports_embedding = true
+supports_reranker = false
+fetch_models_enabled = true
+
+# Ollama provider 实现支持 format: "json"，未实现 tools。
+[providers.ollama.capabilities]
+json_mode = "json_object"
+system_message = "native"
+input_modalities = ["text"]
+
+[providers.ollama.behavior]
+protocol_family = "ollama_chat"
+tool_call_recovery = "disabled"
+
+[providers.lm-studio]
+name = "LM Studio"
+type = "builtin"
+credential_schema = "endpoint_only"
+supports_chat = true
+supports_embedding = true
+supports_reranker = false
+fetch_models_enabled = true
+
+# 本地服务：加载的模型决定实际能力；实现层会透传图片内容块（视觉模型）。
+# tools 声明为乐观默认（多数指令模型支持），但实际能力取决于所加载模型，
+# 故启用 strict_json 恢复：若模型未走原生 function calling 而以 JSON 文本
+# 返回工具调用，响应管线会将其归一化为统一 ToolCall，而非作为普通文本泄漏。
+[providers.lm-studio.capabilities]
+native_tool_calling = true
+streaming_tool_calling = true
+system_message = "native"
+input_modalities = ["text", "image"]
+
+[providers.lm-studio.behavior]
+protocol_family = "open_ai_chat_completions"
+tool_call_recovery = "strict_json"
+
+[providers.vllm]
+name = "vLLM"
+type = "builtin"
+credential_schema = "endpoint_only"
+supports_chat = true
+supports_embedding = false
+supports_reranker = false
+fetch_models_enabled = true
+
+# 本地 OpenAI 兼容服务：实现支持原生 tools 并聚合流式 tool 增量，
+# 无图片内容块透传，故仅文本。加载的模型决定实际能力，因此与 LM Studio 一致
+# 启用 strict_json 恢复，兜底以 JSON 文本返回工具调用的模型。
+[providers.vllm.capabilities]
+native_tool_calling = true
+streaming_tool_calling = true
+system_message = "native"
+input_modalities = ["text"]
+
+[providers.vllm.behavior]
+protocol_family = "open_ai_chat_completions"
+tool_call_recovery = "strict_json"
+
+[providers.gemini]
+name = "Google Gemini"
+type = "builtin"
+credential_schema = "api_key_with_endpoint"
+supports_chat = true
+supports_embedding = true
+supports_reranker = false
+fetch_models_enabled = true
+default_chat_models = ["gemini-2.0-flash-exp", "gemini-1.5-pro", "gemini-1.5-flash"]
+default_embedding_models = ["text-embedding-004", "embedding-001"]
+
+# Gemini provider 实现支持非流式 tools（functionDeclarations），
+# 流式响应未聚合 tool 增量，因此带工具时强制非流式。
+[providers.gemini.capabilities]
+native_tool_calling = true
+streaming_tool_calling = false
+system_message = "native"
+input_modalities = ["text"]
+
+[providers.gemini.behavior]
+protocol_family = "gemini_generate_content"
+tool_call_recovery = "disabled"
+force_non_streaming_with_tools = true
+
+[providers.deepseek]
+name = "DeepSeek"
+type = "openai_compatible"
+credential_schema = "api_key_with_endpoint"
+supports_chat = true
+supports_embedding = false
+supports_reranker = false
+fetch_models_enabled = true
+default_chat_models = ["deepseek-chat", "deepseek-reasoner"]
+
+# max_output_tokens 接管原 LlmService::normalize_chat_request 中的
+# DeepSeek 8192 上限硬编码（Phase 3 迁移后由统一请求管线执行钳制）。
+[providers.deepseek.capabilities]
+native_tool_calling = true
+streaming_tool_calling = true
+system_message = "native"
+input_modalities = ["text"]
+max_output_tokens = 8192
+
+[providers.deepseek.behavior]
+protocol_family = "open_ai_chat_completions"
+tool_call_recovery = "strict_json"
+
+[providers.minimax]
+name = "MiniMax"
+type = "builtin"
+credential_schema = "api_key_with_endpoint"
+supports_chat = true
+supports_embedding = false
+supports_reranker = false
+fetch_models_enabled = true
+default_chat_models = ["MiniMax-M2.7", "MiniMax-M2.7-highspeed", "MiniMax-M2.5", "MiniMax-M2.5-highspeed", "MiniMax-M2.1", "MiniMax-M2.1-highspeed", "MiniMax-M2"]
+
+# MiniMax: system 角色由统一管线合并进 user；temperature 仅接受 (0, 1]；
+# 工具调用偶发以 XML/文本形式返回，由响应管线按白名单恢复。
+[providers.minimax.capabilities]
+native_tool_calling = true
+streaming_tool_calling = true
+parallel_tool_calling = false
+json_mode = "unsupported"
+system_message = "merge_into_user"
+input_modalities = ["text"]
+
+[providers.minimax.capabilities.sampling]
+temperature_min = 0.01
+temperature_max = 1.0
+temperature_zero_allowed = false
+
+[providers.minimax.behavior]
+protocol_family = "open_ai_chat_completions"
+tool_call_recovery = "minimax_xml_and_strict_json"
+force_non_streaming_with_tools = true
+tolerate_stream_tail_after_output = true
+
+[providers.zhipu]
+name = "智谱 (ZhipuAI)"
+type = "builtin"
+credential_schema = "api_key_with_endpoint"
+supports_chat = true
+supports_embedding = false
+supports_reranker = false
+fetch_models_enabled = true
+
+[providers.zhipu.capabilities]
+native_tool_calling = true
+streaming_tool_calling = true
+system_message = "native"
+input_modalities = ["text"]
+
+[providers.zhipu.behavior]
+protocol_family = "open_ai_chat_completions"
+tool_call_recovery = "registered_tool_text_and_strict_json"
+
+# GLM-4V 系列支持图片输入。
+[[providers.zhipu.model_overrides]]
+pattern = "glm-4v*"
+
+[providers.zhipu.model_overrides.capabilities]
+input_modalities = ["text", "image"]
+
+[providers.dashscope]
+name = "Alibaba Cloud DashScope (Qwen)"
+type = "builtin"
+credential_schema = "api_key_with_endpoint"
+supports_chat = true
+supports_embedding = true
+supports_reranker = true
+fetch_models_enabled = false
+default_chat_models = ["qwen-turbo", "qwen-plus", "qwen-max"]
+default_embedding_models = ["text-embedding-v3"]
+default_reranker_models = ["gte-rerank"]
+
+# DashScope 的 OpenAI 兼容模式：Qwen 文本模型支持原生 function calling、
+# 流式 tool 增量与 response_format=json_object。声明显式 capabilities/behavior，
+# 避免回落到保守默认（CustomOpenAiCompatible）导致协议族与可观测性不准确。
+[providers.dashscope.capabilities]
+native_tool_calling = true
+streaming_tool_calling = true
+json_mode = "json_object"
+system_message = "native"
+input_modalities = ["text"]
+
+[providers.dashscope.behavior]
+protocol_family = "open_ai_chat_completions"
+tool_call_recovery = "disabled"
+
+# Qwen-VL 系列支持图片输入。
+[[providers.dashscope.model_overrides]]
+pattern = "qwen-vl*"
+
+[providers.dashscope.model_overrides.capabilities]
+input_modalities = ["text", "image"]
+
+# ==================== Reranker 专用提供商 ====================
+
+[providers.cohere]
+name = "Cohere"
+type = "builtin"
+credential_schema = "api_key_only"
+supports_chat = false
+supports_embedding = true
+supports_reranker = true
+fetch_models_enabled = false
+default_embedding_models = ["embed-english-v3.0", "embed-multilingual-v3.0"]
+default_reranker_models = ["rerank-english-v3.0", "rerank-multilingual-v3.0"]
+
+[providers.jina]
+name = "Jina AI"
+type = "builtin"
+credential_schema = "api_key_only"
+supports_chat = false
+supports_embedding = true
+supports_reranker = true
+fetch_models_enabled = false
+default_embedding_models = ["jina-embeddings-v3"]
+default_reranker_models = ["jina-reranker-v2-base-multilingual"]
+
+# ==================== 通用 OpenAI 兼容提供商 ====================
+
+# custom 不通过 endpoint URL 猜测厂商：默认保守（仅文本对话），
+# tools / JSON / 多模态需通过凭证或节点上的显式 compatibility_profile
+# （conservative | openai | deepseek | minimax | zhipu）开启。
+[providers.custom]
+name = "Custom (OpenAI Compatible)"
+type = "openai_compatible"
+credential_schema = "custom_llm"
+supports_chat = true
+supports_embedding = true
+supports_reranker = false
+fetch_models_enabled = true
+
+[providers.custom.behavior]
+protocol_family = "custom_open_ai_compatible"
+tool_call_recovery = "disabled"
+

@@ -14,32 +14,32 @@ The implementation must preserve user configuration. Existing `.env` files, user
 
 ## Step 1: Stabilize Environment Initialization
 
-Modify `deploy/hybrid/.env.example`.
+Modify `deploy/.env.example`.
 
-This file is the native deployment environment template. It should keep `CHENG_CLI_ALLOWED_ROOTS` documented and provide a safe default example that matches how the CLI is intended to access local workspaces. The template should avoid leaving users with an empty value that silently disables CLI sessions. The final default should be chosen consistently with runtime behavior, such as a package-local workspace directory or another approved absolute path.
+This file is the unified deployment environment template used by all modes (native, Docker, and distributed). It should keep `CHENG_CLI_ALLOWED_ROOTS` documented and provide a safe default example that matches how the CLI is intended to access local workspaces. The template should avoid leaving users with an empty value that silently disables CLI sessions. The final default should be chosen consistently with runtime behavior, such as a package-local workspace directory or another approved absolute path.
 
-Modify `deploy/hybrid/generate-env.sh`.
+Modify `deploy/generate-env.sh` (the unified generator).
 
-This file creates the real native `.env` file. Add logic that fills `CHENG_CLI_ALLOWED_ROOTS` directly during generation so users are not prompted for it. The generated value should be deterministic and should resolve to an absolute path visible to both the API and CLI in native mode. The script should create the target workspace directory if needed, keep permissions reasonable, and preserve the existing behavior for secrets, database URLs, Redis, Qdrant, ports, and CORS.
+This file creates the single `deploy/.env` shared by all modes. Add logic that fills `CHENG_CLI_ALLOWED_ROOTS` directly during generation so users are not prompted for it. The generated value should be deterministic and resolve to an absolute path visible to the API and CLI in native mode, and `docker-compose.yml` should override it to `/app/workspace` for Docker containers. The script should create the target workspace directory if needed, keep permissions reasonable, and preserve behavior for secrets, database URLs, Redis, Qdrant, ports, and CORS.
 
-Modify `deploy/docker/.env.example` and `deploy/docker/generate-env.sh` only if Docker CLI sandbox support needs the same variable.
+Modify `deploy/hybrid/generate-env.sh` and `deploy/docker/generate-env.sh` to delegate to `deploy/generate-env.sh`.
 
-Docker mode has a different filesystem namespace, so the default must not blindly reuse a host-only native path. If Docker CLI sessions need to be enabled, the default should point to a mounted path such as `/app/workspace`, and `deploy/docker/docker-compose.yml` must expose the corresponding volume. If Docker CLI sessions are not part of the Docker install, document the decision and leave Docker behavior unchanged.
+Both scripts are now thin wrappers that export mode-specific defaults and call the unified generator. Docker mode has a different filesystem namespace, so `deploy/docker/docker-compose.yml` must override `CHENG_CLI_ALLOWED_ROOTS` to the mounted path `/app/workspace` instead of setting it in the generated `.env`.
 
-Modify `chengos.sh` and `deploy/hybrid/chengos.sh`.
+Modify `chengos.sh` and `deploy/chengos.sh`.
 
-These manager scripts currently duplicate the orchestration logic. Update both, or first establish one canonical source and copy it into the other as a packaging step. During install, `setup_native_env` and `setup_docker_env` should generate `.env` only when it does not already exist. Existing `.env` files should be reused by default. A forced regeneration path can exist as an explicit CLI flag later, but normal install and update must not overwrite secrets or user configuration.
+The root `chengos.sh` is a symlink to `deploy/chengos.sh`, which is the canonical manager source. Update the canonical file at `deploy/chengos.sh`; the root symlink will follow automatically. During install, `setup_native_env` and `setup_docker_env` should generate `.env` only when it does not already exist. Existing `.env` files should be reused by default. A forced regeneration path can exist as an explicit CLI flag later, but normal install and update must not overwrite secrets or user configuration.
 
 Integrity checks for this step:
 
-- A fresh native install creates `.env` with a non-empty `CHENG_CLI_ALLOWED_ROOTS`.
-- Re-running install does not overwrite an existing `.env`.
+- A fresh native install creates `deploy/.env` with a non-empty `CHENG_CLI_ALLOWED_ROOTS`.
+- Re-running install does not overwrite an existing `deploy/.env`.
 - Existing secrets remain unchanged across install and update.
-- Native start still reads the same `.env` and launches the selected modules.
+- Native start and Docker compose both read the same `deploy/.env`.
 
 ## Step 2: Add Reliable Install Mode Detection
 
-Modify `chengos.sh` and `deploy/hybrid/chengos.sh`.
+Modify `chengos.sh` and `deploy/chengos.sh`.
 
 Add helper functions that determine the active install mode from explicit markers instead of only checking whether deployment directories exist. The repository contains both `deploy/hybrid` and `deploy/docker`, so directory presence alone is not a reliable signal.
 
@@ -47,7 +47,7 @@ Recommended helper functions:
 
 - `resolve_hybrid_dir`: returns the active native deployment directory.
 - `resolve_docker_dir`: returns the active Docker deployment directory.
-- `detect_install_mode`: decides whether the current installation is native or Docker by checking installed `.env` files, compose state, local mode metadata, and user-supplied `--mode`.
+- `detect_install_mode`: decides whether the current installation is native or Docker by checking installed `deploy/.env`, compose state, local mode metadata, and user-supplied `--mode`.
 - `write_install_metadata`: records the chosen mode after install, for example in `.chengos_install_mode`.
 - `read_install_metadata`: loads that mode for update, uninstall, restart, status, start, and stop.
 
@@ -62,7 +62,7 @@ Integrity checks for this step:
 
 ## Step 3: Implement Mode-Aware Updates
 
-Modify `chengos.sh` and `deploy/hybrid/chengos.sh`.
+Modify `chengos.sh` and `deploy/chengos.sh`.
 
 Replace the current generic update behavior with an update flow that branches by install mode.
 
@@ -70,8 +70,8 @@ For Docker mode, add a function such as `update_docker_install`. It should:
 
 - Resolve the Docker deployment directory.
 - Ensure Docker and Docker Compose are available.
-- Ensure `.env` exists, generating it only if missing.
-- Check the currently configured images from `.env` and compose files.
+- Ensure `deploy/.env` exists, generating it only if missing.
+- Check the currently configured images from `deploy/.env` and compose files.
 - Pull the latest images using Docker Compose.
 - Determine whether any image digest changed when practical.
 - Restart the stack only when needed, or clearly report that the images are already current.
@@ -87,7 +87,7 @@ For native/binary mode, add a function such as `update_native_install`. It shoul
 - Download the packaged release only when a newer package exists.
 - Stop services before replacing binaries or frontend assets.
 - Replace packaged files such as `bin`, `ui`, `app`, server scripts, and deployment scripts as needed.
-- Preserve `.env`, `runtime`, `logs`, user workspaces, skills/config overrides, and local language preference.
+- Preserve `deploy/.env`, `runtime`, `logs`, user workspaces, skills/config overrides, and local language preference.
 - Write the new `.chengos_version` only after the package update succeeds.
 - Restart services after a successful update if they were running before the update.
 
@@ -100,14 +100,14 @@ When a standalone bootstrap install downloads the latest release package, record
 Integrity checks for this step:
 
 - Docker update pulls images and restarts the stack without touching native files.
-- Native update replaces package-owned files without overwriting `.env`.
+- Native update replaces package-owned files without overwriting `deploy/.env`.
 - Updating from an already-current version exits cleanly with a clear message.
 - Failed downloads or extraction errors leave the previous installation usable.
 - Existing options 4, 5, and 6 keep their current behavior.
 
 ## Step 4: Make Uninstall Behavior Explicit and Safe
 
-Modify `chengos.sh` and `deploy/hybrid/chengos.sh`.
+Modify `chengos.sh` and `deploy/chengos.sh`.
 
 Split uninstall into native and Docker paths.
 
@@ -133,12 +133,12 @@ Integrity checks for this step:
 
 - Docker uninstall removes ChengOS containers.
 - Docker image removal happens only after user confirmation.
-- Native uninstall does not accidentally remove `.env`, user workspaces, or persistent data by default.
+- Native uninstall does not accidentally remove `deploy/.env`, user workspaces, or persistent data by default.
 - The command exits cleanly if nothing is installed.
 
 ## Step 5: Add Restart as a First-Class Command
 
-Modify `chengos.sh` and `deploy/hybrid/chengos.sh`.
+Modify `chengos.sh` and `deploy/chengos.sh`.
 
 Add a `restart` CLI command and a TUI menu entry. The restart flow should reuse existing stop/start behavior instead of duplicating service-specific logic.
 
@@ -157,11 +157,11 @@ Integrity checks for this step:
 - CLI restart works in native mode.
 - CLI restart works in Docker mode.
 - TUI restart calls the same command path as CLI restart.
-- Restart does not regenerate `.env`.
+- Restart does not regenerate `deploy/.env`.
 
 ## Step 6: Clarify and Improve System Shortcuts
 
-Modify `chengos.sh` and `deploy/hybrid/chengos.sh`.
+Modify `chengos.sh` and `deploy/chengos.sh`.
 
 Keep the current shortcut feature, but rename the behavior clearly as command shortcut installation unless true OS keyboard shortcuts are explicitly implemented. The current feature creates system commands such as `chengos` and `cheng`; that is useful, but it is not the same as global keyboard hotkeys.
 
@@ -184,7 +184,7 @@ Integrity checks for this step:
 
 ## Step 7: Preserve Language Switching and Exit
 
-Modify `chengos.sh` and `deploy/hybrid/chengos.sh`.
+Modify `chengos.sh` and `deploy/chengos.sh`.
 
 Keep language switching backed by `.chengos_lang`. If menu numbering changes after adding restart, update all Chinese and English menu labels, prompts, and valid input ranges together.
 
@@ -209,7 +209,7 @@ If the implementation changes user-facing update, uninstall, restart, or shortcu
 Verification should include:
 
 - `bash -n chengos.sh`
-- `bash -n deploy/hybrid/chengos.sh`
+- `bash -n deploy/chengos.sh`
 - `bash -n deploy/hybrid/generate-env.sh`
 - `bash -n deploy/docker/generate-env.sh`
 - `bash -n deploy/docker/upgrade.sh`
@@ -217,7 +217,7 @@ Verification should include:
 - Fresh Docker install smoke test.
 - Native update with current version.
 - Native update with mocked older `.chengos_version`.
-- Docker update with existing `.env`.
+- Docker update with existing `deploy/.env`.
 - Docker uninstall with image removal declined.
 - Docker uninstall with image removal accepted in a disposable test environment.
 - Restart in native and Docker modes.
@@ -228,13 +228,13 @@ Verification should include:
 
 The manager must keep orchestration responsibilities separate from mode-specific implementation details.
 
-`chengos.sh` and `deploy/hybrid/chengos.sh` should own the user-facing CLI/TUI flow, language strings, command dispatch, install-mode detection, and delegation to native or Docker operations.
+`chengos.sh` (root symlink) and `deploy/chengos.sh` (canonical source) should own the user-facing CLI/TUI flow, language strings, command dispatch, install-mode detection, and delegation to native or Docker operations.
 
-`deploy/hybrid/generate-env.sh` should own native `.env` generation and native defaults.
+`deploy/generate-env.sh` should own unified `.env` generation and shared defaults.
 
 `deploy/hybrid/start.sh`, `deploy/hybrid/stop.sh`, and `deploy/hybrid/status.sh` should continue to own native service lifecycle behavior.
 
-`deploy/docker/generate-env.sh` should own Docker `.env` generation and Docker-network defaults.
+`deploy/hybrid/generate-env.sh` and `deploy/docker/generate-env.sh` should delegate to `deploy/generate-env.sh` and only apply mode-specific overrides.
 
 `deploy/docker/start.sh`, `deploy/docker/upgrade.sh`, and Docker Compose files should continue to own Docker lifecycle and image update behavior.
 

@@ -1,0 +1,10 @@
+{
+  "nodes.workspace.context.description": "读取执行器注入的当前运行时工作区 ID.当下游节点需要显式消费活动工作区时使用此节点.",
+  "nodes.workspace.context.inputs.workspaceId.description": "运行时工作区标识符(自动注入)",
+  "nodes.workspace.context.inputs.workspaceId.title": "工作区 ID",
+  "nodes.workspace.context.name": "工作区上下文",
+  "nodes.workspace.context.outputs.hasWorkspace.description": "当工作区确实存在于运行时上下文中时为真.",
+  "nodes.workspace.context.outputs.hasWorkspace.title": "包含工作空间",
+  "nodes.workspace.context.outputs.workspaceId.description": "解析后的工作区 ID,或当执行器未注入工作区时为空字符串(例如工作流在工作区外部触发时).",
+  "nodes.workspace.context.outputs.workspaceId.title": "工作空间 ID"
+}

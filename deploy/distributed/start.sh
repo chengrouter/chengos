@@ -6,7 +6,7 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$ROOT_DIR"
 
 ENV_FILE="${ROOT_DIR}/.env"
-ENV_EXAMPLE="${SCRIPT_DIR}/.env.example"
+ENV_EXAMPLE="${ROOT_DIR}/.env.example"
 BINARY="${ROOT_DIR}/bin/cheng-api"
 PID_FILE="${ROOT_DIR}/runtime/cheng-api.pid"
 LOG_FILE="${ROOT_DIR}/logs/cheng-api.log"

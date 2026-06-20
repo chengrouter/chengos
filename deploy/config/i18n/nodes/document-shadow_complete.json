@@ -1,0 +1,18 @@
+{
+  "nodes.document.shadow_complete.description": "标记影子会话生成完成,等待用户审查",
+  "nodes.document.shadow_complete.inputs.message.description": "输入 - 消息",
+  "nodes.document.shadow_complete.inputs.message.title": "消息",
+  "nodes.document.shadow_complete.inputs.shadow_id.description": "输入 - 影子 ID",
+  "nodes.document.shadow_complete.inputs.shadow_id.title": "影子 ID",
+  "nodes.document.shadow_complete.name": "完成影子生成",
+  "nodes.document.shadow_complete.outputs.error.description": "输入 - 错误",
+  "nodes.document.shadow_complete.outputs.error.title": "错误信息",
+  "nodes.document.shadow_complete.outputs.pending_operations.description": "输入 - 待处理 操作列表",
+  "nodes.document.shadow_complete.outputs.pending_operations.title": "待处理 操作列表",
+  "nodes.document.shadow_complete.outputs.shadow_id.description": "输入 - 影子 ID",
+  "nodes.document.shadow_complete.outputs.shadow_id.title": "影子 ID",
+  "nodes.document.shadow_complete.outputs.status.description": "输入 - 状态",
+  "nodes.document.shadow_complete.outputs.status.title": "状态",
+  "nodes.document.shadow_complete.outputs.success.description": "输入 - 成功",
+  "nodes.document.shadow_complete.outputs.success.title": "是否成功"
+}

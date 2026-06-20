@@ -1,0 +1,22 @@
+{
+  "nodes.io.read_file.description": "从磁盘读取文件内容为纯文本",
+  "nodes.io.read_file.inputs.file_path.description": "要读取文件的绝对或相对路径",
+  "nodes.io.read_file.inputs.file_path.title": "文件路径",
+  "nodes.io.read_file.inputs.max_chars.description": "最大读取字符数,超出部分截断并附加提示.0 表示不限制.默认 100000.",
+  "nodes.io.read_file.inputs.max_chars.title": "最大字符数",
+  "nodes.io.read_file.inputs.prefix.description": "可选前缀,添加到文件内容前面,为 LLM 提供上下文描述",
+  "nodes.io.read_file.inputs.prefix.title": "前缀",
+  "nodes.io.read_file.inputs.suffix.description": "可选后缀,附加到文件内容后面",
+  "nodes.io.read_file.inputs.suffix.title": "后缀",
+  "nodes.io.read_file.name": "读取文件",
+  "nodes.io.read_file.outputs.content.description": "文件的纯文本内容(含前缀/后缀),可直接使用",
+  "nodes.io.read_file.outputs.content.title": "内容",
+  "nodes.io.read_file.outputs.error.description": "输入 - 错误",
+  "nodes.io.read_file.outputs.error.title": "错误信息",
+  "nodes.io.read_file.outputs.file_path.description": "实际读取的文件绝对路径",
+  "nodes.io.read_file.outputs.file_path.title": "文件路径",
+  "nodes.io.read_file.outputs.total_bytes.description": "输入 - 总数 Bytes",
+  "nodes.io.read_file.outputs.total_bytes.title": "总字节数",
+  "nodes.io.read_file.outputs.truncated.description": "内容是否因 max_chars 被截断",
+  "nodes.io.read_file.outputs.truncated.title": "是否截断"
+}

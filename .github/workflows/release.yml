@@ -47,6 +47,13 @@ jobs:
           pnpm install --no-frozen-lockfile
           pnpm build:deploy
 
+      - name: Stage Frontend Assets for Deployment
+        run: |
+          mkdir -p deploy/ui deploy/app
+          rm -rf deploy/ui/* deploy/app/*
+          cp -a chengflow-ui/dist/. deploy/ui/
+          cp -a chengflow-app/dist-app/. deploy/app/
+
       - name: Build Backend & Package Hybrid Bundle
         run: |
           cd chengflow

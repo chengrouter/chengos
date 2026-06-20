@@ -1,0 +1,20 @@
+{
+  "nodes.tools.backup_file.description": "在隐藏备份目录下创建文件的显式快照,以便稍后使用 rollback_file 恢复.",
+  "nodes.tools.backup_file.inputs.backup_root.description": "可选的备份根目录",
+  "nodes.tools.backup_file.inputs.backup_root.title": "备份根目录",
+  "nodes.tools.backup_file.inputs.file_path.description": "要备份的文件路径",
+  "nodes.tools.backup_file.inputs.file_path.title": "文件路径",
+  "nodes.tools.backup_file.inputs.label.description": "备份的可选标签",
+  "nodes.tools.backup_file.inputs.label.title": "标签",
+  "nodes.tools.backup_file.name": "备份文件",
+  "nodes.tools.backup_file.outputs.backup_id.description": "备份 ID(用于 rollback_file)",
+  "nodes.tools.backup_file.outputs.backup_id.title": "备份 ID",
+  "nodes.tools.backup_file.outputs.backup_path.description": "备份内容文件路径",
+  "nodes.tools.backup_file.outputs.backup_path.title": "备份路径",
+  "nodes.tools.backup_file.outputs.bytes_copied.description": "备份的字节数",
+  "nodes.tools.backup_file.outputs.bytes_copied.title": "已复制字节数",
+  "nodes.tools.backup_file.outputs.error.description": "错误信息",
+  "nodes.tools.backup_file.outputs.error.title": "错误信息",
+  "nodes.tools.backup_file.outputs.file_path.description": "规范化的源文件路径",
+  "nodes.tools.backup_file.outputs.file_path.title": "文件路径"
+}

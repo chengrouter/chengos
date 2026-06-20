@@ -1,0 +1,20 @@
+{
+  "nodes.tools.cli_context_init.description": "根据 LLM 分支输出和工作流输入构建统一的 CLI 导入上下文,确保用户的原始请求和目标 CLI 在整个安装链中被捕获.",
+  "nodes.tools.cli_context_init.inputs.cli_name.description": "可选的 CLI 名称覆盖.若省略则回退到从分支有效负载中解析的值.",
+  "nodes.tools.cli_context_init.inputs.cli_name.title": "CLI 名称",
+  "nodes.tools.cli_context_init.inputs.context.description": "分支输出(AgentContext)或现有的 CLI 导入上下文.",
+  "nodes.tools.cli_context_init.inputs.context.title": "上下文",
+  "nodes.tools.cli_context_init.inputs.source_location.description": "技能导入的可选 URL 或仓库路径.",
+  "nodes.tools.cli_context_init.inputs.source_location.title": "源位置",
+  "nodes.tools.cli_context_init.inputs.source_type.description": "请求到达方式: text | url | repo | unknown.",
+  "nodes.tools.cli_context_init.inputs.source_type.title": "源类型",
+  "nodes.tools.cli_context_init.inputs.user_request.description": "用户的原始请求.当从工作流输入连线时具有权威性.",
+  "nodes.tools.cli_context_init.inputs.user_request.title": "用户请求",
+  "nodes.tools.cli_context_init.name": "CLI 上下文初始化",
+  "nodes.tools.cli_context_init.outputs.cli_name.description": "解析的目标 CLI 名称.",
+  "nodes.tools.cli_context_init.outputs.cli_name.title": "CLI 名称",
+  "nodes.tools.cli_context_init.outputs.context_out.description": "标准的,已填充的 CLI 导入上下文.",
+  "nodes.tools.cli_context_init.outputs.context_out.title": "输出上下文",
+  "nodes.tools.cli_context_init.outputs.has_request.description": "当 user_request.raw 已填充时为 true.",
+  "nodes.tools.cli_context_init.outputs.has_request.title": "包含请求"
+}

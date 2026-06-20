@@ -1,1 +1,1 @@
-deploy/hybrid/chengos.sh
+deploy/chengos.sh

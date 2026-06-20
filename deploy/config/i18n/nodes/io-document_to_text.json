@@ -1,0 +1,20 @@
+{
+  "nodes.io.document_to_text.description": "将 PDF,Word,Excel,TXT 文件解析为纯文本",
+  "nodes.io.document_to_text.inputs.base64_content.description": "Base64 编码的文件内容(与 file_path 互斥)",
+  "nodes.io.document_to_text.inputs.base64_content.title": "Base64 内容",
+  "nodes.io.document_to_text.inputs.file_path.description": "服务器上的本地绝对文件路径(与 base64_content 互斥)",
+  "nodes.io.document_to_text.inputs.file_path.title": "文件路径",
+  "nodes.io.document_to_text.inputs.filename.description": "用于推断格式的文件名(使用 base64_content 时必填)",
+  "nodes.io.document_to_text.inputs.filename.title": "文件名",
+  "nodes.io.document_to_text.inputs.max_chars.description": "最大提取字符数,0 表示不限制",
+  "nodes.io.document_to_text.inputs.max_chars.title": "最大字符数",
+  "nodes.io.document_to_text.name": "文档转文本",
+  "nodes.io.document_to_text.outputs.char_count.description": "提取的字符数",
+  "nodes.io.document_to_text.outputs.char_count.title": "字符数",
+  "nodes.io.document_to_text.outputs.format.description": "检测到的文件格式(pdf / docx / xlsx / txt 等)",
+  "nodes.io.document_to_text.outputs.format.title": "格式",
+  "nodes.io.document_to_text.outputs.text.description": "提取的纯文本内容",
+  "nodes.io.document_to_text.outputs.text.title": "文本",
+  "nodes.io.document_to_text.outputs.truncated.description": "是否因超过 max_chars 限制而被截断",
+  "nodes.io.document_to_text.outputs.truncated.title": "是否截断"
+}

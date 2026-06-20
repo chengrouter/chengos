@@ -2,7 +2,7 @@
 
 This directory is the GitHub-friendly Docker deployment template. It does not
 ship compiled binaries or frontend `dist` files; those are published as Docker
-images and selected through `.env`.
+images and selected through the unified `deploy/.env`.
 
 Use this when you want one-command deployment. Use `deploy/hybrid` when you want
 the backend binary on the host and only the infrastructure in Docker.
@@ -14,27 +14,37 @@ deploy/docker/
 ├── docker-compose.yml          # local/default full Docker deployment
 ├── docker-compose.binds.yml    # optional host-editable backend mounts
 ├── docker-compose.remote.yml   # remote override for VPS/reverse-proxy use
-├── generate-env.sh             # generate .env with Docker-network URLs
+├── generate-env.sh             # delegates to ../generate-env.sh to create ../.env
 ├── start.sh                    # one-command local/remote startup
 ├── upgrade.sh                  # one-command upgrade for api/ui/app images
-├── models/                     # optional local OCR model files
-├── .env.example
 └── README.md
 ```
 
-`start.sh` creates these runtime directories beside the compose files:
+All mode-specific images are selected in the unified `deploy/.env`:
 
-```bash
-mkdir -p skills config logs runtime models/paddle
+```env
+CHENGOS_API_IMAGE=chengos/chengos:latest
+CHENGOS_UI_IMAGE=chengos/chengos_ui:latest
+CHENGOS_APP_IMAGE=chengos/chengos_app:latest
+CHENGOS_CLI_IMAGE=chengos/chengos_cli:latest
 ```
 
-Suggested contents:
+Docker bind mounts reference the shared resources at the `deploy/` root. Runtime
+directories are created as needed:
+
+```bash
+mkdir -p ../logs ../runtime ../models/paddle ../workspace
+```
+
+Shared contents (maintained at `deploy/` root):
 
 - `skills/`: workflow skill definitions mounted to `/app/skills`
 - `config/`: optional config overrides mounted to `/app/config`
+- `node_skills/`: node skill guides mounted to `/app/node_skills`
 - `logs/`: host log directory mounted to `/app/logs`
 - `runtime/`: runtime scratch/PID state mounted to `/app/runtime`
 - `models/paddle/`: optional PaddleOCR ONNX model files mounted to `/home/chengos/.chengflow/models/paddle`
+- `workspace/`: Cheng CLI sandbox directory mounted to `/app/workspace`
 
 ## One-Click Upgrade
 
@@ -54,7 +64,7 @@ Through the unified manager, use:
 ./chengos.sh uninstall --mode docker
 ```
 
-The manager preserves `.env` by default. Docker volume and image removal during
+The manager preserves `deploy/.env` by default. Docker volume and image removal during
 uninstall is prompted separately.
 
 If you are using the remote compose override, run:
@@ -171,14 +181,38 @@ http://api:3000
 
 That keeps browser traffic same-origin and avoids most CORS friction.
 
+## Cheng CLI in Docker
+
+The terminal client is available as an optional interactive container. It is
+not started by default; use the `cli` compose profile to run it.
+
+Build the image first (binary is built separately, musl target recommended for portability):
+
+```bash
+cargo build --release -p cheng-cli --target x86_64-unknown-linux-musl
+docker build -t chengos/chengos_cli:latest -f chengflow/crates/cheng-cli/Dockerfile chengflow
+```
+
+Run the CLI against the running Docker stack:
+
+```bash
+cd deploy/docker
+docker compose --profile cli run --rm cli
+```
+
+The container mounts the shared workspace, config, and runtime directories, and
+sets `CHENG_SERVER_URL=http://api:3000` by default. Change `CHENG_SERVER_URL`
+in `.env` if the API is reachable at a different address.
+
 ## Native/Static Alternative
 
 For people who want to save resources or customize deployment:
 
-- build the backend binary with `./build.sh --hybrid`
+- build the backend and CLI binaries with `./build.sh --hybrid`
 - serve `chengflow-ui/dist` and `chengflow-app/dist-app` with host Nginx/Caddy
 - run `bin/cheng-api` directly on the host
-- keep Postgres, Redis, and Qdrant from `deploy/hybrid/infra/docker-compose.yml`
+- run `bin/cheng` for the terminal client
+- keep Postgres, Redis, and Qdrant from `deploy/infra/docker-compose.yml`
 
 That path is intentionally kept separate from this Docker template so the
 repository has clean source templates while release artifacts can still include

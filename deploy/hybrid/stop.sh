@@ -2,9 +2,10 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$ROOT_DIR"
 
-ENV_FILE="${SCRIPT_DIR}/.env"
+ENV_FILE="${ROOT_DIR}/.env"
 
 WITH_INFRA=false
 for arg in "$@"; do
@@ -60,20 +61,20 @@ stop_pid() {
 }
 
 # 1. Stop Applications
-stop_pid "${SCRIPT_DIR}/runtime/app-server.pid" "cheng-app server"
-stop_pid "${SCRIPT_DIR}/runtime/ui-server.pid" "cheng-ui server"
-stop_pid "${SCRIPT_DIR}/runtime/cheng-api.pid" "cheng-api backend"
+stop_pid "${ROOT_DIR}/runtime/app-server.pid" "cheng-app server"
+stop_pid "${ROOT_DIR}/runtime/ui-server.pid" "cheng-ui server"
+stop_pid "${ROOT_DIR}/runtime/cheng-api.pid" "cheng-api backend"
 
 # 2. Stop Qdrant if running locally
-stop_pid "${SCRIPT_DIR}/runtime/qdrant.pid" "Qdrant"
+stop_pid "${ROOT_DIR}/runtime/qdrant.pid" "Qdrant"
 
 # 3. Stop Local Databases in managed-process mode
 if [[ "$DB_INSTALL_MODE" == "managed-process" ]]; then
     log "Stopping local databases (managed-process mode)..."
     
     # Stop local Redis
-    if [[ -f "${SCRIPT_DIR}/runtime/redis.pid" ]]; then
-        r_pid=$(cat "${SCRIPT_DIR}/runtime/redis.pid")
+    if [[ -f "${ROOT_DIR}/runtime/redis.pid" ]]; then
+        r_pid=$(cat "${ROOT_DIR}/runtime/redis.pid")
         if kill -0 "$r_pid" 2>/dev/null; then
             log "Shutting down local Redis..."
             if [[ -n "$REDIS_PASSWORD" ]]; then
@@ -82,16 +83,16 @@ if [[ "$DB_INSTALL_MODE" == "managed-process" ]]; then
                 redis-cli -p 6379 shutdown 2>/dev/null || kill -TERM "$r_pid" || true
             fi
         fi
-        rm -f "${SCRIPT_DIR}/runtime/redis.pid"
+        rm -f "${ROOT_DIR}/runtime/redis.pid"
         log "Local Redis stopped"
     fi
 
     # Stop local Postgres
-    if [[ -f "${SCRIPT_DIR}/runtime/postgres.pid" ]]; then
-        pg_pid=$(cat "${SCRIPT_DIR}/runtime/postgres.pid")
+    if [[ -f "${ROOT_DIR}/runtime/postgres.pid" ]]; then
+        pg_pid=$(cat "${ROOT_DIR}/runtime/postgres.pid")
         if kill -0 "$pg_pid" 2>/dev/null; then
             log "Shutting down local PostgreSQL..."
-            pg_data="${SCRIPT_DIR}/runtime/pg-data"
+            pg_data="${ROOT_DIR}/runtime/pg-data"
             run_prefix=""
             if [[ "$(id -u)" -eq 0 ]]; then
                 pg_data="/var/lib/chengos/pg-data"
@@ -107,7 +108,7 @@ if [[ "$DB_INSTALL_MODE" == "managed-process" ]]; then
             
             (cd /tmp && ${run_prefix} env PATH="$PATH" pg_ctl -D "$pg_data" stop -m fast 2>/dev/null) || kill -TERM "$pg_pid" || true
         fi
-        rm -f "${SCRIPT_DIR}/runtime/postgres.pid"
+        rm -f "${ROOT_DIR}/runtime/postgres.pid"
         log "Local PostgreSQL stopped"
     fi
 fi

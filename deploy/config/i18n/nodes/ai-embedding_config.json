@@ -1,0 +1,18 @@
+{
+  "nodes.ai.embedding_config.description": "选择已连接的嵌入模型并输出其完整配置",
+  "nodes.ai.embedding_config.inputs.batch_size.description": "批量处理大小",
+  "nodes.ai.embedding_config.inputs.batch_size.title": "批量大小",
+  "nodes.ai.embedding_config.inputs.dimension.description": "嵌入向量维度",
+  "nodes.ai.embedding_config.inputs.dimension.title": "向量维度",
+  "nodes.ai.embedding_config.inputs.embedding_model.description": "选择已连接的嵌入模型.支持 credential_id::model 格式",
+  "nodes.ai.embedding_config.inputs.embedding_model.title": "嵌入模型",
+  "nodes.ai.embedding_config.inputs.reranker_model.description": "选择重排序模型(可选,用于后处理优化)",
+  "nodes.ai.embedding_config.inputs.reranker_model.title": "重排序模型",
+  "nodes.ai.embedding_config.inputs.reranker_top_k.description": "重排序返回的最大结果数",
+  "nodes.ai.embedding_config.inputs.reranker_top_k.title": "重排序 Top K",
+  "nodes.ai.embedding_config.name": "Embedding 配置",
+  "nodes.ai.embedding_config.outputs.embedding_config.description": "完整的嵌入配置",
+  "nodes.ai.embedding_config.outputs.embedding_config.title": "Embedding 配置",
+  "nodes.ai.embedding_config.outputs.reranker_config.description": "重排序配置(如已配置重排序模型)",
+  "nodes.ai.embedding_config.outputs.reranker_config.title": "重排序配置"
+}

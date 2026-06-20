@@ -6,8 +6,8 @@ chengflow-app/
 # Ignore Build & Staging Directories
 dist/
 dist.bak/
-deploy/hybrid/bin/cheng-api
-deploy/hybrid/bin/chengctl
+deploy/bin/cheng-api
+deploy/bin/chengctl
 
 # Ignore Project Meta & IDE Files
 .codex
@@ -17,8 +17,11 @@ RELEASE_WORKFLOW.md
 # Ignore Local Configs & Variables
 .env
 .chengos_lang
+deploy/.env
 deploy/hybrid/.env
 deploy/hybrid/install/.env
+deploy/docker/.env
+deploy/distributed/.env
 
 # Ignore Runtime State & Process IDs
 **/runtime/*.pid

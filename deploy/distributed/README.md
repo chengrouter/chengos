@@ -3,6 +3,8 @@
 High performance Native App (VPS B) + Database Server (VPS A) Architecture.  
 Both backend and databases run as native binaries to ensure absolute minimum runtime overhead—completely removing Docker from the equation.
 
+Shared resources such as `.env.example`, `skills/`, `bin/`, `runtime/`, and `logs/` are maintained at the `deploy/` root and are shared by all deployment modes.
+
 ## Architecture
 
 * **VPS A (Database Server)**: Runs native PostgreSQL 18, Redis, and Qdrant.
@@ -50,16 +52,16 @@ Copy that file to VPS B and place it in the same directory as this README:
 scp root@<VPS_A_IP>:/root/vps_b_env.txt ./
 ```
 
-Then generate your `.env` file. The script will automatically detect `vps_b_env.txt` and seamlessly configure all your external database hostings and passwords:
+Then generate the unified `deploy/.env` file. The script will automatically detect `vps_b_env.txt` and seamlessly configure all your external database hostings and passwords:
 
 ```bash
 bash generate-env.sh --cors-origin https://your-frontend.example.com --db-pool 3
 ```
 
-You can optionally review `.env` to verify the settings.
+You can optionally review `deploy/.env` to verify the settings.
 
 ```bash
-$EDITOR .env
+$EDITOR ../.env
 ```
 
 ### 4. Start the Application
@@ -70,7 +72,7 @@ bash start.sh
 
 What it does:
 1. Verifies all required dependencies (libssl, libpq)
-2. Validates your `.env` configuration
+2. Validates your `deploy/.env` configuration
 3. Launches `bin/cheng-api` via `nohup`
 4. Polls the `/health` endpoint until the app is fully online
 

@@ -3,7 +3,7 @@ services:
     image: postgres:18-alpine
     container_name: chengos-postgres
     env_file:
-      - path: .env
+      - path: ../.env
         required: false
     environment:
       POSTGRES_DB: master_router
@@ -24,7 +24,7 @@ services:
     image: redis:8.6.0-alpine
     container_name: chengos-redis
     env_file:
-      - path: .env
+      - path: ../.env
         required: false
     command:
       [
@@ -64,19 +64,23 @@ services:
     image: ${CHENGOS_API_IMAGE:-chengos/chengos:latest}
     container_name: chengos-api
     env_file:
-      - path: .env
+      - path: ../.env
         required: false
-    volumes:
-      - ./config:/app/config
-      - ./skills:/app/skills
-      - ./logs:/app/logs
-      - ./runtime:/app/runtime
-      - ./models:/home/chengos/.chengflow/models
-      - ./node_skills:/app/node_skills
-      - ./workspace:/app/workspace
     environment:
+      DATABASE_URL: postgres://tianai_db:${POSTGRES_PASSWORD:-change_this_postgres_password}@postgres:5432/master_router
+      REDIS_URL: redis://:${REDIS_PASSWORD:-change_this_redis_password}@redis:6379
+      QDRANT_URL: http://qdrant:6334
+      CHENG_CLI_ALLOWED_ROOTS: /app/workspace
       SKILLS_DIR: /app/skills
       NODE_SKILLS_DIR: /app/node_skills
+    volumes:
+      - ../config:/app/config
+      - ../skills:/app/skills
+      - ../logs:/app/logs
+      - ../runtime:/app/runtime
+      - ../models:/home/chengos/.chengflow/models
+      - ../node_skills:/app/node_skills
+      - ../workspace:/app/workspace
     ports:
       - "127.0.0.1:${API_PORT:-3000}:3000"
     depends_on:
@@ -125,7 +129,33 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  cli:
+    image: ${CHENGOS_CLI_IMAGE:-chengos/chengos_cli:latest}
+    container_name: chengos-cli
+    env_file:
+      - path: ../.env
+        required: false
+    environment:
+      CHENG_SERVER_URL: ${CHENG_SERVER_URL:-http://api:3000}
+      CHENG_CLI_ALLOWED_ROOTS: /app/workspace
+    volumes:
+      - ../workspace:/app/workspace
+      - ../config:/app/config:ro
+      - ../runtime:/app/runtime:ro
+      - cheng_cli_config:/home/chengos/.config/cheng
+    depends_on:
+      api:
+        condition: service_healthy
+    profiles:
+      - cli
+    stdin_open: true
+    tty: true
+    entrypoint: ["/usr/local/bin/cheng"]
+    command: []
+    restart: "no"
+
 volumes:
   postgres_data:
   redis_data:
   qdrant_data:
+  cheng_cli_config:

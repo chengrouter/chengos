@@ -4,17 +4,13 @@
 #   docker compose -f docker-compose.yml -f docker-compose.binds.yml up -d
 #
 # Important: bind mounts replace the corresponding paths inside the image.
-# Seed skills/config first if you want to keep the bundled defaults:
-#
-#   mkdir -p skills config logs runtime models/paddle
-#   cp -a ../../skills/. skills/
-#   cp -a ../../config/. config/
+# skills/ and config/ are shared resources at the deploy/ root.
 
 services:
   api:
     volumes:
-      - ./skills:/app/skills
-      - ./config:/app/config
-      - ./logs:/app/logs
-      - ./runtime:/app/runtime
-      - ./models:/home/chengos/.chengflow/models
+      - ../skills:/app/skills
+      - ../config:/app/config
+      - ../logs:/app/logs
+      - ../runtime:/app/runtime
+      - ../models:/home/chengos/.chengflow/models

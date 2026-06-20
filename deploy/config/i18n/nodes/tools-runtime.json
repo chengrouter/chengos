@@ -1,0 +1,22 @@
+{
+  "nodes.tools.runtime.description": "可配置的工具包:一次性连接 to an LLM/Agent,并公开一组受策略限制的精选工具.",
+  "nodes.tools.runtime.inputs.action.description": "操作: list_tools | execute | validate_config",
+  "nodes.tools.runtime.inputs.action.title": "操作",
+  "nodes.tools.runtime.inputs.dry_run.description": "仅验证而不分发执行",
+  "nodes.tools.runtime.inputs.dry_run.title": "演练",
+  "nodes.tools.runtime.inputs.exposed_tools.description": "精选工具包",
+  "nodes.tools.runtime.inputs.exposed_tools.title": "公开的工具",
+  "nodes.tools.runtime.inputs.tool_call.description": "当 action=execute 时的工具调用信息",
+  "nodes.tools.runtime.inputs.tool_call.title": "工具调用",
+  "nodes.tools.runtime.name": "工具运行时",
+  "nodes.tools.runtime.outputs.errors.description": "配置错误信息",
+  "nodes.tools.runtime.outputs.errors.title": "错误",
+  "nodes.tools.runtime.outputs.functions.description": "展开的 LLM 函数",
+  "nodes.tools.runtime.outputs.functions.title": "函数",
+  "nodes.tools.runtime.outputs.result.description": "工具执行结果",
+  "nodes.tools.runtime.outputs.result.title": "结果",
+  "nodes.tools.runtime.outputs.status.description": "运行时操作状态",
+  "nodes.tools.runtime.outputs.status.title": "状态",
+  "nodes.tools.runtime.outputs.warnings.description": "配置警告信息",
+  "nodes.tools.runtime.outputs.warnings.title": "警告"
+}
