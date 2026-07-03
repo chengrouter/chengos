@@ -1,0 +1,155 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chengos.dev/schemas/skill-package/manifest-v1.schema.json",
+  "title": "ChengOS Skill Package Manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format_version",
+    "slug",
+    "version",
+    "compatibility",
+    "files",
+    "scripts",
+    "dependencies",
+    "artifact"
+  ],
+  "properties": {
+    "format_version": {
+      "const": 1,
+      "description": "Package format version. Always 1 for Package v1."
+    },
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{1,63}$",
+      "description": "Skill slug. Must match skill.yaml `name` and the release request."
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$",
+      "description": "SemVer 2.0.0 release version. Must match skill.yaml `version`."
+    },
+    "compatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minimum_chengos_version"],
+      "properties": {
+        "minimum_chengos_version": {
+          "type": "string",
+          "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$",
+          "description": "Lowest ChengOS engine version this package supports."
+        },
+        "maximum_chengos_version": {
+          "type": "string",
+          "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$",
+          "description": "Optional highest supported ChengOS engine version (inclusive)."
+        }
+      }
+    },
+    "files": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 512,
+      "description": "Every archive file entry except manifest.json itself.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "size", "sha256", "kind"],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "pattern": "^[^/\\\\][^\\\\]*$",
+            "description": "Relative, forward-slash, NFC-normalized path."
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 20971520,
+            "description": "Uncompressed size in bytes."
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "description": "Lowercase hex SHA-256 of the uncompressed file bytes."
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["skill_md", "skill_yaml", "workflow_json", "reference", "script"]
+          }
+        }
+      }
+    },
+    "scripts": {
+      "type": "array",
+      "maxItems": 64,
+      "description": "Declaration for every file under scripts/**. Empty when the package has no scripts.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "interpreter", "purpose"],
+        "properties": {
+          "path": {
+            "type": "string",
+            "pattern": "^scripts/[^\\\\]+$"
+          },
+          "interpreter": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "description": "Interpreter the script targets, e.g. bash, sh, python3, node."
+          },
+          "purpose": {
+            "type": "string",
+            "enum": ["install", "runtime", "helper", "documentation_example"]
+          },
+          "entry_point": {
+            "type": "boolean",
+            "default": false,
+            "description": "At most one runtime script may be the entry point."
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 512
+          }
+        }
+      }
+    },
+    "dependencies": {
+      "type": "array",
+      "maxItems": 0,
+      "description": "Reserved for future skill dependencies. Must be empty in Package v1; validators reject non-empty lists with PKG_DEPENDENCIES_UNSUPPORTED."
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["media_type"],
+      "properties": {
+        "media_type": {
+          "const": "application/vnd.chengos.skill-package.v1+zip"
+        }
+      }
+    },
+    "policy_hints": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Optional, advisory-only hints surfaced to reviewers. Never a substitute for scanning.",
+      "properties": {
+        "network_domains": {
+          "type": "array",
+          "maxItems": 64,
+          "items": { "type": "string", "maxLength": 253 }
+        },
+        "requires_credentials": {
+          "type": "array",
+          "maxItems": 32,
+          "items": { "type": "string", "maxLength": 128 }
+        },
+        "filesystem_write": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

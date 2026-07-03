@@ -1,0 +1,72 @@
+# Nginx reverse proxy for skill-registry.
+#
+# Responsibilities:
+#  * TLS termination
+#  * X-Accel-Redirect artifact serving (registry authorizes + counts, Nginx
+#    streams the bytes from an internal-only location)
+#  * Trusted X-Forwarded-For (inbound values are overwritten, so the registry
+#    can use the first hop for rate limiting / download bucketing)
+#  * /metrics and /api/v1/admin restricted to internal networks
+
+upstream skill_registry {
+    server 127.0.0.1:8300;
+    keepalive 16;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name skills.example.com;
+
+    ssl_certificate     /etc/ssl/certs/skills.example.com.crt;
+    ssl_certificate_key /etc/ssl/private/skills.example.com.key;
+
+    # Match registry artifacts.max_archive_bytes (+ slack).
+    client_max_body_size 21m;
+
+    # Internal-only artifact location. The registry replies with
+    # X-Accel-Redirect: /internal/artifacts/sha256/ab/cd/<digest> after
+    # authorizing the download; Nginx serves the file directly.
+    # `alias` maps the prefix to artifacts.root — keep in sync with config.
+    location /internal/artifacts/ {
+        internal;
+        alias /var/lib/skill-registry/artifacts/;
+        sendfile on;
+        tcp_nopush on;
+    }
+
+    # Operational surfaces: internal networks only.
+    location /metrics {
+        allow 10.0.0.0/8;
+        allow 127.0.0.1;
+        deny all;
+        proxy_pass http://skill_registry;
+    }
+    location /api/v1/admin/ {
+        allow 10.0.0.0/8;
+        allow 127.0.0.1;
+        deny all;
+        proxy_pass http://skill_registry;
+        include /etc/nginx/skill-registry-proxy-headers.conf;
+    }
+
+    location / {
+        proxy_pass http://skill_registry;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        # Overwrite (never append) so clients cannot spoof their address.
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Request-Id $request_id;
+
+        # Uploads stream to disk in the registry; don't buffer twice.
+        proxy_request_buffering off;
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+    }
+}
+
+server {
+    listen 80;
+    server_name skills.example.com;
+    return 301 https://$host$request_uri;
+}

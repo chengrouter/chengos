@@ -1,0 +1,41 @@
+# systemd unit for skill-registry.
+# Install: copy to /etc/systemd/system/, put secrets in
+# /etc/skill-registry/env (mode 0600, root:root), then
+#   systemctl daemon-reload && systemctl enable --now skill-registry
+
+[Unit]
+Description=ChengOS Skills Registry
+After=network-online.target postgresql.service redis-server.service
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=skill-registry
+Group=skill-registry
+EnvironmentFile=/etc/skill-registry/env
+ExecStart=/usr/local/bin/skill-registry --config /etc/skill-registry/config.toml serve
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=45
+
+# Storage
+StateDirectory=skill-registry
+ReadWritePaths=/var/lib/skill-registry
+
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+SystemCallFilter=@system-service
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,27 @@
+{
+  "name": "valid-workflow",
+  "description": "Fixture workflow: echoes its text input to a preview node.",
+  "nodes": [
+    {
+      "id": "input-1",
+      "type": "input/text",
+      "position": { "x": 0, "y": 0 },
+      "data": { "label": "Text Input", "config": { "default_value": "hello" } }
+    },
+    {
+      "id": "preview-1",
+      "type": "utils/preview",
+      "position": { "x": 320, "y": 0 },
+      "data": { "label": "Preview", "config": {} }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-1",
+      "source": "input-1",
+      "sourceHandle": "text",
+      "target": "preview-1",
+      "targetHandle": "value"
+    }
+  ]
+}

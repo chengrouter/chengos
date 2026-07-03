@@ -1,0 +1,56 @@
+# Development / single-host stack for skill-registry.
+# Usage:
+#   docker compose -f deploy/docker-compose.yml up -d postgres redis
+#   docker compose -f deploy/docker-compose.yml run --rm registry migrate
+#   docker compose -f deploy/docker-compose.yml up -d registry
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: skill_registry
+      POSTGRES_USER: registry
+      POSTGRES_PASSWORD: registry-dev-password
+    volumes:
+      - registry-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U registry -d skill_registry"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "no", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  registry:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://registry:registry-dev-password@postgres:5432/skill_registry
+      REDIS_URL: redis://redis:6379/0
+      REGISTRY_LISTEN: 0.0.0.0:8300
+      REGISTRY_PUBLIC_URL: http://127.0.0.1:8300
+      REGISTRY_RUN_JOBS: "true"
+      # Set real secrets in production; these are dev-only.
+      REGISTRY_TOKEN_HMAC_SECRET: dev-only-insecure-token-hmac-secret-0000
+      REGISTRY_COUNTER_HMAC_KEY: dev-only-insecure-counter-hmac-key
+    ports:
+      - "8300:8300"
+    volumes:
+      - registry-artifacts:/var/lib/skill-registry/artifacts
+
+volumes:
+  registry-pg:
+  registry-artifacts:

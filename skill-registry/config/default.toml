@@ -1,0 +1,110 @@
+# skill-registry development defaults.
+# Every key is optional; missing keys fall back to the same values compiled
+# into the binary. Environment variables (see .env.example) override this file.
+
+# "development" | "production" — production tightens validation (https,
+# non-default secrets) and refuses to run with pending migrations.
+environment = "development"
+
+[server]
+# Startup-only.
+listen = "127.0.0.1:8300"
+# Public base URL clients see (used in returned links and auth flows).
+public_url = "http://127.0.0.1:8300"
+# Per-request timeout for non-upload endpoints (seconds).
+request_timeout_secs = 30
+# Graceful shutdown budget: drain HTTP, stop claiming jobs, wait for leases.
+shutdown_timeout_secs = 30
+# Max JSON body for non-artifact endpoints (bytes).
+max_json_body_bytes = 1048576
+# Exact CORS origins allowed to call /api/v1 from a browser (direct mode).
+# Empty means no browser cross-origin access (proxy mode via ChengFlow).
+cors_allowed_origins = []
+# Production: let Nginx serve artifact bytes via X-Accel-Redirect.
+use_x_accel_redirect = false
+x_accel_prefix = "/internal/artifacts"
+
+[database]
+# Startup-only. Overridden by DATABASE_URL.
+url = "postgres://postgres:postgres@127.0.0.1:5432/skill_registry"
+max_connections = 16
+min_connections = 1
+acquire_timeout_secs = 5
+# serve refuses to start when pending migrations exist; `skill-registry
+# migrate` is the only command that applies them.
+require_migrations_applied = true
+
+[redis]
+# Startup-only. Overridden by REDIS_URL. Redis accelerates caching, counters,
+# rate limits, and job delivery — it is never the source of business truth.
+url = "redis://127.0.0.1:6379/0"
+enabled = true
+connect_timeout_secs = 2
+
+[artifacts]
+# Startup-only. Content-addressed store root; uploads stage under <root>/work.
+root = "./data/artifacts"
+work_dir = "work"
+# Package v1 hard limits (see skill-package-spec/package-v1.md §7).
+max_archive_bytes = 20971520        # 20 MiB compressed
+max_expanded_bytes = 104857600      # 100 MiB expanded total
+max_file_bytes = 20971520           # 20 MiB per file
+max_files = 512
+max_compression_ratio = 200
+max_path_bytes = 256
+max_path_depth = 8
+upload_timeout_secs = 300
+work_dir_quota_bytes = 2147483648   # 2 GiB in-flight upload quota
+file_mode = "0640"
+
+[auth]
+# Startup-only secrets. MUST be overridden in production via env vars.
+token_hmac_secret = "dev-only-insecure-token-hmac-secret-0000"
+admin_token = ""
+grant_code_ttl_secs = 120           # one-time grant codes
+grant_token_ttl_secs = 7776000      # 90 days
+assertion_max_age_secs = 60         # ChengFlow identity assertion freshness
+jti_ttl_secs = 300                  # replay-protection window
+
+[cache]
+# Hot-reload candidates.
+search_ttl_secs = 30
+release_ttl_secs = 3600
+schema_version = 1
+
+[rate_limit]
+# Hot-reload candidates. All values are per-minute unless noted.
+public_per_ip_per_min = 300
+download_per_ip_per_min = 60
+publish_per_publisher_per_min = 30
+auth_per_ip_per_min = 20
+report_per_ip_per_day = 20
+
+[jobs]
+# REGISTRY_RUN_JOBS=false turns this process into an API-only node.
+run_jobs = true
+max_concurrency = 8
+scan_concurrency = 4
+cleanup_concurrency = 1
+lease_secs = 300
+max_attempts = 5
+retry_backoff_secs = 30
+outbox_poll_interval_secs = 5
+cleanup_min_age_secs = 86400
+counter_flush_interval_secs = 300
+
+[moderation]
+# Hot-reload candidates. Clean scans auto-approve only when explicitly enabled.
+auto_approve_clean_scans = false
+quarantine_at_severity = "critical"
+
+[counters]
+# Startup-only. HMAC key deriving privacy-preserving download buckets;
+# raw client addresses are never stored in long-lived statistics.
+bucket_hmac_key = "dev-only-insecure-counter-hmac-key"
+window_secs = 86400
+
+[telemetry]
+# "pretty" for development, "json" for production.
+log_format = "pretty"
+log_filter = "info,skill_registry=debug"

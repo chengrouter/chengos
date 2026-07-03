@@ -1,0 +1,25 @@
+schema_version: "1"
+
+name: undeclared-script
+display_name: Undeclared Script
+description: Invalid fixture with a script file that is not declared anywhere.
+version: 1.0.0
+category: tools
+tags:
+  - fixture
+
+backend:
+  type: reference
+
+credentials:
+  required: []
+
+permissions:
+  read_only: true
+  allowed_actions: []
+  denied_actions: []
+
+normalization:
+  status: ready
+  confidence: 1.0
+  warnings: []

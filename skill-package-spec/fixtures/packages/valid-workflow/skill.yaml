@@ -1,0 +1,27 @@
+schema_version: "1"
+
+name: valid-workflow
+display_name: Valid Workflow
+description: Valid Package v1 fixture with a workflow backend and a reference file.
+version: 2.1.0
+category: automation
+tags:
+  - fixture
+  - workflow
+
+backend:
+  type: workflow
+  workflow_id: ""
+
+credentials:
+  required: []
+
+permissions:
+  read_only: true
+  allowed_actions: []
+  denied_actions: []
+
+normalization:
+  status: ready
+  confidence: 1.0
+  warnings: []

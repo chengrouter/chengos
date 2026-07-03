@@ -1,0 +1,25 @@
+schema_version: "1"
+
+name: valid-minimal
+display_name: Valid Minimal
+description: Minimal valid Package v1 fixture skill used by contract tests.
+version: 1.0.0
+category: reference
+tags:
+  - fixture
+
+backend:
+  type: reference
+
+credentials:
+  required: []
+
+permissions:
+  read_only: true
+  allowed_actions: []
+  denied_actions: []
+
+normalization:
+  status: ready
+  confidence: 1.0
+  warnings: []
