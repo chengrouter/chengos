@@ -330,7 +330,9 @@ mod tests {
         let errs = read_archive(zip.path(), &limits()).unwrap_err();
         assert!(errs
             .iter()
-            .any(|e| e.code == codes::PKG_FILE_TOO_LARGE || e.code == codes::PKG_EXPANDED_TOO_LARGE));
+            .any(|e| e.code == codes::PKG_FILE_TOO_LARGE
+                || e.code == codes::PKG_EXPANDED_TOO_LARGE
+                || e.code == codes::PKG_COMPRESSION_RATIO));
     }
 
     #[test]

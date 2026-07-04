@@ -1,0 +1,71 @@
+# ChengHub development defaults. No secrets in this file — credentials come
+# from environment variables (see .env.example).
+
+environment = "development"
+
+[server]
+listen = "127.0.0.1:8400"
+public_url = "http://127.0.0.1:8400"
+request_timeout_secs = 30
+shutdown_timeout_secs = 30
+max_json_body_bytes = 262144
+cors_allowed_origins = []
+
+[database]
+max_connections = 16
+min_connections = 1
+acquire_timeout_secs = 5
+require_migrations_applied = true
+
+[redis]
+enabled = true
+connect_timeout_secs = 2
+
+[oauth]
+state_ttl_secs = 600
+default_return_to = "/"
+allowed_return_origins = []
+http_timeout_secs = 10
+
+[cookies]
+name = "chghub_session"
+domain = ""
+secure = false
+session_ttl_secs = 2592000
+
+[tokens]
+access_ttl_secs = 7200
+refresh_ttl_secs = 7776000
+
+[device]
+code_ttl_secs = 900
+interval_secs = 5
+user_code_length = 8
+
+[rate_limit]
+read_per_ip_per_min = 300
+auth_per_ip_per_min = 30
+posts_per_user_per_hour = 10
+comments_per_user_per_hour = 60
+reactions_per_user_per_min = 30
+reports_per_user_per_day = 20
+shares_per_user_per_day = 10
+
+[limits]
+max_title_chars = 200
+max_post_body_bytes = 65536
+max_comment_body_bytes = 8192
+max_tags = 8
+max_tag_chars = 32
+max_share_payload_bytes = 524288
+
+[jobs]
+run_jobs = true
+cleanup_interval_secs = 300
+
+[admin]
+bootstrap_admin_usernames = []
+
+[telemetry]
+log_format = "pretty"
+log_filter = "info,chenghub=debug"

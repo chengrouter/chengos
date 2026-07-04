@@ -1,0 +1,91 @@
+# ChengHub production configuration template.
+#
+# Copy to production.toml, adjust, and start with:
+#   chenghub --config config/production.toml serve
+#
+# Required environment variables (never in this file):
+#   DATABASE_URL                  postgres://user:pass@host:5432/chenghub
+#   REDIS_URL                     redis://host:6379/1  (required for multi-instance)
+#   CHENGHUB_TOKEN_HMAC_SECRET    >= 32 random chars
+#   CHENGHUB_GITHUB_CLIENT_ID     GitHub OAuth App client id
+#   CHENGHUB_GITHUB_CLIENT_SECRET GitHub OAuth App client secret
+#   CHENGHUB_WECHAT_APP_ID        WeChat Open Platform AppID
+#   CHENGHUB_WECHAT_APP_SECRET    WeChat Open Platform AppSecret
+#
+# Provider callback URLs to register:
+#   GitHub:  https://hub.example.com/api/v1/auth/github/callback
+#   WeChat:  https://hub.example.com/api/v1/auth/wechat/callback
+#            (WeChat requires the domain hub.example.com to be verified)
+
+environment = "production"
+
+[server]
+listen = "127.0.0.1:8400"          # behind Caddy/Nginx; never expose directly
+public_url = "https://hub.example.com"
+request_timeout_secs = 30
+shutdown_timeout_secs = 30
+max_json_body_bytes = 262144
+# Same-origin deployment behind the reverse proxy needs no CORS entries.
+# Add https origins only if a separate web origin calls the API directly.
+cors_allowed_origins = []
+
+[database]
+max_connections = 32
+min_connections = 2
+acquire_timeout_secs = 5
+require_migrations_applied = true
+
+[redis]
+enabled = true
+connect_timeout_secs = 2
+
+[oauth]
+state_ttl_secs = 600
+default_return_to = "/"
+allowed_return_origins = []
+http_timeout_secs = 10
+
+[cookies]
+name = "chghub_session"
+# Host-only cookie unless you need subdomain sharing.
+domain = ""
+secure = true                       # mandatory in production
+session_ttl_secs = 2592000
+
+[tokens]
+access_ttl_secs = 7200
+refresh_ttl_secs = 7776000
+
+[device]
+code_ttl_secs = 900
+interval_secs = 5
+user_code_length = 8
+
+[rate_limit]
+read_per_ip_per_min = 300
+auth_per_ip_per_min = 30
+posts_per_user_per_hour = 10
+comments_per_user_per_hour = 60
+reactions_per_user_per_min = 30
+reports_per_user_per_day = 20
+shares_per_user_per_day = 10
+
+[limits]
+max_title_chars = 200
+max_post_body_bytes = 65536
+max_comment_body_bytes = 8192
+max_tags = 8
+max_tag_chars = 32
+max_share_payload_bytes = 524288
+
+[jobs]
+run_jobs = true
+cleanup_interval_secs = 300
+
+[admin]
+# Usernames auto-granted admin on first login (bootstrap only).
+bootstrap_admin_usernames = []
+
+[telemetry]
+log_format = "json"
+log_filter = "info,chenghub=info"

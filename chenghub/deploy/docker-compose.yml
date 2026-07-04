@@ -1,0 +1,80 @@
+# Production-like local stack: chenghub + PostgreSQL + Redis + Caddy.
+#
+#   cd chenghub
+#   docker compose -f deploy/docker-compose.yml up --build
+#
+# First run applies migrations via the one-shot `migrate` service.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: chenghub
+      POSTGRES_USER: chenghub
+      POSTGRES_PASSWORD: chenghub-dev-password
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chenghub"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  migrate:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    command: ["migrate"]
+    environment:
+      DATABASE_URL: postgres://chenghub:chenghub-dev-password@postgres:5432/chenghub
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  chenghub:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    environment:
+      CHENGHUB_ENVIRONMENT: development
+      CHENGHUB_LISTEN: 0.0.0.0:8400
+      CHENGHUB_PUBLIC_URL: http://localhost:8080
+      DATABASE_URL: postgres://chenghub:chenghub-dev-password@postgres:5432/chenghub
+      REDIS_URL: redis://redis:6379/1
+      CHENGHUB_TOKEN_HMAC_SECRET: compose-only-example-secret-change-me-00
+      CHENGHUB_GITHUB_CLIENT_ID: ${CHENGHUB_GITHUB_CLIENT_ID:-}
+      CHENGHUB_GITHUB_CLIENT_SECRET: ${CHENGHUB_GITHUB_CLIENT_SECRET:-}
+      CHENGHUB_WECHAT_APP_ID: ${CHENGHUB_WECHAT_APP_ID:-}
+      CHENGHUB_WECHAT_APP_SECRET: ${CHENGHUB_WECHAT_APP_SECRET:-}
+      CHENGHUB_BOOTSTRAP_ADMINS: ${CHENGHUB_BOOTSTRAP_ADMINS:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./caddy.example:/etc/caddy/Caddyfile:ro
+    depends_on:
+      - chenghub
+
+volumes:
+  pgdata:
+  redisdata:
