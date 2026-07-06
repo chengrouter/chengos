@@ -386,10 +386,21 @@ parallel_tool_calling = true
 json_mode = "json_object"
 system_message = "native"
 input_modalities = ["text", "image", "audio", "file"]
+# gpt-4o / gpt-4-turbo class: 128K context. Older 16K models overridden below.
+context_window = 128000
+max_input_tokens = 128000
 
 [providers.openai.behavior]
 protocol_family = "open_ai_chat_completions"
 tool_call_recovery = "disabled"
+
+# gpt-3.5-turbo is a 16K-context model, not 128K.
+[[providers.openai.model_overrides]]
+pattern = "gpt-3.5-turbo*"
+
+[providers.openai.model_overrides.capabilities]
+context_window = 16385
+max_input_tokens = 16385
 
 [providers.anthropic]
 name = "Anthropic (Claude)"
@@ -405,6 +416,9 @@ default_chat_models = ["claude-3-5-sonnet-latest", "claude-3-5-haiku-latest", "c
 [providers.anthropic.capabilities]
 system_message = "native"
 input_modalities = ["text", "image"]
+# Claude 3.x / 3.5 family: 200K context.
+context_window = 200000
+max_input_tokens = 200000
 
 [providers.anthropic.behavior]
 protocol_family = "anthropic_messages"
@@ -492,6 +506,10 @@ native_tool_calling = true
 streaming_tool_calling = false
 system_message = "native"
 input_modalities = ["text"]
+# Gemini 1.5/2.0 long-context family: 1M+ tokens. Declare ~1M input so AgentLimits
+# derives a large history budget (learned backoff handles any real overflow).
+context_window = 1048576
+max_input_tokens = 1000000
 
 [providers.gemini.behavior]
 protocol_family = "gemini_generate_content"
@@ -516,6 +534,9 @@ streaming_tool_calling = true
 system_message = "native"
 input_modalities = ["text"]
 max_output_tokens = 8192
+# deepseek-chat / deepseek-reasoner: 64K context.
+context_window = 65536
+max_input_tokens = 65536
 
 [providers.deepseek.behavior]
 protocol_family = "open_ai_chat_completions"
@@ -540,6 +561,10 @@ parallel_tool_calling = false
 json_mode = "unsupported"
 system_message = "merge_into_user"
 input_modalities = ["text"]
+# MiniMax M2 / abab long-context family: declare ~245K input (≥ the 200K default,
+# so a known improvement; learned backoff recovers from any real overflow).
+context_window = 245760
+max_input_tokens = 245760
 
 [providers.minimax.capabilities.sampling]
 temperature_min = 0.01
@@ -571,6 +596,16 @@ input_modalities = ["text"]
 protocol_family = "open_ai_chat_completions"
 tool_call_recovery = "registered_tool_text_and_strict_json"
 
+# GLM-5 current generation advertises a 1MB-class context. Declare it here so
+# AgentLimits can derive a large history budget instead of treating GLM as an
+# unknown-window provider and falling back to the conservative 32K-token default.
+[[providers.zhipu.model_overrides]]
+pattern = "glm-5*"
+
+[providers.zhipu.model_overrides.capabilities]
+context_window = 1048576
+max_input_tokens = 1000000
+
 # GLM-4V 系列支持图片输入。
 [[providers.zhipu.model_overrides]]
 pattern = "glm-4v*"
@@ -599,6 +634,9 @@ streaming_tool_calling = true
 json_mode = "json_object"
 system_message = "native"
 input_modalities = ["text"]
+# qwen-plus class: ~131K context. qwen-max (32K) and qwen-turbo (1M) overridden below.
+context_window = 131072
+max_input_tokens = 129024
 
 [providers.dashscope.behavior]
 protocol_family = "open_ai_chat_completions"
@@ -610,6 +648,22 @@ pattern = "qwen-vl*"
 
 [providers.dashscope.model_overrides.capabilities]
 input_modalities = ["text", "image"]
+
+# qwen-max is a 32K-context model.
+[[providers.dashscope.model_overrides]]
+pattern = "qwen-max*"
+
+[providers.dashscope.model_overrides.capabilities]
+context_window = 32768
+max_input_tokens = 30720
+
+# qwen-turbo is a 1M-context model.
+[[providers.dashscope.model_overrides]]
+pattern = "qwen-turbo*"
+
+[providers.dashscope.model_overrides.capabilities]
+context_window = 1000000
+max_input_tokens = 1000000
 
 # ==================== Reranker 专用提供商 ====================
 
@@ -652,4 +706,3 @@ fetch_models_enabled = true
 [providers.custom.behavior]
 protocol_family = "custom_open_ai_compatible"
 tool_call_recovery = "disabled"
-
