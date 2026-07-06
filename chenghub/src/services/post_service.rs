@@ -17,6 +17,7 @@ use crate::services::identity_service::AuthContext;
 use crate::telemetry::metrics::SharedMetrics;
 
 /// Assembled detail view: everything the detail page needs in one response.
+#[derive(Debug)]
 pub struct PostDetail {
     pub record: PostRecord,
     pub viewer_state: Option<PostReactionState>,

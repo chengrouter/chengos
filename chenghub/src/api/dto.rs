@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 use crate::domain::comment::Comment;
 use crate::domain::identity::{AccessToken, ChengHubUser, ExternalIdentity};
-use crate::domain::post::{Post, PostStatusTransition};
+use crate::domain::post::PostStatusTransition;
 use crate::domain::reaction::PostReactionState;
 use crate::domain::roles::RoleSet;
 use crate::domain::workflow_share::{RequiredVariable, SafetyFinding, WorkflowShare};
