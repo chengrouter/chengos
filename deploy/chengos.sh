@@ -51,15 +51,22 @@ if [[ ! -f "start.sh" && ! -d "hybrid" && ! -d "deploy" ]]; then
     mkdir -p "$INSTALL_DIR"
     cd "$INSTALL_DIR"
     
-    echo "Downloading the latest ChengOS release package..."
-    REPO_URL="https://github.com/chengrouter/chengos"
-    TARBALL_URL="${REPO_URL}/releases/latest/download/chengos-full-linux-amd64.tar.gz"
-    RELEASE_TAG="$(curl -fsSLI -o /dev/null -w '%{url_effective}' "${REPO_URL}/releases/latest" 2>/dev/null | sed 's#.*/tag/##' || true)"
-    
-    if ! curl -sSfL "$TARBALL_URL" -o chengos.tar.gz; then
-        echo "ERROR: Failed to download release from $TARBALL_URL."
-        echo "Please make sure you have created a Release and uploaded the release asset."
-        exit 1
+    echo "Looking for local release package..."
+    if TARBALL_PATH="$(find_local_tarball)"; then
+        echo "Found local release package: ${TARBALL_PATH}"
+        cp "$TARBALL_PATH" chengos.tar.gz
+    else
+        echo "No local package found. Downloading the latest ChengOS release package..."
+        REPO_URL="https://github.com/chengrouter/chengos"
+        TARBALL_URL="${REPO_URL}/releases/latest/download/chengos-full-linux-amd64.tar.gz"
+        RELEASE_TAG="$(curl -fsSLI -o /dev/null -w '%{url_effective}' "${REPO_URL}/releases/latest" 2>/dev/null | sed 's#.*/tag/##' || true)"
+
+        if ! curl -sSfL "$TARBALL_URL" -o chengos.tar.gz; then
+            echo "ERROR: Failed to download release from $TARBALL_URL."
+            echo "Please make sure you have created a Release and uploaded the release asset."
+            echo "Or place the tarball in the same directory as chengos.sh."
+            exit 1
+        fi
     fi
     
     echo "Extracting release package..."
@@ -120,8 +127,9 @@ if [[ "$LANG_VAL" == "zh" ]]; then
     t[menu_restart]="7) 重启服务 (Restart)"
     t[menu_link]="8) 安装系统命令 (Install Command Shortcuts)"
     t[menu_lang]="9) 切换语言 (Switch Language)"
-    t[menu_exit]="10) 退出 (Exit)"
-    t[select_op]="请选择操作 [1-10]: "
+    t[menu_cli]="10) 单独安装 CLI (Install CLI Only)"
+    t[menu_exit]="11) 退出 (Exit)"
+    t[select_op]="请选择操作 [1-11]: "
     t[mode_select]="请选择安装模式:\n  1) 二进制原生安装 (Native Host)\n  2) Docker 容器化安装 (Docker)"
     t[mode_prompt]="选择 [1-2] (默认 1): "
     t[install_config]="请选择安装配置:\n  1) 全量安装 (默认)\n  2) 最小安装 (Postgres + API + UI)\n  3) 自定义选择"
@@ -154,8 +162,9 @@ else
     t[menu_restart]="7) Restart Services"
     t[menu_link]="8) Install Command Shortcuts"
     t[menu_lang]="9) Switch Language"
-    t[menu_exit]="10) Exit"
-    t[select_op]="Select option [1-10]: "
+    t[menu_cli]="10) Install CLI Only"
+    t[menu_exit]="11) Exit"
+    t[select_op]="Select option [1-11]: "
     t[mode_select]="Select Installation Mode:\n  1) Native Host Binary\n  2) Docker Containers"
     t[mode_prompt]="Choose [1-2] (Default 1): "
     t[install_config]="Select Modules Configuration:\n  1) Full Installation (Default)\n  2) Minimal (Postgres + API + UI)\n  3) Custom Selection"
@@ -178,6 +187,34 @@ else
     t[symlink_done]="Installed command shortcut: /usr/local/bin/chengos -> %s"
     t[symlink_fail]="Failed to install command shortcuts. Please make sure you have sudo rights."
 fi
+
+# ── Local Tarball Detection ───────────────────────────────────────────────────
+# Checks for a pre-existing release tarball before attempting a download.
+# Returns the path on stdout if found, returns non-zero otherwise.
+find_local_tarball() {
+    local candidates=()
+
+    # 1) Explicit override via env var
+    if [[ -n "${CHENGOS_LOCAL_TARBALL:-}" && -f "$CHENGOS_LOCAL_TARBALL" ]]; then
+        candidates+=("$CHENGOS_LOCAL_TARBALL")
+    fi
+
+    # 2) Standard release asset name in ROOT_DIR
+    candidates+=("${ROOT_DIR}/chengos-full-linux-amd64.tar.gz")
+    # 3) Generic name in ROOT_DIR
+    candidates+=("${ROOT_DIR}/chengos.tar.gz")
+    # 4) Current working directory
+    candidates+=("chengos-full-linux-amd64.tar.gz")
+    candidates+=("chengos.tar.gz")
+
+    for f in "${candidates[@]}"; do
+        if [[ -f "$f" && -s "$f" ]]; then
+            printf '%s\n' "$f"
+            return 0
+        fi
+    done
+    return 1
+}
 
 # ── Utility Helpers ──────────────────────────────────────────────────────────
 
@@ -309,6 +346,141 @@ copy_chengflow_binary() {
     cp "$source_path" "${target_dir}/${target_name}"
     chmod +x "${target_dir}/${target_name}"
     echo "Copied ${binary_name}: ${source_path} -> ${target_dir}/${target_name}"
+}
+
+# ── Standalone CLI-only Install ───────────────────────────────────────────────
+# Installs just the `cheng` CLI binary, either alongside a co-located
+# cheng-api (mode=local) or on a bare machine that only talks to a remote
+# ChengOS server (mode=remote). Does not touch Postgres/UI/App or the hybrid
+# deployment layout.
+
+# Obtains a `cheng` binary (building from source in a dev workspace, or
+# extracting it from a local/downloaded release tarball) and copies it into
+# target_bin_dir/cheng.
+install_cli_binary_only() {
+    local target_bin_dir="$1"
+    local binary_path=""
+
+    if [[ -d "${ROOT_DIR}/chengflow" ]]; then
+        echo "Developer workspace detected. Building cheng-cli from source..."
+        (cd "${ROOT_DIR}/chengflow" && cargo build --release -p cheng-cli) || {
+            echo "ERROR: Failed to build cheng-cli." >&2
+            return 1
+        }
+        binary_path="$(find_chengflow_binary "cheng")" || {
+            echo "ERROR: cheng-cli build did not produce a binary." >&2
+            return 1
+        }
+        mkdir -p "$target_bin_dir"
+        cp "$binary_path" "${target_bin_dir}/cheng"
+        chmod +x "${target_bin_dir}/cheng"
+        echo "Installed cheng CLI binary: ${binary_path} -> ${target_bin_dir}/cheng"
+        return 0
+    fi
+
+    echo "Looking for local release package..."
+    local tarball="" downloaded="false"
+    if tarball="$(find_local_tarball)"; then
+        echo "Using local release package: ${tarball}"
+    else
+        echo "No local package found. Downloading the latest ChengOS release package..."
+        local repo_url="https://github.com/chengrouter/chengos"
+        local tarball_url="${repo_url}/releases/latest/download/chengos-full-linux-amd64.tar.gz"
+        tarball="/tmp/chengos_cli_download_$$.tar.gz"
+        downloaded="true"
+        if ! curl -sSfL "$tarball_url" -o "$tarball"; then
+            echo "ERROR: Failed to download release from $tarball_url." >&2
+            echo "Or place the tarball in the current directory and re-run." >&2
+            rm -f "$tarball"
+            return 1
+        fi
+    fi
+
+    local temp_dir="/tmp/chengos_cli_extract_$$"
+    mkdir -p "$temp_dir"
+    if ! tar -xzf "$tarball" -C "$temp_dir" --strip-components=1; then
+        echo "ERROR: Failed to extract release package." >&2
+        [[ "$downloaded" == "true" ]] && rm -f "$tarball"
+        rm -rf "$temp_dir"
+        return 1
+    fi
+
+    if [[ ! -f "${temp_dir}/bin/cheng" ]]; then
+        echo "ERROR: cheng binary not found inside the release package." >&2
+        [[ "$downloaded" == "true" ]] && rm -f "$tarball"
+        rm -rf "$temp_dir"
+        return 1
+    fi
+
+    mkdir -p "$target_bin_dir"
+    cp "${temp_dir}/bin/cheng" "${target_bin_dir}/cheng"
+    chmod +x "${target_bin_dir}/cheng"
+    echo "Installed cheng CLI binary -> ${target_bin_dir}/cheng"
+
+    [[ "$downloaded" == "true" ]] && rm -f "$tarball"
+    rm -rf "$temp_dir"
+}
+
+# Writes ~/.config/cheng/config.json with the given server_url, unless a
+# config file already exists (never silently overwrite user edits).
+write_cli_config() {
+    local server_url="$1"
+    local config_dir="${HOME}/.config/cheng"
+    local config_file="${config_dir}/config.json"
+
+    mkdir -p "$config_dir"
+    if [[ -f "$config_file" ]]; then
+        echo "Existing CLI config found at ${config_file}; leaving it unchanged."
+        echo "Edit it manually (or remove it and re-run) to change server_url."
+        return 0
+    fi
+
+    cat > "$config_file" <<EOF
+{
+  "server_url": "${server_url}"
+}
+EOF
+    echo "Wrote CLI config: ${config_file} (server_url=${server_url})"
+}
+
+# Top-level standalone CLI install: mode is "local" (co-located with
+# cheng-api on this machine) or "remote" (bare terminal, talks to a remote
+# ChengOS server). Installs the binary, writes config, and prints PATH setup
+# instructions if needed. Does not require the hybrid/docker deployment
+# layout to be present.
+install_cli_standalone() {
+    local mode="$1"
+    local server_url="$2"
+
+    if [[ -z "$server_url" ]]; then
+        if [[ "$mode" == "local" ]]; then
+            server_url="http://127.0.0.1:3000"
+        else
+            read -p "Enter the ChengOS server URL (e.g. https://your-server.example.com): " server_url < /dev/tty
+        fi
+    fi
+    [[ -n "$server_url" ]] || { echo "ERROR: a server URL is required." >&2; return 1; }
+    server_url="${server_url%/}"
+
+    local target_bin_dir
+    if [[ "$(id -u)" -eq 0 ]] || [[ -w /usr/local/bin ]]; then
+        target_bin_dir="/usr/local/bin"
+    else
+        target_bin_dir="${HOME}/.local/bin"
+    fi
+
+    install_cli_binary_only "$target_bin_dir" || return 1
+    write_cli_config "$server_url"
+
+    echo ""
+    if [[ ":${PATH}:" != *":${target_bin_dir}:"* ]]; then
+        echo "NOTE: ${target_bin_dir} is not on your PATH."
+        echo "Add this to your shell profile (~/.bashrc or ~/.zshrc), then restart your shell:"
+        echo "  export PATH=\"${target_bin_dir}:\$PATH\""
+        echo ""
+    fi
+    echo "cheng CLI installed. Server: ${server_url}"
+    echo "Run 'cheng' to start chatting (first run will prompt for login or setup)."
 }
 
 # Run sub-command in Docker or Native
@@ -565,35 +737,46 @@ update_native_install() {
 
     local_version=""
     [[ -f "$VERSION_FILE" ]] && local_version="$(tr -d '[:space:]' < "$VERSION_FILE")"
-    echo "Release bundle detected. Checking latest ChengOS release..."
-    latest_url=""
-    if ! latest_url="$(curl -fsSLI -o /dev/null -w '%{url_effective}' https://github.com/chengrouter/chengos/releases/latest 2>&1)"; then
-        echo "ERROR: Failed to query latest release from GitHub." >&2
-        echo "$latest_url" >&2
-        return 1
-    fi
-    latest_tag="$(printf '%s' "$latest_url" | sed 's#.*/tag/##')"
-    if [[ -n "$local_version" && -n "$latest_tag" && "$local_version" == "$latest_tag" ]]; then
-        echo "Native package is already current (${local_version})."
-        return 0
-    fi
 
-    local temp_tar temp_dir was_running
-    temp_tar="/tmp/chengos_update_$$.tar.gz"
+    local temp_tar temp_dir was_running local_tarball_found latest_tag
     temp_dir="/tmp/chengos_update_$$"
     was_running="false"
-    [[ -f "${hybrid_dir}/runtime/cheng-api.pid" ]] && was_running="true"
+    local_tarball_found=""
+    latest_tag=""
+    [[ -f "${shared_dir}/runtime/cheng-api.pid" ]] && was_running="true"
 
-    echo "Downloading latest release package..."
-    if ! curl -fL "https://github.com/chengrouter/chengos/releases/latest/download/chengos-full-linux-amd64.tar.gz" -o "$temp_tar"; then
-        echo "ERROR: Failed to download ChengOS release package." >&2
-        rm -f "$temp_tar"
-        return 1
+    echo "Looking for local release package..."
+    if local_tarball_found="$(find_local_tarball)"; then
+        echo "Using local release package: ${local_tarball_found}"
+        temp_tar="$local_tarball_found"
+    else
+        echo "No local package found. Checking latest ChengOS release on GitHub..."
+        latest_url=""
+        if ! latest_url="$(curl -fsSLI -o /dev/null -w '%{url_effective}' https://github.com/chengrouter/chengos/releases/latest 2>&1)"; then
+            echo "ERROR: Failed to query latest release from GitHub." >&2
+            echo "$latest_url" >&2
+            echo "Hint: Place a release tarball (chengos-full-linux-amd64.tar.gz) in the same directory as chengos.sh to update offline." >&2
+            return 1
+        fi
+        latest_tag="$(printf '%s' "$latest_url" | sed 's#.*/tag/##')"
+        if [[ -n "$local_version" && -n "$latest_tag" && "$local_version" == "$latest_tag" ]]; then
+            echo "Native package is already current (${local_version})."
+            return 0
+        fi
+
+        temp_tar="/tmp/chengos_update_$$.tar.gz"
+        echo "Downloading latest release package..."
+        if ! curl -fL "https://github.com/chengrouter/chengos/releases/latest/download/chengos-full-linux-amd64.tar.gz" -o "$temp_tar"; then
+            echo "ERROR: Failed to download ChengOS release package." >&2
+            rm -f "$temp_tar"
+            return 1
+        fi
     fi
     mkdir -p "$temp_dir"
     if ! tar -xzf "$temp_tar" -C "$temp_dir" --strip-components=1; then
         echo "ERROR: Failed to extract ChengOS release package." >&2
-        rm -rf "$temp_tar" "$temp_dir"
+        [[ -z "$local_tarball_found" ]] && rm -f "$temp_tar"
+        rm -rf "$temp_dir"
         return 1
     fi
 
@@ -625,7 +808,8 @@ update_native_install() {
     done
     chmod +x "${hybrid_dir}/"*.sh "${shared_dir}/bin/"* 2>/dev/null || true
     [[ -n "$latest_tag" ]] && printf '%s\n' "$latest_tag" > "$VERSION_FILE"
-    rm -rf "$temp_tar" "$temp_dir"
+    [[ -z "$local_tarball_found" ]] && rm -f "$temp_tar"
+    rm -rf "$temp_dir"
     if [[ "$was_running" == "true" ]]; then
         echo "Services were running before update; restarting..."
         bash "${hybrid_dir}/start.sh"
@@ -684,11 +868,21 @@ if [[ $# -gt 0 ]]; then
     APP_PORT=5055
     WITH_INFRA_OPT="false"
     UPDATE_KIND="auto"
+    SERVER_URL=""
+    CLI_TARGET="local"
     
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --mode)
                 MODE="$2"
+                shift 2
+                ;;
+            --server-url)
+                SERVER_URL="$2"
+                shift 2
+                ;;
+            --target)
+                CLI_TARGET="$2"
                 shift 2
                 ;;
             --with)
@@ -788,16 +982,22 @@ if [[ $# -gt 0 ]]; then
                 # Check if cheng-api binary or frontend static folders are missing
                 if [[ ! -f "${shared_dir}/bin/cheng-api" || ! -d "${shared_dir}/ui" || ! -d "${shared_dir}/app" ]]; then
                     echo "Required binaries or frontend assets are missing in ${shared_dir}."
-                    echo "Downloading the latest pre-compiled release package from GitHub..."
-                    
-                    REPO_URL="https://github.com/chengrouter/chengos"
-                    TARBALL_URL="${REPO_URL}/releases/latest/download/chengos-full-linux-amd64.tar.gz"
-                    
-                    TEMP_TAR="/tmp/chengos_download_$$.tar.gz"
-                    if ! curl -sSfL "$TARBALL_URL" -o "$TEMP_TAR"; then
-                        echo "ERROR: Failed to download release from $TARBALL_URL."
-                        echo "Please build the project locally or upload a valid Release asset."
-                        exit 1
+                    echo "Looking for local release package..."
+                    LOCAL_TARBALL_FOUND=""
+                    if LOCAL_TARBALL_FOUND="$(find_local_tarball)"; then
+                        echo "Using local release package: ${LOCAL_TARBALL_FOUND}"
+                        TEMP_TAR="$LOCAL_TARBALL_FOUND"
+                    else
+                        echo "No local package found. Downloading the latest pre-compiled release package from GitHub..."
+                        REPO_URL="https://github.com/chengrouter/chengos"
+                        TARBALL_URL="${REPO_URL}/releases/latest/download/chengos-full-linux-amd64.tar.gz"
+                        TEMP_TAR="/tmp/chengos_download_$$.tar.gz"
+                        if ! curl -sSfL "$TARBALL_URL" -o "$TEMP_TAR"; then
+                            echo "ERROR: Failed to download release from $TARBALL_URL."
+                            echo "Please build the project locally or upload a valid Release asset."
+                            echo "Or place the tarball in the same directory as chengos.sh."
+                            exit 1
+                        fi
                     fi
                     
                     echo "Extracting pre-compiled assets..."
@@ -812,9 +1012,10 @@ if [[ $# -gt 0 ]]; then
                     cp -a "${TEMP_DIR}/ui/." "${shared_dir}/ui/"
                     cp -a "${TEMP_DIR}/app/." "${shared_dir}/app/"
                     
-                    # Clean up
-                    rm -rf "$TEMP_TAR" "$TEMP_DIR"
-                    echo "Pre-compiled assets successfully downloaded and extracted."
+                    # Clean up — only remove temp tar if we downloaded it
+                    [[ -z "$LOCAL_TARBALL_FOUND" ]] && rm -rf "$TEMP_TAR"
+                    rm -rf "$TEMP_DIR"
+                    echo "Pre-compiled assets successfully extracted."
                 fi
             fi
             
@@ -918,6 +1119,15 @@ if [[ $# -gt 0 ]]; then
             fi
             echo "${t[update_done]}"
             ;;
+
+        install-cli)
+            if [[ "$CLI_TARGET" != "local" && "$CLI_TARGET" != "remote" ]]; then
+                echo "Invalid --target: $CLI_TARGET (expected 'local' or 'remote')"
+                exit 1
+            fi
+            echo "Installing cheng CLI (target: ${CLI_TARGET})..."
+            install_cli_standalone "$CLI_TARGET" "$SERVER_URL"
+            ;;
             
         *)
             echo "Unknown command: $CMD"
@@ -941,6 +1151,7 @@ while true; do
     echo "  ${t[menu_restart]}"
     echo "  ${t[menu_link]}"
     echo "  ${t[menu_lang]}"
+    echo "  ${t[menu_cli]}"
     echo "  ${t[menu_exit]}"
     echo "==========================================="
     read -p "${t[select_op]}" op < /dev/tty
@@ -1135,8 +1346,37 @@ EOF
             set_language
             exec bash "$0"
             ;;
-            
+
         10)
+            clear
+            echo "Install CLI (cheng) Only"
+            echo "  1) On this machine (co-located with cheng-api; connects to 127.0.0.1)"
+            echo "  2) On any other terminal/machine (connects to a remote ChengOS server)"
+            read -p "Choose [1-2] (Default 1): " cli_target_choice < /dev/tty
+            cli_target="local"
+            [[ "$cli_target_choice" == "2" ]] && cli_target="remote"
+
+            server_url_input=""
+            if [[ "$cli_target" == "local" ]]; then
+                shared_dir="$(resolve_shared_dir)"
+                default_api_port="3000"
+                if [[ -f "${shared_dir}/.env" ]]; then
+                    # shellcheck disable=SC1090
+                    set -a; source "${shared_dir}/.env"; set +a
+                    [[ -n "${API_PORT:-}" ]] && default_api_port="$API_PORT"
+                fi
+                read -p "API server URL [default: http://127.0.0.1:${default_api_port}]: " server_url_input < /dev/tty
+                server_url_input="${server_url_input:-http://127.0.0.1:${default_api_port}}"
+            else
+                read -p "Remote ChengOS server URL (e.g. https://your-server.example.com): " server_url_input < /dev/tty
+            fi
+
+            echo ""
+            bash "$0" install-cli --target "$cli_target" --server-url "$server_url_input"
+            read -p "Press Enter to continue..." dummy < /dev/tty
+            ;;
+
+        11)
             echo "Goodbye!"
             exit 0
             ;;
