@@ -9,7 +9,7 @@ ENV_FILE="${ROOT_DIR}/.env"
 ENV_EXAMPLE="${ROOT_DIR}/.env.example"
 BINARY="${ROOT_DIR}/bin/cheng-api"
 PID_FILE="${ROOT_DIR}/runtime/cheng-api.pid"
-LOG_FILE="${ROOT_DIR}/logs/cheng-api.log"
+DEFAULT_LOG_FILE="${ROOT_DIR}/logs/cheng-api.log"
 
 APP_WAIT_SECS=30
 
@@ -18,6 +18,16 @@ fail() { printf '[chengos] ERROR: %s\n' "$*" >&2; exit 1; }
 require_cmd() { command -v "$1" >/dev/null 2>&1 || fail "Missing command: $1"; }
 
 mkdir -p "${ROOT_DIR}/logs" "${ROOT_DIR}/runtime"
+if [[ -f "$ENV_FILE" ]]; then
+    # shellcheck disable=SC1090
+    set -a; source "$ENV_FILE"; set +a
+fi
+API_LOG_FILE="${CHENG_API_LOG_FILE:-$DEFAULT_LOG_FILE}"
+case "${API_LOG_FILE,,}" in
+    off|stdout) LOG_FILE="$DEFAULT_LOG_FILE" ;;
+    *) LOG_FILE="$API_LOG_FILE" ;;
+esac
+mkdir -p "$(dirname "$LOG_FILE")"
 touch "$LOG_FILE" || fail "Cannot write log file: ${LOG_FILE}"
 exec > >(tee -a "$LOG_FILE") 2>&1
 
@@ -76,6 +86,7 @@ fi
 
 # shellcheck disable=SC1090
 set -a; source "$ENV_FILE"; set +a
+API_LOG_FILE="${CHENG_API_LOG_FILE:-$DEFAULT_LOG_FILE}"
 
 require_env() {
     local key="$1"
@@ -130,10 +141,22 @@ fi
 # ── Application ──────────────────────────────────────────────────────────────
 
 log "Starting cheng-api..."
-nohup "$BINARY" --log >> "$LOG_FILE" 2>&1 &
+api_log_args=()
+api_output_log="$LOG_FILE"
+case "${API_LOG_FILE,,}" in
+    off|stdout)
+        api_output_log="/dev/null"
+        ;;
+    *)
+        mkdir -p "$(dirname "$API_LOG_FILE")"
+        api_log_args=(--log-file "$API_LOG_FILE")
+        api_output_log="$API_LOG_FILE"
+        ;;
+esac
+nohup "$BINARY" "${api_log_args[@]}" >> "$api_output_log" 2>&1 &
 APP_PID=$!
 echo "$APP_PID" > "$PID_FILE"
-log "cheng-api started (PID ${APP_PID}), logging to ${LOG_FILE}"
+log "cheng-api started (PID ${APP_PID}), logging to ${api_output_log}"
 
 log "Waiting for /health endpoint (up to ${APP_WAIT_SECS}s)..."
 APP_DEADLINE=$(( $(date +%s) + APP_WAIT_SECS ))

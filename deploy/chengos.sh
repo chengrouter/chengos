@@ -348,6 +348,37 @@ copy_chengflow_binary() {
     echo "Copied ${binary_name}: ${source_path} -> ${target_dir}/${target_name}"
 }
 
+ensure_native_log_file_envs() {
+    local shared_dir="$1"
+    local env_file="${shared_dir}/.env"
+
+    [[ -f "$env_file" ]] || return 0
+    mkdir -p "${shared_dir}/logs"
+
+    ensure_log_env() {
+        local key="$1"
+        local label="$2"
+        local log_file="$3"
+
+        if grep -q "^${key}=" "$env_file"; then
+            echo "Using existing ${label} log file setting from ${env_file}"
+            return 0
+        fi
+
+        {
+            echo ""
+            echo "# Native ${label} file log path."
+            echo "${key}=${log_file}"
+        } >> "$env_file"
+        echo "Configured native ${label} log file: ${log_file}"
+    }
+
+    ensure_log_env "CHENG_API_LOG_FILE" "cheng-api" "${shared_dir}/logs/cheng-api.log"
+    ensure_log_env "CHENG_CLI_LOG_FILE" "cheng-cli" "${shared_dir}/logs/cheng-cli.log"
+    ensure_log_env "CHENG_UI_LOG_FILE" "cheng-ui" "${shared_dir}/logs/ui-server.log"
+    ensure_log_env "CHENG_APP_LOG_FILE" "cheng-app" "${shared_dir}/logs/app-server.log"
+}
+
 # ── Standalone CLI-only Install ───────────────────────────────────────────────
 # Installs just the `cheng` CLI binary, either alongside a co-located
 # cheng-api (mode=local) or on a bare machine that only talks to a remote
@@ -561,6 +592,9 @@ setup_native_env() {
         echo "Generating environment configuration (.env)..."
         bash generate-env.sh
     fi
+    # Keep native/binary runs logging to the installation-local logs directory.
+    # Docker deployments set their container log path in docker-compose.yml.
+    ensure_native_log_file_envs "$shared_dir"
 }
 
 # Setup env for docker
@@ -696,6 +730,7 @@ update_native_install() {
         echo "Environment file is missing; generating ${shared_dir}/.env"
         bash generate-env.sh
     fi
+    ensure_native_log_file_envs "$shared_dir"
 
     if git -C "$ROOT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
         local before after upstream
@@ -1050,6 +1085,7 @@ if [[ $# -gt 0 ]]; then
                     # shellcheck disable=SC1090
                     set -a; source .env; set +a
                 fi
+                ensure_native_log_file_envs "$shared_dir"
                 
                 modules="$(compute_native_modules "$shared_dir")"
                 
@@ -1078,6 +1114,7 @@ if [[ $# -gt 0 ]]; then
                 shared_dir="$(resolve_shared_dir)"
                 hybrid_dir="$(resolve_hybrid_dir)"
                 modules="$(compute_native_modules "$shared_dir")"
+                ensure_native_log_file_envs "$shared_dir"
                 echo "Stopping native services..."
                 bash "${hybrid_dir}/stop.sh" || true
                 echo "Starting native services with modules: ${modules}"

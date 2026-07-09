@@ -22,6 +22,10 @@ if [[ -f "$ENV_FILE" ]]; then
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
 fi
 
+API_LOG_FILE="${CHENG_API_LOG_FILE:-${ROOT_DIR}/logs/cheng-api.log}"
+UI_LOG_FILE="${CHENG_UI_LOG_FILE:-${ROOT_DIR}/logs/ui-server.log}"
+APP_LOG_FILE="${CHENG_APP_LOG_FILE:-${ROOT_DIR}/logs/app-server.log}"
+
 HR() { printf -- '─%.0s' {1..60}; printf '\n'; }
 
 HR
@@ -114,6 +118,14 @@ HR
 print_logs() {
     local file="$1"
     local name="$2"
+    case "${file,,}" in
+        off|stdout|/dev/null|"")
+            log "--- File logging disabled for ${name} ---"
+            printf '\n'
+            return
+            ;;
+    esac
+
     if [[ -f "$file" ]]; then
         log "--- Last 5 lines of ${name} ---"
         tail -n 5 "$file"
@@ -123,9 +135,9 @@ print_logs() {
     printf '\n'
 }
 
-print_logs "${ROOT_DIR}/logs/cheng-api.log" "cheng-api"
-print_logs "${ROOT_DIR}/logs/ui-server.log" "cheng-ui"
-print_logs "${ROOT_DIR}/logs/app-server.log" "cheng-app"
+print_logs "$API_LOG_FILE" "cheng-api"
+print_logs "$UI_LOG_FILE" "cheng-ui"
+print_logs "$APP_LOG_FILE" "cheng-app"
 if [[ "$ENABLE_QDRANT" == "true" ]]; then
     print_logs "${ROOT_DIR}/logs/qdrant.log" "Qdrant"
 fi

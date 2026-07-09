@@ -67,6 +67,20 @@ ENABLE_QDRANT="${ENABLE_QDRANT:-false}"
 PORT="${PORT:-3000}"
 UI_PORT="${UI_PORT:-8080}"
 APP_PORT="${APP_PORT:-5055}"
+API_LOG_FILE="${CHENG_API_LOG_FILE:-${ROOT_DIR}/logs/cheng-api.log}"
+UI_LOG_FILE="${CHENG_UI_LOG_FILE:-${ROOT_DIR}/logs/ui-server.log}"
+APP_LOG_FILE="${CHENG_APP_LOG_FILE:-${ROOT_DIR}/logs/app-server.log}"
+
+resolve_process_log_file() {
+    local value="$1"
+    local default_file="$2"
+
+    case "${value,,}" in
+        off|stdout) printf '/dev/null\n' ;;
+        "") printf '%s\n' "$default_file" ;;
+        *) printf '%s\n' "$value" ;;
+    esac
+}
 
 # Check sudo permissions if system-service is selected
 if [[ "$DB_INSTALL_MODE" == "system-service" ]]; then
@@ -378,10 +392,23 @@ if has_module "api"; then
             export REDIS_URL=""
         fi
         
-        nohup "$BINARY" --log >> "${ROOT_DIR}/logs/cheng-api.log" 2>&1 &
+        api_log_args=()
+        api_output_log="${ROOT_DIR}/logs/cheng-api.log"
+        case "${API_LOG_FILE,,}" in
+            off|stdout)
+                api_output_log="/dev/null"
+                ;;
+            *)
+                mkdir -p "$(dirname "$API_LOG_FILE")"
+                api_log_args=(--log-file "$API_LOG_FILE")
+                api_output_log="$API_LOG_FILE"
+                ;;
+        esac
+
+        nohup "$BINARY" "${api_log_args[@]}" >> "$api_output_log" 2>&1 &
         api_pid=$!
         echo "$api_pid" > "$api_pid_file"
-        log "cheng-api started (PID ${api_pid}), logging to logs/cheng-api.log"
+        log "cheng-api started (PID ${api_pid}), logging to ${api_output_log}"
         
         # Wait for /health
         log "Waiting for cheng-api /health endpoint (up to 30s)..."
@@ -439,11 +466,13 @@ if has_module "ui"; then
     if [[ ! -f "$ui_pid_file" ]]; then
         [[ -f "${ROOT_DIR}/bin/ui-server.js" ]] || fail "UI server file not found: bin/ui-server.js"
         
+        ui_output_log="$(resolve_process_log_file "$UI_LOG_FILE" "${ROOT_DIR}/logs/ui-server.log")"
+        mkdir -p "$(dirname "$ui_output_log")"
         UI_PORT="$UI_PORT" BACKEND_URL="http://127.0.0.1:${PORT}" \
-        nohup node "${ROOT_DIR}/bin/ui-server.js" >> "${ROOT_DIR}/logs/ui-server.log" 2>&1 &
+        nohup node "${ROOT_DIR}/bin/ui-server.js" >> "$ui_output_log" 2>&1 &
         ui_pid=$!
         echo "$ui_pid" > "$ui_pid_file"
-        log "cheng-ui server started (PID ${ui_pid}), listening on port ${UI_PORT}"
+        log "cheng-ui server started (PID ${ui_pid}), listening on port ${UI_PORT}, logging to ${ui_output_log}"
     fi
 fi
 
@@ -464,11 +493,13 @@ if has_module "app"; then
     if [[ ! -f "$app_pid_file" ]]; then
         [[ -f "${ROOT_DIR}/bin/app-server.js" ]] || fail "App server file not found: bin/app-server.js"
         
+        app_output_log="$(resolve_process_log_file "$APP_LOG_FILE" "${ROOT_DIR}/logs/app-server.log")"
+        mkdir -p "$(dirname "$app_output_log")"
         APP_PORT="$APP_PORT" BACKEND_URL="http://127.0.0.1:${PORT}" \
-        nohup node "${ROOT_DIR}/bin/app-server.js" >> "${ROOT_DIR}/logs/app-server.log" 2>&1 &
+        nohup node "${ROOT_DIR}/bin/app-server.js" >> "$app_output_log" 2>&1 &
         app_pid=$!
         echo "$app_pid" > "$app_pid_file"
-        log "cheng-app server started (PID ${app_pid}), listening on port ${APP_PORT}"
+        log "cheng-app server started (PID ${app_pid}), listening on port ${APP_PORT}, logging to ${app_output_log}"
     fi
 fi
 
