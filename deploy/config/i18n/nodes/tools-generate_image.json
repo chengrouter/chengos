@@ -1,0 +1,4 @@
+{
+  "nodes.tools.generate_image.description": "Agent 工具:根据文本提示词生成图像,返回工作区工件引用。在画布上配置提供商连接(llm_config)。",
+  "nodes.tools.generate_image.name": "图像生成工具"
+}

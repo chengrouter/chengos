@@ -402,6 +402,26 @@ pattern = "gpt-3.5-turbo*"
 context_window = 16385
 max_input_tokens = 16385
 
+# 媒体生成模型：仅声明输出模态（供 generate_media 路由/校验），
+# 聊天类能力沿用 provider 默认但对这些模型无实际意义。
+[[providers.openai.model_overrides]]
+pattern = "gpt-image-*"
+
+[providers.openai.model_overrides.capabilities]
+output_modalities = ["image"]
+
+[[providers.openai.model_overrides]]
+pattern = "dall-e-*"
+
+[providers.openai.model_overrides.capabilities]
+output_modalities = ["image"]
+
+[[providers.openai.model_overrides]]
+pattern = "tts-*"
+
+[providers.openai.model_overrides.capabilities]
+output_modalities = ["audio"]
+
 [providers.anthropic]
 name = "Anthropic (Claude)"
 type = "builtin"
@@ -516,6 +536,20 @@ protocol_family = "gemini_generate_content"
 tool_call_recovery = "disabled"
 force_non_streaming_with_tools = true
 
+# 图像生成模型：Imagen 走 :predict，gemini-*-image 走 :generateContent
+# （responseModalities 含 IMAGE），均由 GeminiMediaProvider 适配。
+[[providers.gemini.model_overrides]]
+pattern = "imagen-*"
+
+[providers.gemini.model_overrides.capabilities]
+output_modalities = ["image"]
+
+[[providers.gemini.model_overrides]]
+pattern = "gemini-2.5-flash-image*"
+
+[providers.gemini.model_overrides.capabilities]
+output_modalities = ["image"]
+
 [providers.deepseek]
 name = "DeepSeek"
 type = "openai_compatible"
@@ -576,6 +610,19 @@ protocol_family = "open_ai_chat_completions"
 tool_call_recovery = "minimax_xml_and_strict_json"
 force_non_streaming_with_tools = true
 tolerate_stream_tail_after_output = true
+
+# 视频生成模型：异步 submit/poll/retrieve 流程，由 MiniMaxMediaProvider 适配。
+[[providers.minimax.model_overrides]]
+pattern = "video-01*"
+
+[providers.minimax.model_overrides.capabilities]
+output_modalities = ["video"]
+
+[[providers.minimax.model_overrides]]
+pattern = "MiniMax-Hailuo-*"
+
+[providers.minimax.model_overrides.capabilities]
+output_modalities = ["video"]
 
 [providers.zhipu]
 name = "智谱 (ZhipuAI)"

@@ -2,6 +2,7 @@
 chengflow/
 chengflow-ui/
 chengflow-app/
+flowchat/
 
 # Ignore Build & Staging Directories
 dist/

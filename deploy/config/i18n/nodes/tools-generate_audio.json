@@ -1,0 +1,4 @@
+{
+  "nodes.tools.generate_audio.description": "Agent 工具:将文本合成为语音(TTS),返回工作区工件引用。在画布上配置提供商连接(llm_config)。",
+  "nodes.tools.generate_audio.name": "音频生成工具"
+}
