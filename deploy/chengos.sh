@@ -2,14 +2,21 @@
 set -euo pipefail
 
 # Root workspace directory
-SCRIPT_PATH="${BASH_SOURCE[0]}"
-SCRIPT_DIR_FROM_CALL="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
+# Guard against `curl | bash` (pipe-from-stdin) where BASH_SOURCE is unset.
+if [[ -n "${BASH_SOURCE[0]:-}" ]]; then
+    SCRIPT_PATH="${BASH_SOURCE[0]}"
+elif [[ -n "${0:-}" && "$0" != "bash" && "$0" != "-bash" ]]; then
+    SCRIPT_PATH="$0"
+else
+    SCRIPT_PATH="$(pwd)"
+fi
+SCRIPT_DIR_FROM_CALL="$(cd "$(dirname "$SCRIPT_PATH")" 2>/dev/null && pwd || pwd)"
 if [[ -L "$SCRIPT_PATH" ]]; then
     REAL_SCRIPT_PATH="$(readlink -f "$SCRIPT_PATH")"
 else
     REAL_SCRIPT_PATH="$SCRIPT_PATH"
 fi
-REAL_SCRIPT_DIR="$(cd "$(dirname "$REAL_SCRIPT_PATH")" && pwd)"
+REAL_SCRIPT_DIR="$(cd "$(dirname "$REAL_SCRIPT_PATH")" 2>/dev/null && pwd || pwd)"
 
 if [[ -d "${SCRIPT_DIR_FROM_CALL}/deploy/hybrid" || -d "${SCRIPT_DIR_FROM_CALL}/deploy/docker" ]]; then
     # Running from the repository root via the root symlink.
@@ -82,6 +89,8 @@ fi
 LANG_FILE="${ROOT_DIR}/.chengos_lang"
 MODE_FILE="${ROOT_DIR}/.chengos_install_mode"
 VERSION_FILE="${ROOT_DIR}/.chengos_version"
+MODULES_FILE="${ROOT_DIR}/.chengos_modules"
+CLI_TARGET_FILE="${ROOT_DIR}/.chengos_cli_target"
 UPDATE_BRANCH="${CHENGOS_UPDATE_BRANCH:-main}"
 RAW_BASE_URL="${CHENGOS_RAW_BASE_URL:-https://raw.githubusercontent.com/chengrouter/chengos/${UPDATE_BRANCH}}"
 DEFAULT_LANG="zh"
@@ -119,22 +128,22 @@ declare -A t
 if [[ "$LANG_VAL" == "zh" ]]; then
     t[banner]="===========================================\n       ChengOS 统一管理与部署工具\n==========================================="
     t[menu_install]="1) 安装/初始化模块 (Install/Init)"
-    t[menu_update]="2) 更新模块 (Update)"
-    t[menu_uninstall]="3) 卸载/停用模块 (Uninstall)"
-    t[menu_status]="4) 查看服务状态 (Status)"
-    t[menu_start]="5) 启动服务 (Start)"
-    t[menu_stop]="6) 停止服务 (Stop)"
-    t[menu_restart]="7) 重启服务 (Restart)"
+    t[menu_start]="2) 启动服务 (Start)"
+    t[menu_stop]="3) 停止服务 (Stop)"
+    t[menu_restart]="4) 重启服务 (Restart)"
+    t[menu_update]="5) 更新模块 (Update)"
+    t[menu_cli]="6) 单独安装 CLI (Install CLI Only)"
+    t[menu_status]="7) 查看服务状态 (Status)"
     t[menu_link]="8) 安装系统命令 (Install Command Shortcuts)"
-    t[menu_lang]="9) 切换语言 (Switch Language)"
-    t[menu_cli]="10) 单独安装 CLI (Install CLI Only)"
+    t[menu_uninstall]="9) 卸载/停用模块 (Uninstall)"
+    t[menu_lang]="10) 切换语言 (Switch Language)"
     t[menu_exit]="11) 退出 (Exit)"
     t[select_op]="请选择操作 [1-11]: "
     t[mode_select]="请选择安装模式:\n  1) 二进制原生安装 (Native Host)\n  2) Docker 容器化安装 (Docker)"
     t[mode_prompt]="选择 [1-2] (默认 1): "
     t[install_config]="请选择安装配置:\n  1) 全量安装 (默认)\n  2) 最小安装 (Postgres + API + UI)\n  3) 自定义选择"
     t[config_prompt]="选择 [1-3] (默认 1): "
-    t[prompt_redis]="是否启用 Redis? (y/n) [默认 n]: "
+    t[prompt_redis]="是否启用 Valkey? (y/n) [默认 n]: "
     t[prompt_qdrant]="是否启用 Qdrant (RAG 向量库)? (y/n) [默认 n]: "
     t[prompt_ui]="是否启用 cheng-ui (管理后台)? (y/n) [默认 y]: "
     t[prompt_app]="是否启用 cheng-app (聊天窗口)? (y/n) [默认 y]: "
@@ -151,25 +160,58 @@ if [[ "$LANG_VAL" == "zh" ]]; then
     t[status_header]="正在查询服务状态..."
     t[symlink_done]="已安装系统命令: /usr/local/bin/chengos -> %s"
     t[symlink_fail]="安装系统命令失败，请确认是否拥有 sudo 权限。"
+    t[db_mode_select]="请选择数据库安装模式:"
+    t[db_mode_managed]="  1) 沙箱本地进程 (managed-process) - 无需 Root (默认)"
+    t[db_mode_system]="  2) 系统级服务 (system-service) - 需要 Sudo"
+    t[db_mode_prompt]="选择 [1-2] (默认 1): "
+    t[prompt_ui_port]="请输入 UI 端口 (默认 8080): "
+    t[prompt_app_port]="请输入 App 端口 (默认 5055): "
+    t[press_enter]="按回车键继续..."
+    t[prompt_stop_db]="是否同时停止/删除数据库服务? (y/n) [默认 n]: "
+    t[update_type_select]="请选择更新类型:"
+    t[update_type_scripts]="  1) 仅更新脚本 (chengos.sh/start.sh/stop.sh/status.sh/generate-env.sh)"
+    t[update_type_package]="  2) 仅更新包 (release tar.gz 或 Docker 镜像; 包含 cheng CLI 二进制)"
+    t[update_type_both]="  3) 先更新脚本再更新包 (推荐; 包含 cheng CLI 二进制)"
+    t[update_type_prompt]="选择 [1-3] (默认 3): "
+    t[cli_install_title]="单独安装 CLI (cheng)"
+    t[cli_install_local]="  1) 本机安装 (与 cheng-api 同机; 连接 127.0.0.1)"
+    t[cli_install_remote]="  2) 其他终端/机器安装 (连接远程 ChengOS 服务器)"
+    t[cli_install_prompt]="选择 [1-2] (默认 1): "
+    t[cli_api_url_prompt]="API 服务器地址 [默认: %s]: "
+    t[cli_remote_url_prompt]="远程 ChengOS 服务器地址 (例如 https://your-server.example.com): "
+    t[cli_status_header]="── cheng CLI ──"
+    t[cli_binary_installed]="  CLI 二进制: %s (已安装)"
+    t[cli_binary_path]="  CLI 二进制: %s (在 PATH 中)"
+    t[cli_binary_notfound]="  CLI 二进制: 未找到"
+    t[cli_config_found]="  CLI 配置: %s (已配置)"
+    t[cli_config_notfound]="  CLI 配置: 未找到"
+    t[cli_running]="  CLI 进程: 运行中 (%s 个会话)"
+    t[cli_not_running]="  CLI 进程: 未运行"
+    t[symlink_installing]="正在安装 chengos 系统命令快捷方式..."
+    t[symlink_creating_cheng]="正在创建 cheng 全局启动器..."
+    t[symlink_cheng_done]="已创建快捷启动器: /usr/local/bin/cheng"
+    t[symlink_cheng_hint]="现在你可以在任何地方运行 'cheng' 快速开启命令行对话（默认使用免密文件存储凭证）。"
+    t[exit_msg]="再见！"
+    t[invalid_op]="无效选项: %s"
 else
     t[banner]="===========================================\n       ChengOS Unified Management Utility\n==========================================="
     t[menu_install]="1) Install/Initialize Modules"
-    t[menu_update]="2) Update Modules"
-    t[menu_uninstall]="3) Uninstall/Stop Modules"
-    t[menu_status]="4) Service Status"
-    t[menu_start]="5) Start Services"
-    t[menu_stop]="6) Stop Services"
-    t[menu_restart]="7) Restart Services"
+    t[menu_start]="2) Start Services"
+    t[menu_stop]="3) Stop Services"
+    t[menu_restart]="4) Restart Services"
+    t[menu_update]="5) Update Modules"
+    t[menu_cli]="6) Install CLI Only"
+    t[menu_status]="7) Service Status"
     t[menu_link]="8) Install Command Shortcuts"
-    t[menu_lang]="9) Switch Language"
-    t[menu_cli]="10) Install CLI Only"
+    t[menu_uninstall]="9) Uninstall/Stop Modules"
+    t[menu_lang]="10) Switch Language"
     t[menu_exit]="11) Exit"
     t[select_op]="Select option [1-11]: "
     t[mode_select]="Select Installation Mode:\n  1) Native Host Binary\n  2) Docker Containers"
     t[mode_prompt]="Choose [1-2] (Default 1): "
     t[install_config]="Select Modules Configuration:\n  1) Full Installation (Default)\n  2) Minimal (Postgres + API + UI)\n  3) Custom Selection"
     t[config_prompt]="Choose [1-3] (Default 1): "
-    t[prompt_redis]="Enable Redis? (y/n) [Default n]: "
+    t[prompt_redis]="Enable Valkey? (y/n) [Default n]: "
     t[prompt_qdrant]="Enable Qdrant (Vector DB)? (y/n) [Default n]: "
     t[prompt_ui]="Enable cheng-ui (Management UI)? (y/n) [Default y]: "
     t[prompt_app]="Enable cheng-app (Chat App)? (y/n) [Default y]: "
@@ -186,6 +228,39 @@ else
     t[status_header]="Checking services status..."
     t[symlink_done]="Installed command shortcut: /usr/local/bin/chengos -> %s"
     t[symlink_fail]="Failed to install command shortcuts. Please make sure you have sudo rights."
+    t[db_mode_select]="Select Database Installation Mode:"
+    t[db_mode_managed]="  1) Sandboxed Local Process (managed-process) - No Root Required (Default)"
+    t[db_mode_system]="  2) System Wide Service (system-service) - Requires Sudo"
+    t[db_mode_prompt]="Choose [1-2] (Default 1): "
+    t[prompt_ui_port]="Select UI port (Default 8080): "
+    t[prompt_app_port]="Select App port (Default 5055): "
+    t[press_enter]="Press Enter to continue..."
+    t[prompt_stop_db]="Do you also want to stop/delete database services? (y/n) [Default n]: "
+    t[update_type_select]="Select update type:"
+    t[update_type_scripts]="  1) Script update only (chengos.sh/start.sh/stop.sh/status.sh/generate-env.sh)"
+    t[update_type_package]="  2) Package update only (release tar.gz or Docker images; includes cheng CLI binary)"
+    t[update_type_both]="  3) Script update, then package update (recommended; includes cheng CLI binary)"
+    t[update_type_prompt]="Choose [1-3] (Default 3): "
+    t[cli_install_title]="Install CLI (cheng) Only"
+    t[cli_install_local]="  1) On this machine (co-located with cheng-api; connects to 127.0.0.1)"
+    t[cli_install_remote]="  2) On any other terminal/machine (connects to a remote ChengOS server)"
+    t[cli_install_prompt]="Choose [1-2] (Default 1): "
+    t[cli_api_url_prompt]="API server URL [default: %s]: "
+    t[cli_remote_url_prompt]="Remote ChengOS server URL (e.g. https://your-server.example.com): "
+    t[cli_status_header]="── cheng CLI ──"
+    t[cli_binary_installed]="  CLI binary: %s (installed)"
+    t[cli_binary_path]="  CLI binary: %s (on PATH)"
+    t[cli_binary_notfound]="  CLI binary: not found"
+    t[cli_config_found]="  CLI config: %s (configured)"
+    t[cli_config_notfound]="  CLI config: not found"
+    t[cli_running]="  CLI process: running (%s session(s))"
+    t[cli_not_running]="  CLI process: not running"
+    t[symlink_installing]="Installing system command shortcut for chengos..."
+    t[symlink_creating_cheng]="Creating system-wide launcher for cheng..."
+    t[symlink_cheng_done]="Created quick launcher: /usr/local/bin/cheng"
+    t[symlink_cheng_hint]="Now you can run 'cheng' from anywhere to quickly start the chat (defaults to passwordless file storage)."
+    t[exit_msg]="Goodbye!"
+    t[invalid_op]="Invalid option: %s"
 fi
 
 # ── Local Tarball Detection ───────────────────────────────────────────────────
@@ -270,6 +345,41 @@ read_install_metadata() {
     return 1
 }
 
+write_installed_modules() {
+    local modules="$1"
+    printf '%s\n' "$modules" > "$MODULES_FILE"
+}
+
+read_installed_modules() {
+    if [[ -f "$MODULES_FILE" ]]; then
+        local modules
+        modules="$(tr -d '[:space:]' < "$MODULES_FILE")"
+        if [[ -n "$modules" ]]; then
+            printf '%s\n' "$modules"
+            return 0
+        fi
+    fi
+    return 1
+}
+
+write_cli_target_metadata() {
+    local target_path="$1"
+    [[ -n "$target_path" ]] || return 0
+    printf '%s\n' "$target_path" > "$CLI_TARGET_FILE"
+}
+
+read_cli_target_metadata() {
+    if [[ -f "$CLI_TARGET_FILE" ]]; then
+        local target_path
+        target_path="$(tr -d '[:space:]' < "$CLI_TARGET_FILE")"
+        if [[ -n "$target_path" ]]; then
+            printf '%s\n' "$target_path"
+            return 0
+        fi
+    fi
+    return 1
+}
+
 detect_install_mode() {
     local explicit_mode="${1:-}"
     if [[ "$explicit_mode" == "native" || "$explicit_mode" == "docker" ]]; then
@@ -309,10 +419,30 @@ ensure_docker_compose() {
 
 compute_native_modules() {
     local shared_dir="$1"
-    local modules="api"
+    # Prefer recorded modules from install time
+    local recorded
+    if recorded="$(read_installed_modules 2>/dev/null)"; then
+        local modules="api"
+        [[ ",$recorded," == *",ui,"* ]] && modules="${modules},ui"
+        [[ ",$recorded," == *",app,"* ]] && modules="${modules},app"
+        printf '%s\n' "$modules"
+        return 0
+    fi
+    # Fallback: detect from directory structure
+    modules="api"
     [[ -d "${shared_dir}/ui" && "$(ls -A "${shared_dir}/ui" 2>/dev/null)" ]] && modules="${modules},ui"
     [[ -d "${shared_dir}/app" && "$(ls -A "${shared_dir}/app" 2>/dev/null)" ]] && modules="${modules},app"
     printf '%s\n' "$modules"
+}
+
+modules_to_docker_services() {
+    local modules="$1"
+    local services="postgres api"
+    [[ ",$modules," == *",redis,"* ]] && services="$services redis"
+    [[ ",$modules," == *",qdrant,"* ]] && services="$services qdrant"
+    [[ ",$modules," == *",ui,"* ]] && services="$services ui"
+    [[ ",$modules," == *",app,"* ]] && services="$services app"
+    printf '%s\n' "$services"
 }
 
 find_chengflow_binary() {
@@ -405,6 +535,7 @@ install_cli_binary_only() {
         mkdir -p "$target_bin_dir"
         cp "$binary_path" "${target_bin_dir}/cheng"
         chmod +x "${target_bin_dir}/cheng"
+        write_cli_target_metadata "${target_bin_dir}/cheng"
         echo "Installed cheng CLI binary: ${binary_path} -> ${target_bin_dir}/cheng"
         return 0
     fi
@@ -446,10 +577,87 @@ install_cli_binary_only() {
     mkdir -p "$target_bin_dir"
     cp "${temp_dir}/bin/cheng" "${target_bin_dir}/cheng"
     chmod +x "${target_bin_dir}/cheng"
+    write_cli_target_metadata "${target_bin_dir}/cheng"
     echo "Installed cheng CLI binary -> ${target_bin_dir}/cheng"
 
     [[ "$downloaded" == "true" ]] && rm -f "$tarball"
     rm -rf "$temp_dir"
+}
+
+sync_cli_binary_target() {
+    local source_binary="$1"
+    local target_path="$2"
+
+    [[ -f "$source_binary" && -n "$target_path" ]] || return 0
+    if [[ "$target_path" == "$source_binary" ]]; then
+        return 0
+    fi
+
+    mkdir -p "$(dirname "$target_path")" 2>/dev/null || ${SUDO} mkdir -p "$(dirname "$target_path")"
+    if cp "$source_binary" "$target_path" 2>/dev/null; then
+        chmod +x "$target_path" 2>/dev/null || true
+    else
+        ${SUDO} cp "$source_binary" "$target_path"
+        ${SUDO} chmod +x "$target_path"
+    fi
+    echo "Updated cheng CLI binary: ${target_path}"
+}
+
+sync_installed_cli_binaries() {
+    local source_binary="$1"
+    local shared_dir="$2"
+    local cli_installed="$3"
+    local target_path
+
+    [[ -f "$source_binary" ]] || return 0
+
+    if target_path="$(read_cli_target_metadata 2>/dev/null)"; then
+        sync_cli_binary_target "$source_binary" "$target_path"
+        return 0
+    fi
+
+    if [[ "$cli_installed" != "true" ]]; then
+        return 0
+    fi
+
+    for target_path in /usr/local/bin/cheng "${HOME}/.local/bin/cheng"; do
+        [[ -f "$target_path" ]] || continue
+        if grep -qs "${shared_dir}/bin/cheng" "$target_path"; then
+            echo "CLI launcher already points at updated binary: ${target_path}"
+            continue
+        fi
+        sync_cli_binary_target "$source_binary" "$target_path"
+        write_cli_target_metadata "$target_path"
+    done
+}
+
+# Writes CHENG_LANG=<lang> to the user's shell profile so the CLI picks up
+# the correct language on every invocation. Skips if already set to the
+# same value. Only writes when a language preference is known.
+write_cli_lang_env() {
+    local lang="$1"
+    [[ -n "$lang" ]] || return 0
+
+    local marker="# cheng-cli language (managed by chengos.sh)"
+    local line="export CHENG_LANG=${lang}"
+
+    # Try ~/.bashrc, then ~/.zshrc — write to whichever exists (or bashrc
+    # as the default for Linux systems without zsh).
+    local profile_file="${HOME}/.bashrc"
+    [[ -f "${HOME}/.zshrc" && ! -f "${HOME}/.bashrc" ]] && profile_file="${HOME}/.zshrc"
+
+    if grep -q "${marker}" "$profile_file" 2>/dev/null; then
+        # Update existing line
+        sed -i "s|^export CHENG_LANG=.*|${line}|" "$profile_file" 2>/dev/null || return 0
+        echo "Updated CHENG_LANG=${lang} in ${profile_file}"
+    else
+        {
+            echo ""
+            echo "${marker}"
+            echo "${line}"
+        } >> "$profile_file"
+        echo "Added CHENG_LANG=${lang} to ${profile_file}"
+    fi
 }
 
 # Writes ~/.config/cheng/config.json with the given server_url, unless a
@@ -502,6 +710,7 @@ install_cli_standalone() {
 
     install_cli_binary_only "$target_bin_dir" || return 1
     write_cli_config "$server_url"
+    write_cli_lang_env "$LANG_VAL"
 
     echo ""
     if [[ ":${PATH}:" != *":${target_bin_dir}:"* ]]; then
@@ -630,8 +839,16 @@ update_docker_install() {
     ensure_docker_compose
     [[ -f .env ]] || bash generate-env.sh
     cd "$docker_dir"
+
+    local recorded_modules docker_services
+    recorded_modules="$(read_installed_modules 2>/dev/null || echo "")"
+
     if [[ -f upgrade.sh ]]; then
         bash upgrade.sh
+    elif [[ -n "$recorded_modules" ]]; then
+        docker_services="$(modules_to_docker_services "$recorded_modules")"
+        docker compose --env-file ../.env pull $docker_services
+        docker compose --env-file ../.env up -d $docker_services
     else
         docker compose --env-file ../.env pull
         docker compose --env-file ../.env up -d
@@ -717,6 +934,59 @@ update_script_files() {
     fi
 }
 
+rebuild_native_from_git_checkout() {
+    local shared_dir="$1"
+    local hybrid_dir="$2"
+
+    if [[ ! -d "${ROOT_DIR}/chengflow" ]]; then
+        echo "No chengflow source directory found; Git checkout updated but binaries were not rebuilt."
+        return 0
+    fi
+
+    local recorded_modules
+    recorded_modules="$(read_installed_modules 2>/dev/null || echo "api,ui,app")"
+
+    local cli_installed="false"
+    if [[ ",$recorded_modules," == *",cli,"* || -f "${shared_dir}/bin/cheng" ]]; then
+        cli_installed="true"
+    fi
+
+    local was_running="false"
+    [[ -f "${shared_dir}/runtime/cheng-api.pid" ]] && was_running="true"
+
+    echo "Stopping services before rebuilding package-owned files..."
+    bash "${hybrid_dir}/stop.sh" || true
+
+    if [[ ",$recorded_modules," == *",ui,"* && -d "${ROOT_DIR}/chengflow-ui" ]]; then
+        echo "Building UI from updated source..."
+        (cd "${ROOT_DIR}/chengflow-ui" && (pnpm build:deploy || npm run build:deploy))
+    fi
+    if [[ ",$recorded_modules," == *",app,"* && -d "${ROOT_DIR}/chengflow-app" ]]; then
+        echo "Building Chat App from updated source..."
+        (cd "${ROOT_DIR}/chengflow-app" && (pnpm build:deploy || npm run build:deploy))
+    fi
+
+    echo "Building backend Cargo packages from updated source..."
+    local cargo_modules="-p cheng-api"
+    [[ "$cli_installed" == "true" ]] && cargo_modules="$cargo_modules -p cheng-cli"
+    (cd "${ROOT_DIR}/chengflow" && cargo build --release $cargo_modules)
+
+    mkdir -p "${shared_dir}/bin"
+    copy_chengflow_binary "cheng-api" "cheng-api" "${shared_dir}/bin"
+    if [[ "$cli_installed" == "true" ]]; then
+        copy_chengflow_binary "cheng" "cheng" "${shared_dir}/bin"
+        sync_installed_cli_binaries "${shared_dir}/bin/cheng" "$shared_dir" "$cli_installed"
+    fi
+    chmod +x "${shared_dir}/bin/"* 2>/dev/null || true
+
+    if [[ "$was_running" == "true" ]]; then
+        echo "Services were running before update; restarting..."
+        local restart_modules
+        restart_modules="$(compute_native_modules "$shared_dir")"
+        bash "${hybrid_dir}/start.sh" --with "$restart_modules"
+    fi
+}
+
 update_native_install() {
     local shared_dir hybrid_dir latest_tag local_version
     shared_dir="$(resolve_shared_dir)"
@@ -767,6 +1037,7 @@ update_native_install() {
         else
             echo "Updated Git checkout: ${before} -> ${after}"
         fi
+        rebuild_native_from_git_checkout "$shared_dir" "$hybrid_dir"
         return 0
     fi
 
@@ -818,13 +1089,40 @@ update_native_install() {
     echo "Stopping services before replacing package-owned files..."
     bash "${hybrid_dir}/stop.sh" || true
 
-    # Update shared resources
-    for item in bin ui app .env.example; do
+    # Update shared resources (only for installed modules)
+    local recorded_modules
+    recorded_modules="$(read_installed_modules 2>/dev/null || echo "api,ui,app")"
+    local cli_installed="false"
+    if [[ ",$recorded_modules," == *",cli,"* || -f "${shared_dir}/bin/cheng" ]]; then
+        cli_installed="true"
+    fi
+
+    # Always update bin (contains cheng-api and, when packaged, cheng CLI) and .env.example
+    for item in bin .env.example; do
         [[ -e "${temp_dir}/${item}" ]] || continue
         echo "Replacing ${item}"
         rm -rf "${shared_dir:?}/${item}"
         cp -a "${temp_dir}/${item}" "${shared_dir}/${item}"
     done
+    if [[ -f "${shared_dir}/bin/cheng" ]]; then
+        sync_installed_cli_binaries "${shared_dir}/bin/cheng" "$shared_dir" "$cli_installed"
+    fi
+
+    # Only update ui/app if they were installed
+    if [[ ",$recorded_modules," == *",ui,"* ]]; then
+        [[ -e "${temp_dir}/ui" ]] && {
+            echo "Replacing ui"
+            rm -rf "${shared_dir:?}/ui"
+            cp -a "${temp_dir}/ui" "${shared_dir}/ui"
+        }
+    fi
+    if [[ ",$recorded_modules," == *",app,"* ]]; then
+        [[ -e "${temp_dir}/app" ]] && {
+            echo "Replacing app"
+            rm -rf "${shared_dir:?}/app"
+            cp -a "${temp_dir}/app" "${shared_dir}/app"
+        }
+    fi
 
     # Update chengos.sh manager at deployment root
     if [[ -e "${temp_dir}/chengos.sh" ]]; then
@@ -847,7 +1145,9 @@ update_native_install() {
     rm -rf "$temp_dir"
     if [[ "$was_running" == "true" ]]; then
         echo "Services were running before update; restarting..."
-        bash "${hybrid_dir}/start.sh"
+        local restart_modules
+        restart_modules="$(compute_native_modules "$shared_dir")"
+        bash "${hybrid_dir}/start.sh" --with "$restart_modules"
     fi
     echo "Native package update completed."
 }
@@ -861,15 +1161,32 @@ uninstall_docker_install() {
         return 0
     fi
     ensure_docker_compose
-    docker compose --env-file ../.env down
+
+    local recorded_modules docker_services
+    recorded_modules="$(read_installed_modules 2>/dev/null || echo "")"
+
+    if [[ -n "$recorded_modules" ]]; then
+        docker_services="$(modules_to_docker_services "$recorded_modules")"
+        docker compose --env-file ../.env down $docker_services
+    else
+        docker compose --env-file ../.env down
+    fi
     read -p "Remove ChengOS Docker volumes and persistent data? (y/n) [Default n]: " remove_data < /dev/tty
     if [[ "$remove_data" =~ ^[Yy]$ ]]; then
         docker compose --env-file ../.env down -v
     fi
     read -p "Remove ChengOS Docker images? (y/n) [Default n]: " remove_images < /dev/tty
     if [[ "$remove_images" =~ ^[Yy]$ ]]; then
-        docker compose --env-file ../.env config --images 2>/dev/null | sort -u | xargs -r docker image rm || true
+        if [[ -n "$docker_services" ]]; then
+            for svc in $docker_services; do
+                docker compose --env-file ../.env config --images "$svc" 2>/dev/null | head -1 | xargs -r docker image rm 2>/dev/null || true
+            done
+        else
+            docker compose --env-file ../.env config --images 2>/dev/null | sort -u | xargs -r docker image rm || true
+        fi
     fi
+
+    rm -f "$MODULES_FILE"
 }
 
 uninstall_native_install() {
@@ -883,11 +1200,22 @@ uninstall_native_install() {
     read -p "Continue uninstalling native package files? (y/n) [Default n]: " confirm < /dev/tty
     [[ "$confirm" =~ ^[Yy]$ ]] || return 0
     bash "${hybrid_dir}/stop.sh" || true
-    rm -rf "${hybrid_dir}/bin" "${hybrid_dir}/ui" "${hybrid_dir}/app"
+
+    local recorded_modules
+    recorded_modules="$(read_installed_modules 2>/dev/null || echo "api,ui,app")"
+
+    # Always remove bin (contains cheng-api)
+    rm -rf "${hybrid_dir}/bin"
+    # Only remove ui/app if they were installed
+    [[ ",$recorded_modules," == *",ui,"* ]] && rm -rf "${hybrid_dir}/ui"
+    [[ ",$recorded_modules," == *",app,"* ]] && rm -rf "${hybrid_dir}/app"
+
     read -p "Also remove runtime data and logs? (y/n) [Default n]: " remove_data < /dev/tty
     if [[ "$remove_data" =~ ^[Yy]$ ]]; then
         rm -rf "${hybrid_dir}/runtime" "${hybrid_dir}/logs"
     fi
+
+    rm -f "$MODULES_FILE"
 }
 
 # ── CLI Commands Execution ───────────────────────────────────────────────────
@@ -1014,8 +1342,13 @@ if [[ $# -gt 0 ]]; then
                 
                 shared_dir="$(resolve_shared_dir)"
 
-                # Check if cheng-api binary or frontend static folders are missing
-                if [[ ! -f "${shared_dir}/bin/cheng-api" || ! -d "${shared_dir}/ui" || ! -d "${shared_dir}/app" ]]; then
+                # Check if required assets are missing (only for enabled modules)
+                need_extract="false"
+                [[ ! -f "${shared_dir}/bin/cheng-api" ]] && need_extract="true"
+                [[ "$enable_cli" == "true" && ! -f "${shared_dir}/bin/cheng" ]] && need_extract="true"
+                [[ "$enable_ui" == "true" && ! -d "${shared_dir}/ui" ]] && need_extract="true"
+                [[ "$enable_app" == "true" && ! -d "${shared_dir}/app" ]] && need_extract="true"
+                if [[ "$need_extract" == "true" ]]; then
                     echo "Required binaries or frontend assets are missing in ${shared_dir}."
                     echo "Looking for local release package..."
                     LOCAL_TARBALL_FOUND=""
@@ -1040,12 +1373,12 @@ if [[ $# -gt 0 ]]; then
                     mkdir -p "$TEMP_DIR"
                     tar -xzf "$TEMP_TAR" -C "$TEMP_DIR" --strip-components=1
                     
-                    # Copy bin, ui, app back to shared directory
+                    # Copy bin, ui, app back to shared directory (only enabled modules)
                     mkdir -p "${shared_dir}/bin"
                     cp -a "${TEMP_DIR}/bin/." "${shared_dir}/bin/"
                     chmod +x "${shared_dir}/bin/"*
-                    cp -a "${TEMP_DIR}/ui/." "${shared_dir}/ui/"
-                    cp -a "${TEMP_DIR}/app/." "${shared_dir}/app/"
+                    [[ "$enable_ui" == "true" ]] && cp -a "${TEMP_DIR}/ui/." "${shared_dir}/ui/"
+                    [[ "$enable_app" == "true" ]] && cp -a "${TEMP_DIR}/app/." "${shared_dir}/app/"
                     
                     # Clean up — only remove temp tar if we downloaded it
                     [[ -z "$LOCAL_TARBALL_FOUND" ]] && rm -rf "$TEMP_TAR"
@@ -1062,6 +1395,15 @@ if [[ $# -gt 0 ]]; then
                 setup_native_env "$DB_INSTALL_MODE" "$enable_redis" "$enable_qdrant" "$UI_PORT" "$APP_PORT"
             fi
             write_install_metadata "$MODE"
+
+            # Record installed modules for selective update/uninstall/restart
+            installed_modules="api"
+            [[ "$enable_redis" == "true" ]] && installed_modules="${installed_modules},redis"
+            [[ "$enable_qdrant" == "true" ]] && installed_modules="${installed_modules},qdrant"
+            [[ "$enable_ui" == "true" ]] && installed_modules="${installed_modules},ui"
+            [[ "$enable_app" == "true" ]] && installed_modules="${installed_modules},app"
+            [[ "$enable_cli" == "true" ]] && installed_modules="${installed_modules},cli"
+            write_installed_modules "$installed_modules"
 
             # Ensure all binaries are executable
             shared_dir="$(resolve_shared_dir)"
@@ -1180,15 +1522,15 @@ while true; do
     clear
     printf "${t[banner]}\n"
     echo "  ${t[menu_install]}"
-    echo "  ${t[menu_update]}"
-    echo "  ${t[menu_uninstall]}"
-    echo "  ${t[menu_status]}"
     echo "  ${t[menu_start]}"
     echo "  ${t[menu_stop]}"
     echo "  ${t[menu_restart]}"
-    echo "  ${t[menu_link]}"
-    echo "  ${t[menu_lang]}"
+    echo "  ${t[menu_update]}"
     echo "  ${t[menu_cli]}"
+    echo "  ${t[menu_status]}"
+    echo "  ${t[menu_link]}"
+    echo "  ${t[menu_uninstall]}"
+    echo "  ${t[menu_lang]}"
     echo "  ${t[menu_exit]}"
     echo "==========================================="
     read -p "${t[select_op]}" op < /dev/tty
@@ -1204,10 +1546,10 @@ while true; do
             db_mode="managed-process"
             if [[ "$install_mode" == "native" ]]; then
                 echo ""
-                echo "Select Database Installation Mode:"
-                echo "  1) Sandboxed Local Process (managed-process) - No Root Required (Default)"
-                echo "  2) System Wide Service (system-service) - Requires Sudo"
-                read -p "Choose [1-2] (Default 1): " db_choice < /dev/tty
+                echo "${t[db_mode_select]}"
+                echo "${t[db_mode_managed]}"
+                echo "${t[db_mode_system]}"
+                read -p "${t[db_mode_prompt]}" db_choice < /dev/tty
                 [[ "$db_choice" == "2" ]] && db_mode="system-service"
             fi
             
@@ -1250,10 +1592,10 @@ while true; do
                 enable_cli="true"
             fi
             
-            read -p "Select UI port (Default 8080): " ui_p < /dev/tty
+            read -p "${t[prompt_ui_port]}" ui_p < /dev/tty
             ui_port="${ui_p:-8080}"
             
-            read -p "Select App port (Default 5055): " app_p < /dev/tty
+            read -p "${t[prompt_app_port]}" app_p < /dev/tty
             app_port="${app_p:-5055}"
 
             modules_list="api"
@@ -1265,77 +1607,123 @@ while true; do
             
             echo ""
             bash "$0" install --mode "$install_mode" --with "$modules_list" --db-install-mode "$db_mode" --ui-port "$ui_port" --app-port "$app_port"
-            read -p "Press Enter to continue..." dummy < /dev/tty
+            read -p "${t[press_enter]}" dummy < /dev/tty
             ;;
             
         2)
             clear
             install_mode="$(detect_install_mode)"
-            echo "Select update type:"
-            echo "  1) Script update only (chengos.sh/start.sh/stop.sh/status.sh/generate-env.sh)"
-            echo "  2) Package update only (release tar.gz or Docker images)"
-            echo "  3) Script update, then package update"
-            read -p "Choose [1-3] (Default 1): " update_choice < /dev/tty
-            update_flag="--scripts-only"
-            [[ "$update_choice" == "2" ]] && update_flag="--package-only"
-            [[ "$update_choice" == "3" ]] && update_flag=""
             echo ""
-            if [[ -n "$update_flag" ]]; then
-                bash "$0" update --mode "$install_mode" "$update_flag"
-            else
-                bash "$0" update --mode "$install_mode"
-            fi
-            read -p "Press Enter to continue..." dummy < /dev/tty
+            bash "$0" start --mode "$install_mode"
+            read -p "${t[press_enter]}" dummy < /dev/tty
             ;;
             
         3)
             clear
             install_mode="$(detect_install_mode)"
             echo ""
-            bash "$0" uninstall --mode "$install_mode"
-            read -p "Press Enter to continue..." dummy < /dev/tty
+            read -p "${t[prompt_stop_db]}" clean_db < /dev/tty
+            if [[ "$clean_db" =~ ^[Yy]$ ]]; then
+                bash "$0" stop --mode "$install_mode" --with-infra
+            else
+                bash "$0" stop --mode "$install_mode"
+            fi
+            read -p "${t[press_enter]}" dummy < /dev/tty
             ;;
             
         4)
             clear
             install_mode="$(detect_install_mode)"
             echo ""
-            bash "$0" status --mode "$install_mode"
-            read -p "Press Enter to continue..." dummy < /dev/tty
+            bash "$0" restart --mode "$install_mode"
+            read -p "${t[press_enter]}" dummy < /dev/tty
             ;;
-            
+
         5)
             clear
             install_mode="$(detect_install_mode)"
+            echo "${t[update_type_select]}"
+            echo "${t[update_type_scripts]}"
+            echo "${t[update_type_package]}"
+            echo "${t[update_type_both]}"
+            read -p "${t[update_type_prompt]}" update_choice < /dev/tty
+            update_flag=""
+            [[ "$update_choice" == "1" ]] && update_flag="--scripts-only"
+            [[ "$update_choice" == "2" ]] && update_flag="--package-only"
             echo ""
-            bash "$0" start --mode "$install_mode"
-            read -p "Press Enter to continue..." dummy < /dev/tty
+            if [[ -n "$update_flag" ]]; then
+                bash "$0" update --mode "$install_mode" "$update_flag"
+            else
+                bash "$0" update --mode "$install_mode"
+            fi
+            read -p "${t[press_enter]}" dummy < /dev/tty
             ;;
             
         6)
             clear
-            install_mode="$(detect_install_mode)"
-            echo ""
-            read -p "Do you also want to stop/delete database services? (y/n) [Default n]: " clean_db < /dev/tty
-            if [[ "$clean_db" =~ ^[Yy]$ ]]; then
-                bash "$0" stop --mode "$install_mode" --with-infra
+            echo "${t[cli_install_title]}"
+            echo "${t[cli_install_local]}"
+            echo "${t[cli_install_remote]}"
+            read -p "${t[cli_install_prompt]}" cli_target_choice < /dev/tty
+            cli_target="local"
+            [[ "$cli_target_choice" == "2" ]] && cli_target="remote"
+
+            server_url_input=""
+            if [[ "$cli_target" == "local" ]]; then
+                shared_dir="$(resolve_shared_dir)"
+                default_api_port="3000"
+                if [[ -f "${shared_dir}/.env" ]]; then
+                    # shellcheck disable=SC1090
+                    set -a; source "${shared_dir}/.env"; set +a
+                    [[ -n "${API_PORT:-}" ]] && default_api_port="$API_PORT"
+                fi
+                read -p "$(printf "${t[cli_api_url_prompt]}" "http://127.0.0.1:${default_api_port}")" server_url_input < /dev/tty
+                server_url_input="${server_url_input:-http://127.0.0.1:${default_api_port}}"
             else
-                bash "$0" stop --mode "$install_mode"
+                read -p "${t[cli_remote_url_prompt]}" server_url_input < /dev/tty
             fi
-            read -p "Press Enter to continue..." dummy < /dev/tty
+
+            echo ""
+            bash "$0" install-cli --target "$cli_target" --server-url "$server_url_input"
+            read -p "${t[press_enter]}" dummy < /dev/tty
             ;;
-            
+
         7)
             clear
             install_mode="$(detect_install_mode)"
             echo ""
-            bash "$0" restart --mode "$install_mode"
-            read -p "Press Enter to continue..." dummy < /dev/tty
+            bash "$0" status --mode "$install_mode"
+            echo ""
+            echo "${t[cli_status_header]}"
+            shared_dir="$(resolve_shared_dir)"
+            cli_binary="${shared_dir}/bin/cheng"
+            if [[ -f "$cli_binary" ]]; then
+                printf "${t[cli_binary_installed]}\n" "$cli_binary"
+            elif command -v cheng >/dev/null 2>&1; then
+                printf "${t[cli_binary_path]}\n" "$(command -v cheng)"
+            else
+                echo "${t[cli_binary_notfound]}"
+            fi
+            cli_config="${HOME}/.config/cheng/config.json"
+            if [[ -f "$cli_config" ]]; then
+                printf "${t[cli_config_found]}\n" "$cli_config"
+            else
+                echo "${t[cli_config_notfound]}"
+            fi
+            cli_pids="$(pgrep -x cheng 2>/dev/null || true)"
+            if [[ -n "$cli_pids" ]]; then
+                cli_count="$(printf '%s\n' "$cli_pids" | wc -l)"
+                printf "${t[cli_running]}\n" "$cli_count"
+                echo "    PID: $(echo "$cli_pids" | tr '\n' ' ')"
+            else
+                echo "${t[cli_not_running]}"
+            fi
+            read -p "${t[press_enter]}" dummy < /dev/tty
             ;;
-
+            
         8)
             clear
-            echo "Installing system command shortcut for chengos..."
+            echo "${t[symlink_installing]}"
             success=true
             if ! ${SUDO} ln -sf "${ROOT_DIR}/chengos.sh" /usr/local/bin/chengos 2>/dev/null; then
                 success=false
@@ -1344,11 +1732,24 @@ while true; do
             shared_dir="$(resolve_shared_dir)"
             
             if [[ -f "${shared_dir}/bin/cheng" ]]; then
-                echo "Creating system-wide launcher for cheng..."
+                echo "${t[symlink_creating_cheng]}"
                 chmod +x "${shared_dir}/bin/cheng" 2>/dev/null || true
                 ${SUDO} rm -f /usr/local/bin/cheng 2>/dev/null || true
                 if ! ${SUDO} tee /usr/local/bin/cheng >/dev/null <<EOF
 #!/usr/bin/env bash
+# Load CHENG_CLI_LOG_FILE from .env so CLI logs go into the installation logs dir
+if [[ -z "\${CHENG_CLI_LOG_FILE:-}" && -f "${shared_dir}/.env" ]]; then
+    while IFS='=' read -r _env_key _env_val; do
+        if [[ "\$_env_key" == "CHENG_CLI_LOG_FILE" ]]; then
+            export CHENG_CLI_LOG_FILE="\$_env_val"
+            break
+        fi
+    done < "${shared_dir}/.env"
+fi
+# Set CHENG_LANG from the installation language preference if not already set
+if [[ -z "\${CHENG_LANG:-}" && -f "${ROOT_DIR}/.chengos_lang" ]]; then
+    export CHENG_LANG="$(cat "${ROOT_DIR}/.chengos_lang" 2>/dev/null)"
+fi
 if [[ "\${1:-}" == "chat" || "\${1:-}" == "help" || "\${1:-}" == "-h" || "\${1:-}" == "--help" || "\${1:-}" == "-V" || "\${1:-}" == "--version" ]]; then
     exec "${shared_dir}/bin/cheng" "\$@"
 else
@@ -1364,62 +1765,36 @@ EOF
             if [[ "$success" == "true" ]]; then
                 printf "${t[symlink_done]}\n" "${ROOT_DIR}/chengos.sh"
                 if [[ -f "${shared_dir}/bin/cheng" ]]; then
-                    if [[ "$LANG_VAL" == "zh" ]]; then
-                        echo "已创建快捷启动器: /usr/local/bin/cheng"
-                        echo "现在你可以在任何地方运行 'cheng' 快速开启命令行对话（默认使用免密文件存储凭证）。"
-                    else
-                        echo "Created quick launcher: /usr/local/bin/cheng"
-                        echo "Now you can run 'cheng' from anywhere to quickly start the chat (defaults to passwordless file storage)."
-                    fi
+                    echo "${t[symlink_cheng_done]}"
+                    echo "${t[symlink_cheng_hint]}"
                 fi
             else
                 echo "${t[symlink_fail]}"
             fi
-            read -p "Press Enter to continue..." dummy < /dev/tty
+            read -p "${t[press_enter]}" dummy < /dev/tty
             ;;
             
         9)
+            clear
+            install_mode="$(detect_install_mode)"
+            echo ""
+            bash "$0" uninstall --mode "$install_mode"
+            read -p "${t[press_enter]}" dummy < /dev/tty
+            ;;
+            
+        10)
             clear
             set_language
             exec bash "$0"
             ;;
 
-        10)
-            clear
-            echo "Install CLI (cheng) Only"
-            echo "  1) On this machine (co-located with cheng-api; connects to 127.0.0.1)"
-            echo "  2) On any other terminal/machine (connects to a remote ChengOS server)"
-            read -p "Choose [1-2] (Default 1): " cli_target_choice < /dev/tty
-            cli_target="local"
-            [[ "$cli_target_choice" == "2" ]] && cli_target="remote"
-
-            server_url_input=""
-            if [[ "$cli_target" == "local" ]]; then
-                shared_dir="$(resolve_shared_dir)"
-                default_api_port="3000"
-                if [[ -f "${shared_dir}/.env" ]]; then
-                    # shellcheck disable=SC1090
-                    set -a; source "${shared_dir}/.env"; set +a
-                    [[ -n "${API_PORT:-}" ]] && default_api_port="$API_PORT"
-                fi
-                read -p "API server URL [default: http://127.0.0.1:${default_api_port}]: " server_url_input < /dev/tty
-                server_url_input="${server_url_input:-http://127.0.0.1:${default_api_port}}"
-            else
-                read -p "Remote ChengOS server URL (e.g. https://your-server.example.com): " server_url_input < /dev/tty
-            fi
-
-            echo ""
-            bash "$0" install-cli --target "$cli_target" --server-url "$server_url_input"
-            read -p "Press Enter to continue..." dummy < /dev/tty
-            ;;
-
         11)
-            echo "Goodbye!"
+            echo "${t[exit_msg]}"
             exit 0
             ;;
             
         *)
-            echo "Invalid option: $op"
+            printf "${t[invalid_op]}\n" "$op"
             sleep 1
             ;;
     esac

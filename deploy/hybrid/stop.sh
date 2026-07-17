@@ -72,19 +72,22 @@ stop_pid "${ROOT_DIR}/runtime/qdrant.pid" "Qdrant"
 if [[ "$DB_INSTALL_MODE" == "managed-process" ]]; then
     log "Stopping local databases (managed-process mode)..."
     
-    # Stop local Redis
-    if [[ -f "${ROOT_DIR}/runtime/redis.pid" ]]; then
-        r_pid=$(cat "${ROOT_DIR}/runtime/redis.pid")
+    # Stop local Valkey. Also recognize the legacy Redis PID file so an
+    # in-place upgrade does not leave the previous server bound to 6379.
+    valkey_pid_file="${ROOT_DIR}/runtime/valkey.pid"
+    [[ -f "$valkey_pid_file" ]] || valkey_pid_file="${ROOT_DIR}/runtime/redis.pid"
+    if [[ -f "$valkey_pid_file" ]]; then
+        r_pid=$(cat "$valkey_pid_file")
         if kill -0 "$r_pid" 2>/dev/null; then
-            log "Shutting down local Redis..."
+            log "Shutting down local Valkey..."
             if [[ -n "$REDIS_PASSWORD" ]]; then
-                redis-cli -p 6379 -a "$REDIS_PASSWORD" shutdown 2>/dev/null || kill -TERM "$r_pid" || true
+                valkey-cli -p 6379 -a "$REDIS_PASSWORD" shutdown 2>/dev/null || kill -TERM "$r_pid" || true
             else
-                redis-cli -p 6379 shutdown 2>/dev/null || kill -TERM "$r_pid" || true
+                valkey-cli -p 6379 shutdown 2>/dev/null || kill -TERM "$r_pid" || true
             fi
         fi
-        rm -f "${ROOT_DIR}/runtime/redis.pid"
-        log "Local Redis stopped"
+        rm -f "${ROOT_DIR}/runtime/valkey.pid" "${ROOT_DIR}/runtime/redis.pid"
+        log "Local Valkey stopped"
     fi
 
     # Stop local Postgres
@@ -123,12 +126,12 @@ if $WITH_INFRA && [[ "$DB_INSTALL_MODE" == "system-service" ]]; then
     
     log "Stopping infrastructure system services (system-service mode)..."
     if command -v systemctl >/dev/null 2>&1; then
-        log "Stopping postgresql and redis-server via systemctl..."
-        ${SUDO} systemctl stop postgresql redis-server 2>/dev/null || true
+        log "Stopping postgresql and valkey-server via systemctl..."
+        ${SUDO} systemctl stop postgresql valkey-server 2>/dev/null || true
     else
-        log "Stopping postgresql and redis-server via service..."
+        log "Stopping postgresql and valkey-server via service..."
         ${SUDO} service postgresql stop 2>/dev/null || true
-        ${SUDO} service redis-server stop 2>/dev/null || true
+        ${SUDO} service valkey-server stop 2>/dev/null || true
     fi
     log "Infrastructure system services stopped"
 fi

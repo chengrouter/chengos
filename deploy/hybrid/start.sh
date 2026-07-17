@@ -233,67 +233,67 @@ setup_and_start_postgres() {
 
 setup_and_start_redis() {
     if [[ "$DB_INSTALL_MODE" == "system-service" ]]; then
-        if ! command -v redis-server >/dev/null 2>&1; then
-            log "Installing native Redis system package..."
+        if ! command -v valkey-server >/dev/null 2>&1; then
+            log "Installing native Valkey system package..."
             ${SUDO} apt-get update
-            ${SUDO} apt-get install -y redis-server
+            ${SUDO} apt-get install -y valkey
         fi
         
         # Add password configuration if missing
-        if ! ${SUDO} grep -q "^requirepass" /etc/redis/redis.conf; then
-            echo "requirepass ${REDIS_PASSWORD}" | ${SUDO} tee -a /etc/redis/redis.conf
+        if ! ${SUDO} grep -q "^requirepass" /etc/valkey/valkey.conf; then
+            echo "requirepass ${REDIS_PASSWORD}" | ${SUDO} tee -a /etc/valkey/valkey.conf
             if command -v systemctl >/dev/null 2>&1; then
-                ${SUDO} systemctl restart redis-server
+                ${SUDO} systemctl restart valkey-server
             else
-                ${SUDO} service redis-server restart
+                ${SUDO} service valkey-server restart
             fi
         fi
         
         if command -v systemctl >/dev/null 2>&1; then
-            ${SUDO} systemctl enable --now redis-server
+            ${SUDO} systemctl enable --now valkey-server
         else
-            ${SUDO} service redis-server start
+            ${SUDO} service valkey-server start
         fi
     else
-        if ! command -v redis-server >/dev/null 2>&1; then
+        if ! command -v valkey-server >/dev/null 2>&1; then
             if command -v apt-get >/dev/null 2>&1; then
-                log "redis-server not found. Automatically installing Redis via apt-get..."
+                log "valkey-server not found. Automatically installing Valkey via apt-get..."
                 local local_sudo=""
                 if [[ "$(id -u)" -ne 0 ]]; then
                     local_sudo="sudo"
                 fi
                 $local_sudo apt-get update
-                $local_sudo apt-get install -y redis-server
+                $local_sudo apt-get install -y valkey
                 
-                # Stop and disable system-wide Redis so it does not block port 6379
-                log "Stopping and disabling system-wide Redis service for sandbox mode..."
+                # Stop and disable system-wide Valkey so it does not block port 6379
+                log "Stopping and disabling system-wide Valkey service for sandbox mode..."
                 if command -v systemctl >/dev/null 2>&1; then
-                    $local_sudo systemctl stop redis-server || true
-                    $local_sudo systemctl disable redis-server || true
+                    $local_sudo systemctl stop valkey-server || true
+                    $local_sudo systemctl disable valkey-server || true
                 else
-                    $local_sudo service redis-server stop || true
+                    $local_sudo service valkey-server stop || true
                 fi
             else
-                fail "redis-server is not installed. Please install it manually on your host (e.g. apt-get install redis-server)."
+                fail "valkey-server is not installed. Please install it manually on your host (e.g. apt-get install valkey)."
             fi
         fi
         
-        local redis_pid_file="${ROOT_DIR}/runtime/redis.pid"
+        local redis_pid_file="${ROOT_DIR}/runtime/valkey.pid"
         
         # Check if already running on 6379
-        if ! redis-cli -p 6379 ping >/dev/null 2>&1 && ! redis-cli -p 6379 -a "$REDIS_PASSWORD" ping >/dev/null 2>&1; then
-            log "Starting local Redis process..."
-            nohup redis-server --port 6379 --requirepass "${REDIS_PASSWORD}" --dir "${ROOT_DIR}/runtime" > "${ROOT_DIR}/logs/redis.log" 2>&1 &
+        if ! valkey-cli -p 6379 ping >/dev/null 2>&1 && ! valkey-cli -p 6379 -a "$REDIS_PASSWORD" ping >/dev/null 2>&1; then
+            log "Starting local Valkey process..."
+            nohup valkey-server --port 6379 --requirepass "${REDIS_PASSWORD}" --dir "${ROOT_DIR}/runtime" > "${ROOT_DIR}/logs/valkey.log" 2>&1 &
             local redis_pid=$!
             echo "$redis_pid" > "$redis_pid_file"
             
-            # Wait for Redis
+            # Wait for Valkey
             sleep 1
-            if ! redis-cli -p 6379 -a "$REDIS_PASSWORD" ping | grep -q PONG; then
-                fail "Local Redis failed to start. Check: ${ROOT_DIR}/logs/redis.log"
+            if ! valkey-cli -p 6379 -a "$REDIS_PASSWORD" ping | grep -q PONG; then
+                fail "Local Valkey failed to start. Check: ${ROOT_DIR}/logs/valkey.log"
             fi
         fi
-        log "Local Redis is ready"
+        log "Local Valkey is ready"
     fi
 }
 

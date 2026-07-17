@@ -22,8 +22,8 @@ deploy/
 │                           # 共享代理服务器脚本和编译后的二进制程序
 ├── config/                 # Shared provider config and i18n overrides
 │                           # 共享提供商配置和 i18n 覆盖文件
-├── infra/                  # Shared Postgres/Redis/Qdrant docker-compose
-│                           # 共享 Postgres/Redis/Qdrant docker-compose
+├── infra/                  # Shared Postgres/Valkey/Qdrant docker-compose
+│                           # 共享 Postgres/Valkey/Qdrant docker-compose
 ├── models/                 # Optional local OCR model files
 │                           # 可选本地 OCR 模型文件
 ├── node_skills/            # Shared node skill guides
@@ -126,7 +126,7 @@ Runs the compiled API binary and static web files natively on the host. Highly o
 在主机上原生运行编译好的 API 二进制程序和网页静态资源。极度轻量，性能优异且无需 Docker。
 
 - **Database Installation Modes (`DB_INSTALL_MODE`)**:
-  - **`managed-process` (Default / 默认)**: Runs PostgreSQL, Redis, and Qdrant locally as user processes in a sandbox. No `sudo` or root permissions are required, and system packages are left untouched.
+  - **`managed-process` (Default / 默认)**: Runs PostgreSQL, Valkey, and Qdrant locally as user processes in a sandbox. No `sudo` or root permissions are required, and system packages are left untouched.
   - **`system-service`**: Installs databases natively via the package manager (`apt-get`) and registers them as system-wide systemd services. Requires `sudo` permissions.
 - **Optional Modules**:
   You can enable/disable modules in your `.env`:
@@ -142,6 +142,16 @@ cd hybrid/
 ```
 
 ### B. Docker Deployment / Docker 容器化部署
+
+> **Redis 8 migration / Redis 8 迁移**: Valkey is wire-protocol compatible, so
+> application `REDIS_*` settings remain unchanged. Redis Community Edition 7.4+
+> persistence files are not compatible with Valkey; Compose therefore starts
+> Valkey with a new `valkey_data` volume and leaves the old `redis_data` volume
+> untouched for rollback or manual migration.
+>
+> Valkey 与 Redis 协议兼容，因此应用的 `REDIS_*` 配置保持不变。Redis CE
+> 7.4+ 的持久化文件与 Valkey 不兼容；Compose 会使用新的 `valkey_data`
+> 卷启动 Valkey，并保留旧的 `redis_data` 卷以便回滚或手动迁移。
 
 Standard containerized deployment using Docker Compose.
 
@@ -163,5 +173,5 @@ docker compose --env-file ../.env down    # Stop containers / 停止容器
 - **Main UI Page / 管理控制台 (cheng-ui)**: `8080` (Proxies requests to `3000`)
 - **Chat App Widget / 聊天客户端 (cheng-app)**: `5055` (Proxies requests to `3000`)
 - **PostgreSQL**: `5432`
-- **Redis**: `6379`
+- **Valkey**: `6379`
 - **Qdrant**: `6333` (HTTP) / `6334` (gRPC)

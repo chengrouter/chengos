@@ -80,31 +80,27 @@ systemctl restart postgresql
 systemctl enable postgresql
 
 # ==========================================
-# 5. 安装与配置 Redis (通过官方源)
+# 5. 安装与配置 Valkey
 # ==========================================
-if ! command -v redis-server >/dev/null 2>&1; then
-    echo "-> 正在安装 Redis..."
-    curl -fsSL https://packages.redis.io/gpg | gpg --dearmor -o /etc/apt/keyrings/redis.gpg --yes
-    chmod 644 /etc/apt/keyrings/redis.gpg
-    echo "deb [signed-by=/etc/apt/keyrings/redis.gpg] https://packages.redis.io/deb $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/redis.list
-
+if ! command -v valkey-server >/dev/null 2>&1; then
+    echo "-> 正在安装 Valkey..."
     apt update
-    apt install -y redis
+    apt install -y valkey
 else
-    echo "-> Redis 已安装，跳过安装步骤..."
+    echo "-> Valkey 已安装，跳过安装步骤..."
 fi
 
-# 修改 Redis 配置允许远程连接、设置密码与缓存策略
-sed -i 's/^bind 127.0.0.1 -::1/bind 0.0.0.0/g' /etc/redis/redis.conf
-sed -i 's/^bind 127.0.0.1/bind 0.0.0.0/g' /etc/redis/redis.conf
+# 修改 Valkey 配置允许远程连接、设置密码与缓存策略
+sed -i 's/^bind 127.0.0.1 -::1/bind 0.0.0.0/g' /etc/valkey/valkey.conf
+sed -i 's/^bind 127.0.0.1/bind 0.0.0.0/g' /etc/valkey/valkey.conf
 # 如果之前有设置密码，替换它；如果被注释了，取消注释并设置
-sed -i -E "s/^#? *requirepass .*/requirepass ${REDIS_PASSWORD}/g" /etc/redis/redis.conf
-sed -i -E 's/^#? *appendonly .*/appendonly yes/g' /etc/redis/redis.conf
-grep -q "maxmemory 512mb" /etc/redis/redis.conf || echo "maxmemory 512mb" >> /etc/redis/redis.conf
-grep -q "maxmemory-policy allkeys-lru" /etc/redis/redis.conf || echo "maxmemory-policy allkeys-lru" >> /etc/redis/redis.conf
+sed -i -E "s/^#? *requirepass .*/requirepass ${REDIS_PASSWORD}/g" /etc/valkey/valkey.conf
+sed -i -E 's/^#? *appendonly .*/appendonly yes/g' /etc/valkey/valkey.conf
+grep -q "maxmemory 512mb" /etc/valkey/valkey.conf || echo "maxmemory 512mb" >> /etc/valkey/valkey.conf
+grep -q "maxmemory-policy allkeys-lru" /etc/valkey/valkey.conf || echo "maxmemory-policy allkeys-lru" >> /etc/valkey/valkey.conf
 
-systemctl enable redis-server
-systemctl restart redis-server
+systemctl enable valkey-server
+systemctl restart valkey-server
 
 # ==========================================
 # 6. 安装与配置 Qdrant (使用 deb 包)

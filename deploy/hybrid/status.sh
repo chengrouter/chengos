@@ -67,12 +67,12 @@ else
     log "  PostgreSQL (5432) : OFFLINE"
 fi
 
-# 2. Redis Status
+# 2. Valkey Status
 if [[ "$ENABLE_REDIS" == "true" ]]; then
-    if redis-cli -p 6379 ping >/dev/null 2>&1 || redis-cli -p 6379 -a "$REDIS_PASSWORD" ping | grep -q PONG 2>/dev/null; then
-        log "  Redis (6379)      : ONLINE"
+    if valkey-cli -p 6379 ping >/dev/null 2>&1 || valkey-cli -p 6379 -a "$REDIS_PASSWORD" ping | grep -q PONG 2>/dev/null; then
+        log "  Valkey (6379)     : ONLINE"
     else
-        log "  Redis (6379)      : OFFLINE"
+        log "  Valkey (6379)     : OFFLINE"
     fi
 fi
 
