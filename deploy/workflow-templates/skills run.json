@@ -1,0 +1,821 @@
+{
+  "workflowId": "e0a75ae5-4baa-4008-b2a4-b74fe4ebea09",
+  "name": "skills run",
+  "description": "Chat workflow with skill execution capability. Equips an LLM with a tools/skills_hub node, allowing it to discover and run installed Skills through natural language. Includes conversation memory for multi-turn interaction and reply persistence.",
+  "state": "active",
+  "nodeCount": 7,
+  "edgeCount": 6,
+  "createdAt": "2026-07-24T07:50:58.320057863+00:00",
+  "updatedAt": "2026-07-25T21:20:21.418862+00:00",
+  "version": 1,
+  "isFavorite": false,
+  "isTemplate": true,
+  "isDraft": false,
+  "tags": [
+    "ai_chat",
+    "ai_chat"
+  ],
+  "visibility": "private",
+  "definition": {
+    "nodes": [
+      {
+        "nodeId": "983c7901-b54a-48e3-9c3b-8b17dd594b95",
+        "nodeType": "chat/output",
+        "name": "对话输出",
+        "position": {
+          "x": 1584.9112242701665,
+          "y": 965.7189098844636
+        },
+        "config": {},
+        "inputs": [
+          {
+            "description": "Agent final reply text or AgentContext (auto extracts text)",
+            "name": "context",
+            "required": true,
+            "type": "agent_context",
+            "x-i18n-key": "nodes.chat.output.inputs.context"
+          },
+          {
+            "default": null,
+            "description": "Agent execution trace (thinking process)",
+            "name": "trace",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.chat.output.inputs.trace"
+          },
+          {
+            "control": "select",
+            "default": "system",
+            "description": "Display theme",
+            "enum": [
+              "light",
+              "dark",
+              "system"
+            ],
+            "name": "theme",
+            "options": [
+              {
+                "label": "light",
+                "value": "light"
+              },
+              {
+                "label": "dark",
+                "value": "dark"
+              },
+              {
+                "label": "system",
+                "value": "system"
+              }
+            ],
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.chat.output.inputs.theme"
+          },
+          {
+            "default": true,
+            "description": "Auto scroll to latest message",
+            "name": "autoscroll",
+            "required": false,
+            "type": "boolean",
+            "x-i18n-key": "nodes.chat.output.inputs.autoscroll"
+          },
+          {
+            "default": 1000,
+            "description": "Maximum messages to keep in memory",
+            "format": "uint",
+            "maximum": 10000,
+            "minimum": 10,
+            "name": "keep_messages",
+            "required": false,
+            "type": "integer",
+            "x-i18n-key": "nodes.chat.output.inputs.keep_messages"
+          },
+          {
+            "default": 100,
+            "description": "Enable virtualization when message count exceeds this value",
+            "format": "uint",
+            "maximum": 1000,
+            "minimum": 10,
+            "name": "virtualize_threshold",
+            "required": false,
+            "type": "integer",
+            "x-i18n-key": "nodes.chat.output.inputs.virtualize_threshold"
+          },
+          {
+            "default": "standard",
+            "description": "Message display format",
+            "name": "display_format",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.chat.output.inputs.display_format"
+          },
+          {
+            "default": true,
+            "description": "Show message timestamp",
+            "name": "show_timestamp",
+            "required": false,
+            "type": "boolean",
+            "x-i18n-key": "nodes.chat.output.inputs.show_timestamp"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "Assistant final reply text content",
+            "name": "reply",
+            "type": "string"
+          },
+          {
+            "description": "Agent execution trace (thinking process)",
+            "name": "trace",
+            "type": "string"
+          },
+          {
+            "description": "UI events to send to frontend",
+            "name": "ui_events",
+            "type": "array"
+          },
+          {
+            "description": "Current total messages retained",
+            "format": {},
+            "name": "message_count",
+            "type": "integer"
+          },
+          {
+            "description": "Whether virtualization rendering is enabled",
+            "name": "virtualized",
+            "type": "boolean"
+          },
+          {
+            "description": "Processing statistics",
+            "name": "stats",
+            "type": "object"
+          }
+        ]
+      },
+      {
+        "nodeId": "417f02ec-526b-4ca9-8244-1bef4126a1b9",
+        "nodeType": "chat/input",
+        "name": "对话输入",
+        "position": {
+          "x": 809.3037470389594,
+          "y": 786.8446692959526
+        },
+        "config": {
+          "raw_input": "hello"
+        },
+        "inputs": [
+          {
+            "description": "Raw input payload (JSON format)",
+            "name": "raw_input",
+            "required": true,
+            "type": "string",
+            "x-i18n-key": "nodes.chat.input.inputs.raw_input"
+          },
+          {
+            "default": null,
+            "description": "Optional rich user message from upstream nodes",
+            "name": "user_message_rich",
+            "required": false,
+            "type": "object",
+            "x-i18n-key": "nodes.chat.input.inputs.user_message_rich"
+          },
+          {
+            "default": null,
+            "description": "Conversation ID (optional), generated at entry and passed through to all downstream nodes",
+            "name": "conversation_id",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.chat.input.inputs.conversation_id"
+          },
+          {
+            "default": null,
+            "description": "Workspace ID (optional), passed to chat/memory for per-workspace chat isolation",
+            "name": "workspace_id",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.chat.input.inputs.workspace_id"
+          },
+          {
+            "default": null,
+            "description": "Document ID (optional), injected by document page and passed through ambient context to downstream nodes",
+            "name": "document_id",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.chat.input.inputs.document_id"
+          },
+          {
+            "default": false,
+            "description": "Enable streaming send",
+            "name": "stream_mode",
+            "required": false,
+            "type": "boolean",
+            "x-i18n-key": "nodes.chat.input.inputs.stream_mode"
+          },
+          {
+            "default": false,
+            "description": "Enable OCR for images",
+            "name": "enable_ocr",
+            "required": false,
+            "type": "boolean",
+            "x-i18n-key": "nodes.chat.input.inputs.enable_ocr"
+          },
+          {
+            "default": "per_file",
+            "description": "Multi-input merge strategy",
+            "name": "merge_strategy",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.chat.input.inputs.merge_strategy"
+          },
+          {
+            "default": 50,
+            "description": "Maximum file size (MB)",
+            "format": "uint64",
+            "maximum": 500,
+            "minimum": 1,
+            "name": "max_file_size_mb",
+            "required": false,
+            "type": "integer",
+            "x-i18n-key": "nodes.chat.input.inputs.max_file_size_mb"
+          },
+          {
+            "default": null,
+            "description": "Model override (format: credential_id::model_name)",
+            "name": "model_override",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.chat.input.inputs.model_override"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "AgentContext wrapper, connectable directly to agent/llm context port",
+            "name": "context",
+            "type": "agent_context"
+          },
+          {
+            "description": "AgentContext wrapper, connectable directly to agent/llm context port (alias/compatibility)",
+            "name": "agent_context",
+            "type": "agent_context"
+          },
+          {
+            "description": "User message text",
+            "name": "user_message",
+            "type": "string"
+          },
+          {
+            "description": "Structured user message with multimodal parts",
+            "name": "user_message_rich",
+            "type": "object"
+          },
+          {
+            "description": "Conversation ID (passed through to downstream nodes)",
+            "name": "conversation_id",
+            "type": "string"
+          },
+          {
+            "description": "Workspace ID (passed through to chat/memory for per-workspace isolation)",
+            "name": "workspace_id",
+            "type": "string"
+          },
+          {
+            "description": "Document ID (passed through ambient context to downstream document nodes)",
+            "name": "document_id",
+            "type": "string"
+          },
+          {
+            "description": "Processing statistics",
+            "name": "stats",
+            "type": "object"
+          },
+          {
+            "description": "UI event",
+            "name": "ui_event",
+            "type": "object"
+          },
+          {
+            "description": "Model override (format: credential_id::model_name)",
+            "name": "model_override",
+            "type": "string"
+          },
+          {
+            "description": "Attachments JSON array, connectable directly to io/file_upload.files_json",
+            "name": "attachments_json",
+            "type": "string"
+          }
+        ]
+      },
+      {
+        "nodeId": "6ee433d0-3149-438b-984f-d774a2b684d7",
+        "nodeType": "tools/skills_hub",
+        "name": "技能中心",
+        "position": {
+          "x": 1053.3695579665189,
+          "y": 947.8687094771708
+        },
+        "config": {},
+        "inputs": [],
+        "outputs": []
+      },
+      {
+        "nodeId": "d5e7e393-99fd-4b26-8c9f-32a9a6901f72",
+        "nodeType": "chat/memory",
+        "name": "对话记忆",
+        "position": {
+          "x": 1052.4531027986538,
+          "y": 832.9601736673351
+        },
+        "config": {},
+        "inputs": [
+          {
+            "description": "This turn's user input text (from chat/input.user_message)",
+            "name": "user_message",
+            "required": true,
+            "type": "string",
+            "x-i18n-key": "nodes.chat.memory.inputs.user_message"
+          },
+          {
+            "default": null,
+            "description": "Structured user message with multimodal parts",
+            "name": "user_message_rich",
+            "required": false,
+            "type": "object",
+            "x-i18n-key": "nodes.chat.memory.inputs.user_message_rich"
+          },
+          {
+            "default": 5,
+            "description": "Maximum messages to retain",
+            "format": "uint",
+            "minimum": 0,
+            "name": "window_size",
+            "required": false,
+            "type": "integer",
+            "x-i18n-key": "nodes.chat.memory.inputs.window_size"
+          },
+          {
+            "default": "none",
+            "description": "Window processing strategy",
+            "name": "strategy",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.chat.memory.inputs.strategy"
+          },
+          {
+            "default": true,
+            "description": "Limit the messages sent to the model using strategy/window_size. Full history is still persisted.",
+            "name": "enabled",
+            "required": false,
+            "type": "boolean",
+            "x-i18n-key": "nodes.chat.memory.inputs.enabled"
+          },
+          {
+            "default": "memory",
+            "description": "Persistence mode: memory or database",
+            "name": "persistence_mode",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.chat.memory.inputs.persistence_mode"
+          },
+          {
+            "default": null,
+            "description": "Conversation ID, in Database mode loads history from database",
+            "name": "conversation_id",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.chat.memory.inputs.conversation_id"
+          },
+          {
+            "default": null,
+            "description": "Workspace ID (UUID string), required when creating new conversation",
+            "name": "workspace_id",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.chat.memory.inputs.workspace_id"
+          },
+          {
+            "default": true,
+            "description": "When the context window is insufficient, allow the model to retrieve older conversations from the current workspace. Auto-injects the builtin chat/history_search tool plus a system hint.",
+            "name": "enable_history_search",
+            "required": false,
+            "type": "boolean",
+            "x-i18n-key": "nodes.chat.memory.inputs.enable_history_search"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "Processed message list (for frontend display)",
+            "name": "display_messages",
+            "type": "array"
+          },
+          {
+            "description": "Updated complete history messages",
+            "name": "updated_history",
+            "type": "array"
+          },
+          {
+            "description": "Structured user message for downstream nodes",
+            "name": "user_message_rich",
+            "type": "object"
+          },
+          {
+            "description": "AgentContext wrapper, connectable to agent/llm or agent/react context port",
+            "name": "agent_context",
+            "type": "agent_context"
+          },
+          {
+            "description": "Current conversation ID (always present, downstream nodes only consume, never recreate)",
+            "name": "conversation_id",
+            "type": "string"
+          },
+          {
+            "description": "Clean history before appending current user message (JSON format), for chat/save_reply",
+            "name": "clean_history_json",
+            "type": "string"
+          },
+          {
+            "description": "Processing statistics",
+            "name": "stats",
+            "type": "object"
+          }
+        ]
+      },
+      {
+        "nodeId": "ffd4f90b-bb4b-4e6a-92cd-4077512896af",
+        "nodeType": "chat/save_reply",
+        "name": "保存 LLM 回复",
+        "position": {
+          "x": 1587.2522964168666,
+          "y": 1083.3901358521475
+        },
+        "config": {},
+        "inputs": [
+          {
+            "description": "Context output from agent/react (contains conversation history and this turn's reply)",
+            "name": "context",
+            "required": true,
+            "type": "object",
+            "x-i18n-key": "nodes.chat.save_reply.inputs.context"
+          },
+          {
+            "default": null,
+            "description": "This turn's user input text (from chat/input.user_message), this value takes priority",
+            "name": "user_message",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.chat.save_reply.inputs.user_message"
+          },
+          {
+            "default": null,
+            "description": "Structured user message with multimodal parts",
+            "name": "user_message_rich",
+            "required": false,
+            "type": "object",
+            "x-i18n-key": "nodes.chat.save_reply.inputs.user_message_rich"
+          },
+          {
+            "default": "",
+            "description": "Clean history before appending current user message (JSON format), from chat/memory.clean_history_json",
+            "name": "clean_history_json",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.chat.save_reply.inputs.clean_history_json"
+          },
+          {
+            "default": null,
+            "description": "Trace retrieval key, from chat/write_trace.trace_key (optional)",
+            "name": "trace_key",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.chat.save_reply.inputs.trace_key"
+          },
+          {
+            "default": null,
+            "description": "Current conversation ID (from chat/memory.conversation_id), skipped when None in Memory mode",
+            "name": "conversation_id",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.chat.save_reply.inputs.conversation_id"
+          },
+          {
+            "default": null,
+            "description": "Workspace ID (optional), used to verify the conversation belongs to the expected workspace before writing",
+            "name": "workspace_id",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.chat.save_reply.inputs.workspace_id"
+          },
+          {
+            "default": null,
+            "description": "Manually specified idempotent deduplication key (optional)",
+            "name": "reply_id",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.chat.save_reply.inputs.reply_id"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "AgentContext containing clean history, connectable directly to chat/output",
+            "name": "context",
+            "type": "agent_context"
+          },
+          {
+            "description": "Whether assistant reply was successfully persisted to database (always false in Memory mode, does not affect TurnRecord memory preservation)",
+            "name": "db_persisted",
+            "type": "boolean"
+          }
+        ]
+      },
+      {
+        "nodeId": "c3daac0c-c40c-41fe-8030-b1744664d5e5",
+        "nodeType": "ai/llm",
+        "name": "AI 聊天",
+        "position": {
+          "x": 1331.0894613246735,
+          "y": 830.3208597721432
+        },
+        "config": {
+          "tool_0": ""
+        },
+        "inputs": [
+          {
+            "default": null,
+            "description": "AgentContext (optional, carries conversation history)",
+            "name": "context",
+            "required": false,
+            "type": "agent_context",
+            "x-i18n-key": "nodes.ai.llm.inputs.context"
+          },
+          {
+            "description": "LLM configuration (JSON string or object)",
+            "name": "llm_config",
+            "required": true,
+            "type": "object",
+            "x-i18n-key": "nodes.ai.llm.inputs.llm_config"
+          },
+          {
+            "default": "",
+            "description": "Instruction prompt (optional)",
+            "name": "instruction_prompt",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.ai.llm.inputs.instruction_prompt"
+          },
+          {
+            "default": "",
+            "description": "User message (can be empty if context.history already contains user messages)",
+            "name": "user_message",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.ai.llm.inputs.user_message"
+          },
+          {
+            "default": null,
+            "description": "Structured user message with multimodal parts",
+            "name": "user_message_rich",
+            "required": false,
+            "type": "object",
+            "x-i18n-key": "nodes.ai.llm.inputs.user_message_rich"
+          },
+          {
+            "default": null,
+            "description": "Base64 image payload or data URL, connectable from io/file_upload.image_base64",
+            "name": "image_base64",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.ai.llm.inputs.image_base64"
+          },
+          {
+            "description": "tools slot 0",
+            "group": "dynamic-array",
+            "name": "tool_0",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "AgentContext output port (contains conversation history)",
+            "name": "context",
+            "type": "agent_context"
+          },
+          {
+            "description": "Generated text response",
+            "name": "response",
+            "type": "string"
+          },
+          {
+            "description": "Tokens used in prompt",
+            "format": {},
+            "name": "prompt_tokens",
+            "type": "integer"
+          },
+          {
+            "description": "Tokens used in completion",
+            "format": {},
+            "name": "completion_tokens",
+            "type": "integer"
+          },
+          {
+            "description": "Total tokens used",
+            "format": {},
+            "name": "total_tokens",
+            "type": "integer"
+          },
+          {
+            "description": "Finish reason",
+            "name": "finish_reason",
+            "type": "string"
+          },
+          {
+            "description": "Tool calls made by the LLM (for function calling)",
+            "name": "tool_calls",
+            "type": "array"
+          },
+          {
+            "description": "Tool execution results (when tools are connected and auto-executed)",
+            "name": "tool_results",
+            "type": "array"
+          },
+          {
+            "description": "LLM configuration used for this call (reusable by downstream nodes)",
+            "name": "llm_config",
+            "type": "object"
+          }
+        ]
+      },
+      {
+        "nodeId": "00e0cf91-7047-45c7-a022-b3cc3a4e246c",
+        "nodeType": "ai/llm_config",
+        "name": "LLM 配置",
+        "position": {
+          "x": 1333.0894613246735,
+          "y": 737.3208597721432
+        },
+        "config": {
+          "model": "26b78010-5410-4d87-8104-433b79da0c01::glm-5.2"
+        },
+        "inputs": [
+          {
+            "description": "Select a connected LLM model",
+            "name": "model",
+            "required": true,
+            "type": "string",
+            "x-allow-custom": true,
+            "x-i18n-key": "nodes.ai.llm_config.inputs.model"
+          },
+          {
+            "default": null,
+            "description": "Model override (format: credential_id::model_name, takes priority over model)",
+            "name": "model_override",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.ai.llm_config.inputs.model_override"
+          },
+          {
+            "default": 0.699999988079071,
+            "description": "Controls randomness of generation, higher values are more random (0.0 - 2.0)",
+            "format": "float",
+            "maximum": 2,
+            "minimum": 0,
+            "name": "temperature",
+            "required": false,
+            "step": "0.1",
+            "type": "number",
+            "x-i18n-key": "nodes.ai.llm_config.inputs.temperature",
+            "x-step": "0.1"
+          },
+          {
+            "default": 5000,
+            "description": "Maximum number of tokens to generate (default 5000)",
+            "format": "uint32",
+            "minimum": 0,
+            "name": "max_tokens",
+            "required": false,
+            "type": "integer",
+            "x-i18n-key": "nodes.ai.llm_config.inputs.max_tokens"
+          },
+          {
+            "default": 1,
+            "description": "Nucleus sampling threshold (0.0 - 1.0)",
+            "format": "float",
+            "maximum": 1,
+            "minimum": 0,
+            "name": "top_p",
+            "required": false,
+            "step": "0.1",
+            "type": "number",
+            "x-i18n-key": "nodes.ai.llm_config.inputs.top_p",
+            "x-step": "0.1"
+          },
+          {
+            "default": 0,
+            "description": "Reduce likelihood of repeating the same line (-2.0 to 2.0)",
+            "format": "float",
+            "maximum": 2,
+            "minimum": -2,
+            "name": "frequency_penalty",
+            "required": false,
+            "step": "0.1",
+            "type": "number",
+            "x-i18n-key": "nodes.ai.llm_config.inputs.frequency_penalty",
+            "x-step": "0.1"
+          },
+          {
+            "default": 0,
+            "description": "Encourage the model to discuss new topics (-2.0 to 2.0)",
+            "format": "float",
+            "maximum": 2,
+            "minimum": -2,
+            "name": "presence_penalty",
+            "required": false,
+            "step": "0.1",
+            "type": "number",
+            "x-i18n-key": "nodes.ai.llm_config.inputs.presence_penalty",
+            "x-step": "0.1"
+          },
+          {
+            "default": true,
+            "description": "Enable real-time streaming of results",
+            "name": "stream",
+            "required": false,
+            "type": "boolean",
+            "x-i18n-key": "nodes.ai.llm_config.inputs.stream"
+          },
+          {
+            "default": 60,
+            "description": "API request timeout (1-600 seconds)",
+            "format": "uint32",
+            "maximum": 600,
+            "minimum": 1,
+            "name": "timeout_secs",
+            "required": false,
+            "type": "integer",
+            "x-i18n-key": "nodes.ai.llm_config.inputs.timeout_secs"
+          },
+          {
+            "default": false,
+            "description": "Inject response_format: json_object (for weaker/open-source models, reduces non-JSON text; no system-level validation)",
+            "name": "json_mode",
+            "required": false,
+            "type": "boolean",
+            "x-i18n-key": "nodes.ai.llm_config.inputs.json_mode"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "Complete LLM configuration",
+            "name": "llm_config",
+            "type": "object"
+          }
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "edgeId": "e36f5c0a-3b0c-4aeb-ab9b-f3c6a0bfc2a7",
+        "sourceNode": "d5e7e393-99fd-4b26-8c9f-32a9a6901f72",
+        "sourcePort": "agent_context",
+        "targetNode": "c3daac0c-c40c-41fe-8030-b1744664d5e5",
+        "targetPort": "context"
+      },
+      {
+        "edgeId": "aaf57df7-2040-4ab9-ad58-3f4961e4d7b2",
+        "sourceNode": "c3daac0c-c40c-41fe-8030-b1744664d5e5",
+        "sourcePort": "context",
+        "targetNode": "ffd4f90b-bb4b-4e6a-92cd-4077512896af",
+        "targetPort": "context"
+      },
+      {
+        "edgeId": "295da29f-5bcb-41a4-a8a4-6968821105ad",
+        "sourceNode": "c3daac0c-c40c-41fe-8030-b1744664d5e5",
+        "sourcePort": "context",
+        "targetNode": "983c7901-b54a-48e3-9c3b-8b17dd594b95",
+        "targetPort": "context"
+      },
+      {
+        "edgeId": "0890b2ba-1b04-4a93-a309-ef311f8b5fcd",
+        "sourceNode": "00e0cf91-7047-45c7-a022-b3cc3a4e246c",
+        "sourcePort": "llm_config",
+        "targetNode": "c3daac0c-c40c-41fe-8030-b1744664d5e5",
+        "targetPort": "llm_config"
+      },
+      {
+        "edgeId": "193e9073-8457-4ef2-9072-d2142114c477",
+        "sourceNode": "6ee433d0-3149-438b-984f-d774a2b684d7",
+        "sourcePort": "status",
+        "targetNode": "c3daac0c-c40c-41fe-8030-b1744664d5e5",
+        "targetPort": "tool_0"
+      },
+      {
+        "edgeId": "0c05b96b-3706-44bc-9d49-e1ffb4d91e14",
+        "sourceNode": "417f02ec-526b-4ca9-8244-1bef4126a1b9",
+        "sourcePort": "user_message",
+        "targetNode": "d5e7e393-99fd-4b26-8c9f-32a9a6901f72",
+        "targetPort": "user_message"
+      }
+    ],
+    "notes": [],
+    "containers": []
+  }
+}

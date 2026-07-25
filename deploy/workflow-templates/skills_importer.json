@@ -1,0 +1,311 @@
+{
+  "workflowId": "2b134d7b-4d04-4d3a-b472-64bd2b2e6925",
+  "name": "skills_importer",
+  "description": "ReAct Agent that imports a Skill from a repository, URL, pasted SKILL.md, pasted text, or a natural-language requirement. It fetches and reads source artifacts, discovers node schemas, generates a Skill package, and commits it through the protected write_skill_package boundary (mandatory validation + approval + transactional write).",
+  "state": "active",
+  "nodeCount": 12,
+  "edgeCount": 11,
+  "createdAt": "2026-07-21T00:28:56.043998532+00:00",
+  "updatedAt": "2026-07-25T22:50:34.841073+00:00",
+  "version": 3,
+  "isFavorite": false,
+  "isTemplate": true,
+  "isDraft": false,
+  "tags": [
+    "skill",
+    "import",
+    "system",
+    "agent",
+    "ai_chat"
+  ],
+  "visibility": "private",
+  "definition": {
+    "nodes": [
+      {
+        "nodeId": "cc2edcd6-ceed-4170-a506-0c18e128cc08",
+        "nodeType": "tools/file_ops_hub",
+        "name": "文件操作中心",
+        "position": {
+          "x": 343.46037081032665,
+          "y": 880.1610252941263
+        },
+        "config": {
+          "allow_delete": false
+        },
+        "inputs": [],
+        "outputs": []
+      },
+      {
+        "nodeId": "22222222-2222-4222-8222-222222222222",
+        "nodeType": "chat/memory",
+        "name": "Conversation",
+        "position": {
+          "x": 392.8378683999859,
+          "y": 457.4174514293576
+        },
+        "config": {},
+        "inputs": [],
+        "outputs": []
+      },
+      {
+        "nodeId": "55555555-5555-4555-8555-555555555555",
+        "nodeType": "chat/save_reply",
+        "name": "Save Reply",
+        "position": {
+          "x": 975.8382195849898,
+          "y": 932.8665348060528
+        },
+        "config": {},
+        "inputs": [],
+        "outputs": []
+      },
+      {
+        "nodeId": "11111111-1111-4111-8111-111111111111",
+        "nodeType": "chat/input",
+        "name": "Import Request",
+        "position": {
+          "x": -131.93859929225022,
+          "y": 396.2148155601098
+        },
+        "config": {
+          "raw_input": "hello"
+        },
+        "inputs": [],
+        "outputs": []
+      },
+      {
+        "nodeId": "40d2b2c1-639e-4b49-a92e-d2b90c41ef9d",
+        "nodeType": "document/format_for_llm",
+        "name": "格式化文档 (LLM)",
+        "position": {
+          "x": 97.95580003053723,
+          "y": 606.1182760647248
+        },
+        "config": {
+          "document_id": "06197ff6-7b09-4569-a81f-88286a20f5e9"
+        },
+        "inputs": [],
+        "outputs": []
+      },
+      {
+        "nodeId": "179fd4b8-6003-47d6-a9bf-30ac9f9464cd",
+        "nodeType": "agent/react_agent",
+        "name": "ReAct 智能体",
+        "position": {
+          "x": 673.6873689480033,
+          "y": 519.9172009698515
+        },
+        "config": {
+          "tool_1": "",
+          "tool_2": "",
+          "tool_3": "",
+          "tool_4": ""
+        },
+        "inputs": [
+          {
+            "description": "Tool slot 0",
+            "group": "dynamic-array",
+            "name": "tool_0",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "description": "tools slot 1",
+            "group": "dynamic-array",
+            "name": "tool_1",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "description": "tools slot 2",
+            "group": "dynamic-array",
+            "name": "tool_2",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "description": "tools slot 3",
+            "group": "dynamic-array",
+            "name": "tool_3",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "description": "tools slot 4",
+            "group": "dynamic-array",
+            "name": "tool_4",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "outputs": []
+      },
+      {
+        "nodeId": "33333333-3333-4333-8333-333333333333",
+        "nodeType": "ai/llm_config",
+        "name": "LLM Config",
+        "position": {
+          "x": 396.6279943666273,
+          "y": 562.2588758553351
+        },
+        "config": {
+          "model": "26b78010-5410-4d87-8104-433b79da0c01::glm-5.2"
+        },
+        "inputs": [],
+        "outputs": []
+      },
+      {
+        "nodeId": "a9d7f4c4-ce55-482d-bb3f-d08bf702a2ea",
+        "nodeType": "tools/validate_skill_spec",
+        "name": "验证技能规范",
+        "position": {
+          "x": 344.04196048788333,
+          "y": 990.5861446781596
+        },
+        "config": {},
+        "inputs": [],
+        "outputs": []
+      },
+      {
+        "nodeId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "nodeType": "tools/fetch_repository",
+        "name": "Fetch Source",
+        "position": {
+          "x": 110.72708842673067,
+          "y": 981.2048581645836
+        },
+        "config": {
+          "allow_insecure_schemes": false,
+          "harvest_mode": "skill_package",
+          "legacy_inline_files": false,
+          "source_type": "repository"
+        },
+        "inputs": [],
+        "outputs": []
+      },
+      {
+        "nodeId": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+        "nodeType": "tools/workflow_inspect",
+        "name": "Inspect Node Schemas",
+        "position": {
+          "x": 99.97399248988694,
+          "y": 869.3371152362333
+        },
+        "config": {
+          "mode": "llm"
+        },
+        "inputs": [],
+        "outputs": []
+      },
+      {
+        "nodeId": "66666666-6666-4666-8666-666666666666",
+        "nodeType": "chat/output",
+        "name": "Import Result",
+        "position": {
+          "x": 974.7962408869388,
+          "y": 837.9969134715097
+        },
+        "config": {},
+        "inputs": [],
+        "outputs": []
+      },
+      {
+        "nodeId": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+        "nodeType": "tools/http",
+        "name": "Discover Source Page",
+        "position": {
+          "x": 98.07816544911924,
+          "y": 720.7606162897968
+        },
+        "config": {
+          "mode": "llm",
+          "request_profile": "discovery",
+          "timeout_seconds": 30
+        },
+        "inputs": [],
+        "outputs": []
+      }
+    ],
+    "edges": [
+      {
+        "edgeId": "eb90390d-fb14-4ccc-babf-c6fe46d6d053",
+        "sourceNode": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+        "sourcePort": "mode",
+        "targetNode": "179fd4b8-6003-47d6-a9bf-30ac9f9464cd",
+        "targetPort": "tool_0"
+      },
+      {
+        "edgeId": "768812ac-a07c-4696-a5a1-fae9ef45503b",
+        "sourceNode": "a9d7f4c4-ce55-482d-bb3f-d08bf702a2ea",
+        "sourcePort": "skill_name_out",
+        "targetNode": "179fd4b8-6003-47d6-a9bf-30ac9f9464cd",
+        "targetPort": "tool_4"
+      },
+      {
+        "edgeId": "f1f384ca-fb8c-42ee-be90-d774e6ec4bf9",
+        "sourceNode": "179fd4b8-6003-47d6-a9bf-30ac9f9464cd",
+        "sourcePort": "context",
+        "targetNode": "66666666-6666-4666-8666-666666666666",
+        "targetPort": "context"
+      },
+      {
+        "edgeId": "5bd6d33f-720d-42e9-9a21-1e2e89985824",
+        "sourceNode": "179fd4b8-6003-47d6-a9bf-30ac9f9464cd",
+        "sourcePort": "context",
+        "targetNode": "55555555-5555-4555-8555-555555555555",
+        "targetPort": "context"
+      },
+      {
+        "edgeId": "6471bab8-7357-44ce-a1ec-d9cadb8d84e0",
+        "sourceNode": "40d2b2c1-639e-4b49-a92e-d2b90c41ef9d",
+        "sourcePort": "formatted_content",
+        "targetNode": "179fd4b8-6003-47d6-a9bf-30ac9f9464cd",
+        "targetPort": "instruction_prompt"
+      },
+      {
+        "edgeId": "9f31a92c-63ff-41d1-b15a-5d7c608f97bf",
+        "sourceNode": "cc2edcd6-ceed-4170-a506-0c18e128cc08",
+        "sourcePort": "operation",
+        "targetNode": "179fd4b8-6003-47d6-a9bf-30ac9f9464cd",
+        "targetPort": "tool_2"
+      },
+      {
+        "edgeId": "5c91d80e-deaf-44db-a9d5-93083e0c5b3d",
+        "sourceNode": "33333333-3333-4333-8333-333333333333",
+        "sourcePort": "llm_config",
+        "targetNode": "179fd4b8-6003-47d6-a9bf-30ac9f9464cd",
+        "targetPort": "llm_config"
+      },
+      {
+        "edgeId": "e1111111-0000-4000-8000-000000000001",
+        "sourceNode": "11111111-1111-4111-8111-111111111111",
+        "sourcePort": "user_message",
+        "targetNode": "22222222-2222-4222-8222-222222222222",
+        "targetPort": "user_message"
+      },
+      {
+        "edgeId": "3865258a-59d8-46d4-bdd5-65e22b625229",
+        "sourceNode": "22222222-2222-4222-8222-222222222222",
+        "sourcePort": "agent_context",
+        "targetNode": "179fd4b8-6003-47d6-a9bf-30ac9f9464cd",
+        "targetPort": "context"
+      },
+      {
+        "edgeId": "21c4dbf1-7e2c-4aeb-be8f-9c37dd0f8acb",
+        "sourceNode": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "sourcePort": "source_url",
+        "targetNode": "179fd4b8-6003-47d6-a9bf-30ac9f9464cd",
+        "targetPort": "tool_3"
+      },
+      {
+        "edgeId": "eac9f090-dd0e-410e-ab2d-94caee42ddd9",
+        "sourceNode": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+        "sourcePort": "status",
+        "targetNode": "179fd4b8-6003-47d6-a9bf-30ac9f9464cd",
+        "targetPort": "tool_1"
+      }
+    ],
+    "notes": [],
+    "containers": []
+  }
+}
