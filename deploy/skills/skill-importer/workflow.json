@@ -1,13 +1,13 @@
 {
   "workflowId": "b9d3f0a4-1dd1-4dc5-8d9d-63f82e0ef9f2",
   "name": "Skill Importer",
-  "description": "Import an external skill source and package it as a ChengOS skill after schema discovery, validation, approval, and guarded write.",
+  "description": "Import external Skill source into a persistent workspace package, edit it with guarded file operations, and validate the on-disk result.",
   "state": "draft",
   "nodeCount": 8,
-  "edgeCount": 9,
+  "edgeCount": 7,
   "createdAt": "2026-05-26T00:00:00Z",
-  "updatedAt": "2026-05-26T00:00:00Z",
-  "version": 1,
+  "updatedAt": "2026-07-21T00:00:00Z",
+  "version": 2,
   "isFavorite": false,
   "isTemplate": false,
   "isDraft": true,
@@ -20,145 +20,132 @@
         "nodeType": "chat/input",
         "name": "Import Request",
         "position": { "x": 80, "y": 160 },
+        "config": {}
+      },
+      {
+        "nodeId": "4727973d-c2e4-4453-b8f1-4a59eac26406",
+        "nodeType": "ai/llm_config",
+        "name": "LLM Config",
+        "position": { "x": 420, "y": -80 },
+        "config": {}
+      },
+      {
+        "nodeId": "5a59c2b1-88a9-54c7-a9bd-b967645e37bc",
+        "nodeType": "agent/react_agent",
+        "name": "Skill Import Agent",
+        "position": { "x": 430, "y": 160 },
         "config": {
-          "raw_input": "{\"source_type\":\"repository\",\"source_location\":\"https://example.com/repo.git\",\"source_content\":\"\",\"skill_name_hint\":\"imported-skill\",\"branch\":\"\"}"
+          "max_iterations": 20,
+          "use_function_calling": true,
+          "use_llm_evaluation": false,
+          "instruction_prompt": "You are the ChengOS Skill Importer. Work only through the connected tools and keep the real workspace files as the source of truth. First call tools/fetch_repository with the user's repository URL, document URL, or pasted content and retain its exact package_path. Use tools/file_ops_hub to list and read package_path/source/** and any existing package files. Use tools/workflow_inspect when workflow.json needs registered node schemas or templates. Create or edit package_path/SKILL.md, package_path/skill.yaml, optional package_path/workflow.json, and optional package_path/references/** with file_ops_hub. Never write outside the configured Skills sandbox, never place credentials or secret values in files, and do not alter fetched source/**. skill.yaml must use schema_version \"1\", normalization.status needs_review, execution.auto_execute false, and source.path matching skills/<skill-name>/skill.yaml. Choose workflow, agentic, or reference backend conservatively; use only registered nodes and narrowly scoped tools. Call tools/validate_skill_spec with the exact package_path. If valid=false, repair every named file and field from the structured issues, then validate again. If the same issue_fingerprint remains after a genuine repair attempt, stop and report the unresolved issues instead of looping. On success report package_path, created/changed files, fetch or validation warnings, and remind the user that review is still required. The virtual todo_write tool is only for brief planning and is not a file writer. Never enable, execute, or publish an imported Skill."
         }
       },
       {
         "nodeId": "b03eec8f-33ed-40be-b407-1ca62bb6c37d",
         "nodeType": "tools/fetch_repository",
         "name": "Fetch Source",
-        "position": { "x": 430, "y": 160 },
-        "config": {
-          "source_type": "repository",
-          "source_location": "",
-          "source_content": "",
-          "branch": null,
-          "allow_insecure_schemes": false
-        }
+        "position": { "x": 430, "y": 520 },
+        "config": { "allow_insecure_schemes": false }
       },
       {
-        "nodeId": "8c3f674e-5c17-44fb-a1ec-47c6ef243eb7",
-        "nodeType": "ai/llm",
-        "name": "Analyze Source",
-        "position": { "x": 780, "y": 160 },
+        "nodeId": "0bda562b-f5b3-4b62-905e-ab93746b90fc",
+        "nodeType": "tools/file_ops_hub",
+        "name": "Skill Workspace Files",
+        "position": { "x": 760, "y": 520 },
         "config": {
-          "system_prompt": "You are a skill-analysis assistant for ChengOS. Read the provided source material and emit a strict JSON object only: {\"capability\":\"string\",\"category\":\"string\",\"input_fields\":[{\"name\":\"string\",\"type\":\"string\",\"required\":true,\"description\":\"string\"}],\"output_fields\":[{\"name\":\"string\",\"type\":\"string\",\"description\":\"string\"}],\"required_credentials\":[{\"key\":\"string\",\"provider\":\"string|null\",\"setup_hint\":\"string|null\"}],\"runtime_dependencies\":{\"bins\":[\"string\"]},\"risk\":\"low|medium|high|critical\",\"side_effects\":[\"string\"],\"auto_executable\":false,\"notes\":\"string\"}. Do not invent undocumented capabilities. Anything that writes, sends, deletes, executes code, or logs into a remote service is at least high risk. Never include secrets.",
-          "response_format": "json_object"
-        }
-      },
-      {
-        "nodeId": "466f7ba9-94fc-48f0-826c-c882403d627a",
-        "nodeType": "tools/workflow_inspect",
-        "name": "Discover Node Types",
-        "position": { "x": 780, "y": 450 },
-        "config": {
-          "mode": "manual",
-          "action": "list_node_types",
-          "limit": 200,
-          "offset": 0
-        }
-      },
-      {
-        "nodeId": "3bf52f38-d1bd-45f2-8429-9ece28258be5",
-        "nodeType": "ai/llm",
-        "name": "Generate Skill Package",
-        "position": { "x": 1130, "y": 160 },
-        "config": {
-          "system_prompt": "You are a ChengOS skill packager. Given the analysis JSON, fetched source files, and workflow_context from tools/workflow_inspect, emit a strict JSON object only: {\"skill_name\":\"kebab-case-slug\",\"files\":[{\"path\":\"skills/<skill_name>/SKILL.md\",\"content\":\"...\"},{\"path\":\"skills/<skill_name>/skill.yaml\",\"content\":\"...\"},{\"path\":\"skills/<skill_name>/workflow.json\",\"content\":\"...\"},{\"path\":\"skills/<skill_name>/references/source.md\",\"content\":\"...\"},{\"path\":\"skills/<skill_name>/references/analysis.md\",\"content\":\"...\"}]}. Use only registered node types from workflow_context and treat workflow_inspect results as authoritative. Preserve template helper nodes for required config and credential wiring. If a matching template or schema uses ai/llm_config, ai/embedding_config, ai/qdrant_config, utils/credential, or another dedicated config node, you must keep that node and connect it through the exact template port names instead of inlining provider, model, API, credential, or config values into the consuming node. If exact node schemas are missing, generate a conservative review/stub workflow and record missing schema assumptions in references/analysis.md. skill.yaml must use schema_version \"1\", normalization.status needs_review, execution.auto_execute false, and source.path skills/<skill_name>/skill.yaml. Choose backend.type based on the source: use backend.type workflow when a deterministic ChengOS workflow can be built (and emit workflow.json); use backend.type agentic when the task needs an LLM to drive a small set of tools, in which case omit workflow.json and instead declare llm_tools.expose as a list of { tool, alias, operations, constraints } entries. For agentic skills expose only registered tool node types (for example tools/http, tools/file_ops_hub, document/ops_hub) and never expose writers, shells, ssh, code execution, or the importer's own nodes; scope every exposure with constraints (tools/http needs a domains allowlist, file tools that write need allowed_paths). If neither a deterministic workflow nor a safely-scoped agentic tool set is possible, keep the skill as a manual reference with no workflow.json and no llm_tools. When backend.type is workflow, workflow.json content must be a ChengOS workflow export/import JSON with workflowId, nodeCount, edgeCount, definition.nodes[], and definition.edges[]. Edges must use sourceNode/sourcePort/targetNode/targetPort. Do not include shell scripts or credentials.",
-          "response_format": "json_object"
+          "sandbox_root": "skills",
+          "allow_read_info": true,
+          "allow_read_content": true,
+          "allow_list_directory": true,
+          "allow_search": true,
+          "allow_file_tree": true,
+          "allow_diff": true,
+          "allow_validate": true,
+          "allow_write": true,
+          "allow_edit": true,
+          "allow_patch": true,
+          "allow_copy": false,
+          "allow_backup": true,
+          "allow_move": false,
+          "allow_rollback": true,
+          "allow_delete": false,
+          "allow_batch": true,
+          "require_approval": true,
+          "config": { "create_backup": true, "create_backups": true }
         }
       },
       {
         "nodeId": "fc54ea14-7622-4ea1-912d-3d3fcd494a8e",
         "nodeType": "tools/validate_skill_spec",
         "name": "Validate Package",
-        "position": { "x": 1480, "y": 160 },
+        "position": { "x": 1090, "y": 520 },
         "config": {}
       },
       {
-        "nodeId": "61c6a915-3b7a-4ee8-979c-e061bc1d44c0",
-        "nodeType": "utils/approver",
-        "name": "Admin Approval",
-        "position": { "x": 1830, "y": 160 },
-        "config": {
-          "action_name": "skill-importer:write_package",
-          "risk_level": "high",
-          "description": "Approve writing the generated skill package under skills/<name>/.",
-          "timeout_secs": 600
-        }
+        "nodeId": "466f7ba9-94fc-48f0-826c-c882403d627a",
+        "nodeType": "tools/workflow_inspect",
+        "name": "Discover Node Types",
+        "position": { "x": 1420, "y": 520 },
+        "config": { "mode": "manual", "action": "list_node_types", "limit": 200, "offset": 0 }
       },
       {
-        "nodeId": "5bf3e3ed-9122-4dce-a922-86e2fd0ae26e",
-        "nodeType": "tools/write_skill_package",
-        "name": "Write Skill Package",
-        "position": { "x": 2180, "y": 160 },
+        "nodeId": "a0233f08-7180-43ab-969b-69e9417fa6a8",
+        "nodeType": "chat/output",
+        "name": "Import Result",
+        "position": { "x": 900, "y": 160 },
         "config": {}
       }
     ],
     "edges": [
       {
-        "edgeId": "2f0d4fd7-3f59-4be6-88c5-70f3c169024c",
+        "edgeId": "ee16cfec-ab2d-4b25-8c4a-0ca175ab0fc7",
         "sourceNode": "3a8c4cf2-9892-44a3-bb3f-0c9970c7e0b1",
         "sourcePort": "user_message",
-        "targetNode": "b03eec8f-33ed-40be-b407-1ca62bb6c37d",
-        "targetPort": "source_content"
+        "targetNode": "5a59c2b1-88a9-54c7-a9bd-b967645e37bc",
+        "targetPort": "task"
       },
       {
-        "edgeId": "a2237938-b330-4b6e-8af4-08e7218bdd65",
+        "edgeId": "efb36b1d-6275-4802-a132-b3ba6cebf0ee",
+        "sourceNode": "4727973d-c2e4-4453-b8f1-4a59eac26406",
+        "sourcePort": "llm_config",
+        "targetNode": "5a59c2b1-88a9-54c7-a9bd-b967645e37bc",
+        "targetPort": "llm_config"
+      },
+      {
+        "edgeId": "0ce8f56b-b2ce-49d9-bd8e-4428cb384fad",
         "sourceNode": "b03eec8f-33ed-40be-b407-1ca62bb6c37d",
-        "sourcePort": "llm_text",
-        "targetNode": "8c3f674e-5c17-44fb-a1ec-47c6ef243eb7",
-        "targetPort": "user_message"
+        "sourcePort": "success",
+        "targetNode": "5a59c2b1-88a9-54c7-a9bd-b967645e37bc",
+        "targetPort": "tool_0"
       },
       {
-        "edgeId": "95245396-1306-428e-8f0d-f22a0581e730",
-        "sourceNode": "8c3f674e-5c17-44fb-a1ec-47c6ef243eb7",
-        "sourcePort": "response",
-        "targetNode": "3bf52f38-d1bd-45f2-8429-9ece28258be5",
-        "targetPort": "context"
+        "edgeId": "f04e86c4-196f-479f-8b80-211ffc1cca0f",
+        "sourceNode": "0bda562b-f5b3-4b62-905e-ab93746b90fc",
+        "sourcePort": "operation",
+        "targetNode": "5a59c2b1-88a9-54c7-a9bd-b967645e37bc",
+        "targetPort": "tool_1"
       },
       {
-        "edgeId": "df92e31d-4d40-4a9f-bbb2-15dca0ad3928",
+        "edgeId": "86a2f69f-4430-49a1-b012-d995a90c96ad",
+        "sourceNode": "fc54ea14-7622-4ea1-912d-3d3fcd494a8e",
+        "sourcePort": "valid",
+        "targetNode": "5a59c2b1-88a9-54c7-a9bd-b967645e37bc",
+        "targetPort": "tool_2"
+      },
+      {
+        "edgeId": "ae90de75-f831-4dd8-8079-1a9a6d020d66",
         "sourceNode": "466f7ba9-94fc-48f0-826c-c882403d627a",
         "sourcePort": "data",
-        "targetNode": "3bf52f38-d1bd-45f2-8429-9ece28258be5",
-        "targetPort": "user_message"
+        "targetNode": "5a59c2b1-88a9-54c7-a9bd-b967645e37bc",
+        "targetPort": "tool_3"
       },
       {
-        "edgeId": "6cf8ed7a-68bf-4b64-b47b-a84acdf1f28a",
-        "sourceNode": "3bf52f38-d1bd-45f2-8429-9ece28258be5",
-        "sourcePort": "response",
-        "targetNode": "fc54ea14-7622-4ea1-912d-3d3fcd494a8e",
-        "targetPort": "files"
-      },
-      {
-        "edgeId": "88a012c8-005b-4e38-b52e-f191d0c0c27c",
-        "sourceNode": "3bf52f38-d1bd-45f2-8429-9ece28258be5",
-        "sourcePort": "response",
-        "targetNode": "fc54ea14-7622-4ea1-912d-3d3fcd494a8e",
-        "targetPort": "skill_name"
-      },
-      {
-        "edgeId": "305b0fab-09f4-4d5f-aa36-f19ad7ba7a20",
-        "sourceNode": "fc54ea14-7622-4ea1-912d-3d3fcd494a8e",
-        "sourcePort": "approval_summary",
-        "targetNode": "61c6a915-3b7a-4ee8-979c-e061bc1d44c0",
-        "targetPort": "param_summary"
-      },
-      {
-        "edgeId": "5ae2390e-31e7-4e73-8fab-fcae593f279a",
-        "sourceNode": "61c6a915-3b7a-4ee8-979c-e061bc1d44c0",
-        "sourcePort": "approved_out",
-        "targetNode": "5bf3e3ed-9122-4dce-a922-86e2fd0ae26e",
-        "targetPort": "force_admin_override"
-      },
-      {
-        "edgeId": "18b9c4f7-2838-4719-8768-e4b69ac76739b",
-        "sourceNode": "fc54ea14-7622-4ea1-912d-3d3fcd494a8e",
-        "sourcePort": "validated_package",
-        "targetNode": "5bf3e3ed-9122-4dce-a922-86e2fd0ae26e",
-        "targetPort": "package"
+        "edgeId": "9cf22c7a-d65a-43b2-a293-f056c62643ba",
+        "sourceNode": "5a59c2b1-88a9-54c7-a9bd-b967645e37bc",
+        "sourcePort": "final_answer",
+        "targetNode": "a0233f08-7180-43ab-969b-69e9417fa6a8",
+        "targetPort": "context"
       }
     ]
   }

@@ -31,6 +31,9 @@ deploy/distributed/.env
 **/runtime/redis-data/
 **/runtime/data/
 
+# Ignore FileOps Backup Directories
+**/.cheng-file-ops-backups/
+
 # Ignore Dependency Libraries
 **/node_modules/
 **/target/
