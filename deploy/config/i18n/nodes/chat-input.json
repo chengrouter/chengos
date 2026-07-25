@@ -1,5 +1,7 @@
 {
-  "nodes.chat.input.description": "对话输入节点(文本/图片/文件/音频)",
+  "nodes.chat.input.description": "接收多模态输入（文本、图片、文件等），处理后发送给下游节点",
+  "nodes.chat.input.inputs.context.description": "在此工作流执行前恢复的可选 AgentContext",
+  "nodes.chat.input.inputs.context.title": "前置上下文",
   "nodes.chat.input.inputs.conversation_id.description": "对话 ID(可选),由入口生成后透传给所有下游节点",
   "nodes.chat.input.inputs.conversation_id.title": "会话 ID",
   "nodes.chat.input.inputs.document_id.description": "文档 ID(可选),由文档页面注入并通过环境上下文传递给下游节点",
@@ -29,7 +31,7 @@
   "nodes.chat.input.outputs.conversation_id.title": "会话 ID",
   "nodes.chat.input.outputs.document_id.description": "文档 ID(通过环境上下文传递给下游文档节点)",
   "nodes.chat.input.outputs.document_id.title": "文档 ID",
-  "nodes.chat.input.outputs.model_override.description": "从上游数据覆盖模型",
+  "nodes.chat.input.outputs.model_override.description": "模型覆盖（格式：credential_id::model_name）",
   "nodes.chat.input.outputs.model_override.title": "模型覆盖",
   "nodes.chat.input.outputs.stats.description": "处理统计信息",
   "nodes.chat.input.outputs.stats.title": "统计",

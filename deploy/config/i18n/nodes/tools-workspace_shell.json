@@ -1,0 +1,3 @@
+{
+  "nodes.tools.workspace_shell.inputs.command_whitelist.placeholder": "询问 AI 此任务需要哪些命令，然后在此列出程序名（每行一个）。仅列出的程序会被允许。示例：curl, tar, chmod, cp"
+}

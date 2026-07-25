@@ -1,0 +1,68 @@
+schema_version: "1"
+
+name: __SKILL_NAME__           # kebab-case slug, must match SKILL.md frontmatter name
+display_name: __DISPLAY_NAME__ # Human-readable name
+description: __DESCRIPTION__   # One-sentence description
+version: 1.0.0
+category: __CATEGORY__         # e.g. productivity, development, data, meta
+tags:
+  - __TAG_1__
+  - __TAG_2__
+
+# backend.type MUST be one of: workflow, http, shell, browser, mcp, native_adapter, cli, agentic
+# Use "workflow" when a workflow.json is provided.
+# Use "agentic" for LLM-tool-based skills (no workflow.json).
+# "reference" is NOT a valid backend type.
+backend:
+  type: workflow
+  workflow_id: "<UUID>"       # REQUIRED when type=workflow. Use the workflowId from workflow.json.
+
+input_schema:
+  type: object
+  properties:
+    raw_input:
+      type: string
+      description: User input or trigger text
+
+output_schema:
+  type: object
+  properties:
+    success:
+      type: boolean
+    message:
+      type: string
+
+# Each entry MUST be a struct with at least "name". Bare strings are invalid.
+credentials:
+  required: []
+  # Example:
+  # - name: smtp
+  #   provider: smtp
+  #   description: SMTP credentials for sending email
+
+permissions:
+  read_only: false
+  allowed_actions:
+    - __ACTION_1__
+  denied_actions: []
+
+approval:
+  required_at_or_above: high
+  default_risk: high
+
+execution:
+  mode: workflow              # or "agentic" if backend.type is agentic
+  auto_execute: false
+  async_allowed: true
+  timeout_seconds: 600
+
+normalization:
+  status: needs_review
+  confidence: 0.8
+  warnings:
+    - "__WARNING_1__"         # e.g. "run_at only specified time, no date — user must confirm"
+
+source:
+  kind: external              # or "native" for built-in skills
+  format: chengos
+  path: skills/__SKILL_NAME__/skill.yaml

@@ -1,5 +1,11 @@
 {
   "nodes.utils.preview.description": "在预览窗口中显示输出结果,支持格式化和统计",
+  "nodes.utils.preview.inputs.artifact.description": "要预览的工件（仅元信息）",
+  "nodes.utils.preview.inputs.artifact.title": "工件",
+  "nodes.utils.preview.inputs.artifactUri.description": "要预览的 artifact:// URI",
+  "nodes.utils.preview.inputs.artifactUri.title": "工件 URI",
+  "nodes.utils.preview.inputs.artifacts.description": "要预览的工件列表（仅元信息）",
+  "nodes.utils.preview.inputs.artifacts.title": "工件列表",
   "nodes.utils.preview.inputs.context.description": "来自 Chat 节点的上下文",
   "nodes.utils.preview.inputs.context.title": "上下文",
   "nodes.utils.preview.inputs.currentPage.description": "当前页码",

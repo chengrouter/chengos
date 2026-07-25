@@ -229,12 +229,24 @@ A read-only tool. Use its `action` field (not `operation`). Actions:
 | `action`            | Purpose |
 | ------------------- | ------- |
 | `list_node_types`   | All registered node type IDs (supports `node_filter`, `category_filter`). The **only** valid source of `nodeType` values. |
-| `get_node_schema`   | Full input/output schema for one `node_type` (alias `describe_node_type`). |
-| `list_ports`        | Compact port shape (name / type / required) for one `node_type`. |
+| `list_ports`        | Compact port shape (name / type / required) for one `node_type`. **Use this for edge port names** (`sourcePort` / `targetPort`). |
+| `get_node_schema`   | Full input/output schema for one `node_type` (alias `describe_node_type`). Use this for **config field** details, NOT for edge port names. |
 | `list_workflows`    | List template workflows (`is_template=true`). |
 | `get_workflow`      | Full node/edge definition of one workflow — use a matching template as a structural reference. |
 | `find_replacements` | Given invalid `node_types`, suggest valid candidates. |
 | `get_execution` / `list_executions` | Inspect run status / node outputs. |
+
+> ⚠️ **Ports vs config fields — do not confuse them.**
+> `list_ports` returns **connection port names** used in edges (`sourcePort`, `targetPort`). Examples: `user_message`, `response`, `data`, `llm_config`, `context`.
+> `get_node_schema` returns **config field names** used in the node's `config` object. Examples: `action`, `to`, `subject`, `body`, `run_at`.
+> **Using a config field name as an edge port is the #1 cause of validation loops.** Always use `list_ports` for edge wiring.
+
+> 💡 **Context management — minimize `get_node_schema` calls.**
+> `get_node_schema` returns very long output (often thousands of characters per node), which can flood the context window and obscure the port names you actually need. The recommended workflow is:
+> 1. Call `list_ports` for all node types you plan to use (compact, ~50 chars each).
+> 2. Write the full workflow structure with correct edges using those port names.
+> 3. Only then, selectively call `get_node_schema` for nodes where you need to fill in non-obvious config fields.
+> 4. For simple nodes like `chat/input` and `chat/output`, `config: {}` is sufficient — skip `get_node_schema` entirely.
 
 Canonical agent call form:
 
@@ -266,7 +278,7 @@ Allowed `nodeType` values are exactly those returned by `list_node_types` /
 | Semantic IDs (`chat-input`, `node-1`) | Use UUIDs for `workflowId`, `nodeId`, `edgeId`. |
 | snake_case edge fields (`source_node`, `source_output`) | Use `sourceNode`/`sourcePort`/`targetNode`/`targetPort`. |
 | Guessed/old `nodeType` | Confirm via `list_node_types`. Type IDs drift — do not trust old examples. |
-| Guessed port names | Confirm via `get_node_schema` / `list_ports`, or copy from a template. |
+| Guessed port names | Confirm via `list_ports` (NOT `get_node_schema`), or copy from a template. Config field names are NOT port names. |
 | Ports as `[{name,type}]` array | Use the JSON-Schema object form (§5) or omit + `skipValidation: true`. |
 | Omitting ports without `skipValidation` | Add `"skipValidation": true`. |
 | Inlining a config/credential node's values | Keep the dedicated node and its edge. |
@@ -282,7 +294,7 @@ Before returning workflow JSON, verify:
 - [ ] `workflowId`, every `nodeId`, every `edgeId` is a valid UUID.
 - [ ] Every `nodeType` came from `list_node_types` (or an inspected template).
 - [ ] Edges use `sourceNode`/`sourcePort`/`targetNode`/`targetPort` (camelCase).
-- [ ] Every `sourcePort`/`targetPort` is a real port from the live schema.
+- [ ] Every `sourcePort`/`targetPort` is a real port from `list_ports` (NOT `get_node_schema` field names).
 - [ ] Every edge's `sourceNode`/`targetNode` matches an existing node `nodeId`.
 - [ ] Ports are either omitted with `skipValidation: true`, or embedded as
       JSON-Schema **objects** (never `[{name,type}]` arrays).

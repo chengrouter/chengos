@@ -1,0 +1,82 @@
+{
+  "workflowId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "name": "定时会议提醒邮件",
+  "skipValidation": true,
+  "definition": {
+    "nodes": [
+      {
+        "nodeId": "00000000-0000-4000-8000-000000000001",
+        "nodeType": "chat/input",
+        "config": {}
+      },
+      {
+        "nodeId": "00000000-0000-4000-8000-000000000002",
+        "nodeType": "tools/schedule",
+        "config": {
+          "action": "create",
+          "mode": "once",
+          "run_at": "2026-07-24T06:00:00",
+          "timezone": "Asia/Shanghai",
+          "task_text": "发送会议提醒邮件到 45420@qq.com",
+          "label": "meeting-reminder-email"
+        }
+      },
+      {
+        "nodeId": "00000000-0000-4000-8000-000000000005",
+        "nodeType": "utils/approver",
+        "config": {
+          "action_name": "send_meeting_reminder_email",
+          "description": "发送会议提醒邮件到 45420@qq.com（定时单次任务，早上6点触发）",
+          "risk_level": "high",
+          "param_summary": "to=45420@qq.com subject=【会议提醒】请准时参加会议"
+        }
+      },
+      {
+        "nodeId": "00000000-0000-4000-8000-000000000003",
+        "nodeType": "tools/mail",
+        "config": {
+          "operation": "send",
+          "to": "45420@qq.com",
+          "subject": "【会议提醒】请准时参加会议",
+          "body": "提醒：您今天有会议，请准时参加。",
+          "smtp_credential_id": "{{SMTP_CREDENTIAL}}"
+        }
+      },
+      {
+        "nodeId": "00000000-0000-4000-8000-000000000004",
+        "nodeType": "chat/output",
+        "config": {}
+      }
+    ],
+    "edges": [
+      {
+        "edgeId": "11111111-0000-4000-8000-000000000001",
+        "sourceNode": "00000000-0000-4000-8000-000000000001",
+        "sourcePort": "user_message",
+        "targetNode": "00000000-0000-4000-8000-000000000002",
+        "targetPort": "task_text"
+      },
+      {
+        "edgeId": "11111111-0000-4000-8000-000000000004",
+        "sourceNode": "00000000-0000-4000-8000-000000000002",
+        "sourcePort": "data",
+        "targetNode": "00000000-0000-4000-8000-000000000005",
+        "targetPort": "outcome"
+      },
+      {
+        "edgeId": "11111111-0000-4000-8000-000000000002",
+        "sourceNode": "00000000-0000-4000-8000-000000000005",
+        "sourcePort": "approved_out",
+        "targetNode": "00000000-0000-4000-8000-000000000003",
+        "targetPort": "body"
+      },
+      {
+        "edgeId": "11111111-0000-4000-8000-000000000003",
+        "sourceNode": "00000000-0000-4000-8000-000000000003",
+        "sourcePort": "message",
+        "targetNode": "00000000-0000-4000-8000-000000000004",
+        "targetPort": "context"
+      }
+    ]
+  }
+}

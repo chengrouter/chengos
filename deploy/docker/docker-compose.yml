@@ -75,6 +75,8 @@ services:
       CHENG_CLI_ALLOWED_ROOTS: /app/workspace
       SKILLS_DIR: /app/skills
       NODE_SKILLS_DIR: /app/node_skills
+      CHENG_GLOBAL_CONFIG_DIR: /app/config
+      TEMPLATE_WORKFLOWS_DIR: /app/workflow-templates
     volumes:
       - ../config:/app/config
       - ../skills:/app/skills
@@ -83,6 +85,7 @@ services:
       - ../models:/home/chengos/.chengflow/models
       - ../node_skills:/app/node_skills
       - ../workspace:/app/workspace
+      - ../workflow-templates:/app/workflow-templates:ro
     ports:
       - "127.0.0.1:${API_PORT:-3000}:3000"
     command: ["--log-file", "/app/logs/cheng-api.log"]

@@ -2,7 +2,7 @@ schema_version: "1"
 
 name: skill-importer
 display_name: Skill Importer
-description: Legacy reference package for the old skill importer. The active runtime importer is the workflow named skills_importer; keep this package only for prompts, safety notes, and migration reference.
+description: Imports external Skill source into a persistent workspace package, edits it through guarded file operations, and validates the on-disk package for human review.
 version: 1.0.0
 category: meta
 tags:
@@ -13,14 +13,7 @@ tags:
 
 backend:
   type: workflow
-  workflow_id: "c253ac39-601a-4e98-94c8-29526c093574"
-  # Leave workflow_id empty here. The file watcher registers the sibling
-  # workflow.json via WorkflowRepository on first scan and links the
-  # skill row to the resulting workflow id. The watcher then patches this
-  # field in the stored canonical spec to match. To run a watcher with
-  # registration enabled, wire `SkillFileWatcher::new_with_workflow_repo`
-  # in your server bootstrap (the legacy `new(...)` constructor leaves the
-  # importer informational because it has no workflow_repo).
+  workflow_id: "b9d3f0a4-1dd1-4dc5-8d9d-63f82e0ef9f2"
 
 input_schema:
   type: object
@@ -49,7 +42,8 @@ output_schema:
   properties:
     success: { type: boolean }
     skill_name: { type: string }
-    written_paths: { type: array, items: { type: string } }
+    package_path: { type: string }
+    changed_files: { type: array, items: { type: string } }
     normalization_status: { type: string }
     backend_type:
       type: string
@@ -73,7 +67,9 @@ permissions:
   read_only: false
   allowed_actions:
     - skill.import.fetch
-    - skill.import.write
+    - skill.import.inspect
+    - skill.import.edit
+    - skill.import.validate
   denied_actions: []
 
 approval:
@@ -94,23 +90,20 @@ execution:
   timeout_seconds: 1800
 
 normalization:
-  status: ready
+  status: needs_review
   confidence: 1.0
   warnings: []
 
-# Tools a parent LLM/Agent may run through Tool Hub *while applying* this Skill.
-# This is the external Tool Hub eligibility scope (surfaced by skills_hub.describe),
-# NOT the importer workflow's own internal staging nodes (fetch_repository,
-# validate_skill_spec, write_skill_package, …) which are forbidden Tool Hub targets.
-# A parent agent assisting an import legitimately needs to inspect the staged /
-# imported skill source, so only a read-only file view is declared here.
+# Parent Tool Hub compatibility scope. The importer workflow's internal Agent
+# receives its four tools directly from workflow edges; this separate scope only
+# permits a parent Agent to inspect an imported package without mutating it.
 tool_hub:
   tools:
     - tool: tools/file_ops_hub
       operations:
         - view_file
         - list_directory
-      purpose: Inspect imported or staged skill source files while assisting an import.
+      purpose: Inspect imported Skill source and package files while assisting an import.
       constraints:
         allowed_paths:
           - skills/

@@ -1,0 +1,38 @@
+# Global workspace route shortcuts (shared across all workspaces).
+#
+# Per-workspace shortcuts.yaml can override entries with the same name
+# (case-insensitive) and add new ones; see ShortcutService::load.
+#
+# Fields:
+#   name        – display name and stable identity (non-empty, unique in file)
+#   description – optional one-line text shown in the selection list
+#   route_mode  – "once" (default: next turn only) or "always" (until cleared)
+#   value       – JSON object merged into the workflow turn's routing payload;
+#                 consumed by LlmBranchNode via get_by_path lookups.
+
+shortcuts:
+  - name: Need Tools
+    description: Route to the tool-capable branch
+    route_mode: always
+    value:
+      need_tools: true
+
+  - name: Search
+    description: Route to the search action
+    value:
+      action:
+        name: search
+
+  - name: Deep Think
+    description: Enable extended reasoning mode
+    route_mode: always
+    value:
+      reasoning:
+        mode: deep
+        max_steps: 20
+
+  - name: Memory
+    description: Route to the memory-writing branch
+    route_mode: always
+    value:
+      memory: true

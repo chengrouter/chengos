@@ -14,3 +14,4 @@ services:
       - ../logs:/app/logs
       - ../runtime:/app/runtime
       - ../models:/home/chengos/.chengflow/models
+      - ../workflow-templates:/app/workflow-templates:ro

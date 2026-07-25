@@ -1,0 +1,30 @@
+---
+name: __SKILL_NAME__
+display_name: __DISPLAY_NAME__
+description: __DESCRIPTION__
+version: 1.0.0
+category: __CATEGORY__
+tags:
+  - __TAG_1__
+backend:
+  type: workflow
+---
+
+# __DISPLAY_NAME__
+
+## 用途 / Purpose
+__DESCRIPTION__
+
+## 工作流概述 / Workflow Overview
+1. **Node 1** (`__NODE_TYPE_1__`): __NODE_DESCRIPTION_1__
+2. **Node 2** (`__NODE_TYPE_2__`): __NODE_DESCRIPTION_2__
+
+## 关键参数 / Key Parameters
+- __PARAM_1__: __VALUE_1__
+- __PARAM_2__: __VALUE_2__
+
+## 凭据需求 / Credentials
+- __CREDENTIAL_1__ (if any)
+
+## 风险与注意事项 / Risks & Notes
+- __RISK_1__

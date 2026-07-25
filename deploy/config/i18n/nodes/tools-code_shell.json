@@ -1,5 +1,5 @@
 {
-  "nodes.tools.code_shell.description": "在 bubblewrap 沙箱中运行 Shell 脚本,具有 OS 命名空间隔离",
+  "nodes.tools.code_shell.description": "在 bubblewrap 沙箱中运行 Shell 脚本（OS 命名空间隔离：PID/IPC/UTS/网络）。失败即关闭：bubblewrap 不可用时直接报错 — 不会静默降级。适用于 curl、wget、系统命令、文件操作、管道处理等外部进程。不适用于纯计算（→ JS）或数据转换（→ Python）。需要 allow_network=true 才能进行出站 HTTP。示例：{\"script\":\"curl -s 'wttr.in/Tokyo?format=3'\",\"allow_network\":true}",
   "nodes.tools.code_shell.inputs.allow_filesystem.description": "是否允许脚本写入工作区文件",
   "nodes.tools.code_shell.inputs.allow_filesystem.title": "允许文件系统写入",
   "nodes.tools.code_shell.inputs.allow_full_disk_readonly.description": "是否允许只读访问整个磁盘(用于全盘搜索/文件查找).写入仍需 allow_filesystem.",
@@ -14,8 +14,8 @@
   "nodes.tools.code_shell.inputs.script.title": "脚本",
   "nodes.tools.code_shell.inputs.timeout_ms.description": "超时时间(毫秒).默认 5000ms,最大 300000ms.",
   "nodes.tools.code_shell.inputs.timeout_ms.title": "超时(毫秒)",
-  "nodes.tools.code_shell.inputs.workspace_name.description": "工作空间名称(如 project-alpha),仅允许字母/数字/-/_.",
-  "nodes.tools.code_shell.inputs.workspace_name.title": "工作空间名称",
+  "nodes.tools.code_shell.inputs.working_subdir.description": "执行边界内的相对工作子目录（如 project-alpha）。仅设置进程 cwd；不能扩大文件系统访问范围。",
+  "nodes.tools.code_shell.inputs.working_subdir.title": "工作子目录",
   "nodes.tools.code_shell.name": "Shell 执行器",
   "nodes.tools.code_shell.outputs.isolation_level.description": "实际使用的隔离级别:bubblewrap > quickjs > python",
   "nodes.tools.code_shell.outputs.isolation_level.title": "隔离级别",

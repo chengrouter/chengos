@@ -1,5 +1,7 @@
 {
-  "nodes.tools.mail.description": "管理邮件(读取,搜索,移动,删除等)",
+  "nodes.tools.mail.description": "通过 IMAP/SMTP 协议操作真实邮件：发送、读取、搜索、移动、标记、回复、转发等",
+  "nodes.tools.mail.inputs.attachments.description": "要发送的附件（推荐工件引用；也允许小内联文本）",
+  "nodes.tools.mail.inputs.attachments.title": "附件",
   "nodes.tools.mail.inputs.bcc.description": "密送邮箱地址,多个地址用逗号分隔",
   "nodes.tools.mail.inputs.bcc.title": "密送",
   "nodes.tools.mail.inputs.body.description": "邮件正文内容",
@@ -16,6 +18,8 @@
   "nodes.tools.mail.inputs.format.title": "格式",
   "nodes.tools.mail.inputs.imap_credential_id.description": "IMAP 凭证,用于接收操作(读取,搜索,移动,删除等 - ListEmails/SearchEmails/GetEmail/MoveEmail 等)",
   "nodes.tools.mail.inputs.imap_credential_id.title": "IMAP 凭证 ID",
+  "nodes.tools.mail.inputs.include_attachments.description": "GetEmail：下载并将附件正文持久化为工件",
+  "nodes.tools.mail.inputs.include_attachments.title": "包含附件",
   "nodes.tools.mail.inputs.operation.description": "要执行的邮件操作类型",
   "nodes.tools.mail.inputs.operation.title": "操作",
   "nodes.tools.mail.inputs.page.description": "页码从 1 开始(默认 1,最新邮件在第 1 页)",

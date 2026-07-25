@@ -1,5 +1,5 @@
 {
-  "nodes.chat.history_search.description": "搜索工作区中过去的对话.作为 LLM/Agent 按需工具使用,不是默认上下文提供程序.",
+  "nodes.chat.history_search.description": "搜索工作区中过去的对话。作为 LLM/Agent 按需工具使用，不是默认上下文提供程序。不要用于文件路径或文件内容，请使用文件工具处理这些需求。",
   "nodes.chat.history_search.inputs.action.description": "list_conversations | search_messages | get_conversation_messages | get_message_context",
   "nodes.chat.history_search.inputs.action.title": "操作",
   "nodes.chat.history_search.inputs.context_after.description": "锚点之后要带出多少条消息.",

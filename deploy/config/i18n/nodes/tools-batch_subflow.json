@@ -19,16 +19,11 @@
   "nodes.tools.batch_subflow.name": "批量子工作流工具",
   "nodes.tools.batch_subflow.outputs.elapsed_ms.description": "批层墙钟总耗时(毫秒)",
   "nodes.tools.batch_subflow.outputs.elapsed_ms.title": "已用时间(毫秒)",
-  "nodes.tools.batch_subflow.outputs.failed.description": "执行失败的子工作流数量",
   "nodes.tools.batch_subflow.outputs.failed.title": "失败数",
-  "nodes.tools.batch_subflow.outputs.results.description": "子工作流执行结果列表",
   "nodes.tools.batch_subflow.outputs.results.title": "结果列表",
   "nodes.tools.batch_subflow.outputs.status.description": "汇总状态:completed / partial_failed / failed",
   "nodes.tools.batch_subflow.outputs.status.title": "状态",
-  "nodes.tools.batch_subflow.outputs.succeeded.description": "成功完成的子工作流数量",
   "nodes.tools.batch_subflow.outputs.succeeded.title": "成功数",
-  "nodes.tools.batch_subflow.outputs.summary.description": "批量执行摘要",
   "nodes.tools.batch_subflow.outputs.summary.title": "摘要",
-  "nodes.tools.batch_subflow.outputs.total.description": "子工作流总数",
   "nodes.tools.batch_subflow.outputs.total.title": "总数"
 }

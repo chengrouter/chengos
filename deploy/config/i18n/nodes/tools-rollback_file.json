@@ -2,7 +2,7 @@
   "nodes.tools.rollback_file.description": "从由 backup_file 创建的快照恢复文件.原子写入;支持 dry_run 以先预览 diff.高副作用.",
   "nodes.tools.rollback_file.inputs.allow_target_override.description": "是否允许目标路径与备份元数据不同,默认值为 false",
   "nodes.tools.rollback_file.inputs.allow_target_override.title": "允许目标路径覆盖",
-  "nodes.tools.rollback_file.inputs.backup_id.description": "来自 backup_file 的备份 ID",
+  "nodes.tools.rollback_file.inputs.backup_id.description": "来自 backup_file 的 backup_id，或 \"last\" 恢复该文件的最近快照",
   "nodes.tools.rollback_file.inputs.backup_id.title": "备份 ID",
   "nodes.tools.rollback_file.inputs.backup_root.description": "可选的备份根目录",
   "nodes.tools.rollback_file.inputs.backup_root.title": "备份根目录",

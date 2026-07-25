@@ -1,0 +1,32 @@
+schema_version: "1"
+name: meeting-reminder-email
+display_name: 定时会议提醒邮件
+description: >
+  在指定时间（早上 6 点）一次性发送一封会议提醒邮件到 45420@qq.com。
+  通过 Schedule Manager 调度单次任务，触发 Mail Tool 发送提醒邮件。
+version: 1.0.0
+category: productivity
+tags: [schedule, email, reminder, meeting, one-shot]
+
+backend:
+  type: workflow
+
+credentials:
+  required:
+    - name: smtp_credential
+      key: SMTP_CREDENTIAL
+      provider: smtp
+
+normalization:
+  status: needs_review
+  confidence: 0.75
+  warnings:
+    - "用户只提供了时间（早上6点）未提供具体日期；已默认使用下一个早上6点（2026-07-24T06:00:00+08:00）。请在审核时确认或修改 run_at。"
+    - "邮件正文为默认模板（'提醒：您今天有会议，请准时参加。'），如需自定义请在审核时修改。"
+    - "需要 SMTP 凭证（smtp_credential）才能发送邮件，请在部署前配置。"
+    - "时区默认 Asia/Shanghai (UTC+8)，如需其他时区请在审核时修改。"
+
+source:
+  kind: external
+  format: chengos
+  path: skills/meeting-reminder-email/skill.yaml

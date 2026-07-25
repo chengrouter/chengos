@@ -173,6 +173,17 @@ if [[ -n "$CLI_WORKSPACE" ]]; then
     replace_env_line "CHENG_CLI_ALLOWED_ROOTS" "${CLI_WORKSPACE}"
 fi
 
+# Resolve global config and workflow template directories relative to the
+# deploy root (shared_dir). These are only set for native deployments; Docker
+# sets them via docker-compose.yml environment block.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -d "${SCRIPT_DIR}/config" ]]; then
+    replace_env_line "CHENG_GLOBAL_CONFIG_DIR" "${SCRIPT_DIR}/config"
+fi
+if [[ -d "${SCRIPT_DIR}/workflow-templates" ]]; then
+    replace_env_line "TEMPLATE_WORKFLOWS_DIR" "${SCRIPT_DIR}/workflow-templates"
+fi
+
 [[ -n "$CORS_ORIGIN" ]] && replace_env_line "CORS_ALLOWED_ORIGINS" "${CORS_ORIGIN}"
 [[ -n "$PUBLIC_UI_URL" ]] && replace_env_line "PUBLIC_UI_URL" "${PUBLIC_UI_URL}"
 [[ -n "$PUBLIC_APP_URL" ]] && replace_env_line "PUBLIC_APP_URL" "${PUBLIC_APP_URL}"

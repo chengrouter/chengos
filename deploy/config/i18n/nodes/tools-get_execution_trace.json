@@ -1,10 +1,16 @@
 {
   "nodes.tools.get_execution_trace.description": "按 trace_key 从 session_store 读取完整执行 trace,供 LLM 按需展开查看",
+  "nodes.tools.get_execution_trace.inputs.archive_ref.description": "不透明的持久执行存档引用，取自对话历史中的 execution_record 标记",
+  "nodes.tools.get_execution_trace.inputs.archive_ref.title": "存档引用",
+  "nodes.tools.get_execution_trace.inputs.mode.description": "查询模式：'summary'（计数和工具名）、'tool_calls'（每步调用、ID、状态、参数）或 'detail'（附加有界结果载荷）。用 tool_calls 询问'你用了哪些工具'。",
+  "nodes.tools.get_execution_trace.inputs.mode.title": "模式",
   "nodes.tools.get_execution_trace.inputs.trace_key.description": "追踪检索键,从对话历史摘要获取(格式:session_id:turn)",
   "nodes.tools.get_execution_trace.inputs.trace_key.title": "Trace 键",
   "nodes.tools.get_execution_trace.name": "读取执行 Trace",
   "nodes.tools.get_execution_trace.outputs.content.description": "完整的执行追踪内容(未找到时为空字符串)",
   "nodes.tools.get_execution_trace.outputs.content.title": "内容",
   "nodes.tools.get_execution_trace.outputs.found.description": "是否找到对应的追踪记录",
-  "nodes.tools.get_execution_trace.outputs.found.title": "是否找到"
+  "nodes.tools.get_execution_trace.outputs.found.title": "是否找到",
+  "nodes.tools.get_execution_trace.outputs.unavailable_reason.description": "found=false 时的显式不可用状态：not_available、expired 或 forbidden。不可用记录不代表没有调用工具。",
+  "nodes.tools.get_execution_trace.outputs.unavailable_reason.title": "不可用原因"
 }

@@ -608,7 +608,7 @@ temperature_zero_allowed = false
 [providers.minimax.behavior]
 protocol_family = "open_ai_chat_completions"
 tool_call_recovery = "minimax_xml_and_strict_json"
-force_non_streaming_with_tools = true
+force_non_streaming_with_tools = false
 tolerate_stream_tail_after_output = true
 
 # 视频生成模型：异步 submit/poll/retrieve 流程，由 MiniMaxMediaProvider 适配。
@@ -668,7 +668,7 @@ supports_chat = true
 supports_embedding = true
 supports_reranker = true
 fetch_models_enabled = false
-default_chat_models = ["qwen-turbo", "qwen-plus", "qwen-max"]
+default_chat_models = ["qwen3.7-max", "qwen3.7-plus", "qwen3.6-plus", "qwen3-coder-plus"]
 default_embedding_models = ["text-embedding-v3"]
 default_reranker_models = ["gte-rerank"]
 
@@ -711,6 +711,70 @@ pattern = "qwen-turbo*"
 [providers.dashscope.model_overrides.capabilities]
 context_window = 1000000
 max_input_tokens = 1000000
+
+[providers.moonshot]
+name = "Moonshot AI (Kimi)"
+type = "openai_compatible"
+credential_schema = "api_key_with_endpoint"
+supports_chat = true
+supports_embedding = false
+supports_reranker = false
+fetch_models_enabled = true
+default_chat_models = ["kimi-k3", "kimi-k2.7-code", "kimi-k2.6", "kimi-k2.5"]
+
+[providers.moonshot.capabilities]
+native_tool_calling = true
+streaming_tool_calling = true
+system_message = "native"
+input_modalities = ["text", "image"]
+context_window = 1048576
+max_input_tokens = 1000000
+
+[providers.moonshot.behavior]
+protocol_family = "open_ai_chat_completions"
+tool_call_recovery = "disabled"
+
+[providers.hunyuan]
+name = "Tencent Hunyuan"
+type = "openai_compatible"
+credential_schema = "api_key_with_endpoint"
+supports_chat = true
+supports_embedding = false
+supports_reranker = false
+fetch_models_enabled = true
+default_chat_models = ["hy3-preview", "hunyuan-2.0-thinking-20251109", "hunyuan-2.0-instruct-20251111"]
+
+[providers.hunyuan.capabilities]
+native_tool_calling = true
+streaming_tool_calling = true
+system_message = "native"
+input_modalities = ["text"]
+
+[providers.hunyuan.behavior]
+protocol_family = "open_ai_chat_completions"
+tool_call_recovery = "disabled"
+
+[providers.qianfan]
+name = "Baidu Qianfan (ERNIE)"
+type = "openai_compatible"
+credential_schema = "api_key_with_endpoint"
+supports_chat = true
+supports_embedding = false
+supports_reranker = false
+fetch_models_enabled = true
+default_chat_models = ["ernie-5.1", "ernie-5.0", "ernie-x1.1", "ernie-4.5-turbo-128k"]
+
+[providers.qianfan.capabilities]
+native_tool_calling = true
+streaming_tool_calling = true
+system_message = "native"
+input_modalities = ["text", "image"]
+context_window = 131072
+max_input_tokens = 128000
+
+[providers.qianfan.behavior]
+protocol_family = "open_ai_chat_completions"
+tool_call_recovery = "disabled"
 
 # ==================== Reranker 专用提供商 ====================
 

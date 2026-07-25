@@ -1,0 +1,50 @@
+{
+  "workflowId": "__UUID_WORKFLOW__",
+  "name": "__WORKFLOW_NAME__",
+  "description": "__DESCRIPTION__",
+  "state": "draft",
+  "skipValidation": true,
+  "definition": {
+    "nodes": [
+      {
+        "nodeId": "__UUID_INPUT__",
+        "nodeType": "chat/input",
+        "name": "Input",
+        "position": { "x": 0, "y": 0 },
+        "config": {}
+      },
+      {
+        "nodeId": "__UUID_NODE_1__",
+        "nodeType": "__NODE_TYPE_1__",
+        "name": "__NODE_NAME_1__",
+        "position": { "x": 300, "y": 0 },
+        "config": {
+          "__PROPERTY_1__": "__VALUE_1__"
+        }
+      },
+      {
+        "nodeId": "__UUID_OUTPUT__",
+        "nodeType": "chat/output",
+        "name": "Output",
+        "position": { "x": 600, "y": 0 },
+        "config": {}
+      }
+    ],
+    "edges": [
+      {
+        "edgeId": "__UUID_EDGE_1__",
+        "sourceNode": "__UUID_INPUT__",
+        "sourcePort": "user_message",
+        "targetNode": "__UUID_NODE_1__",
+        "targetPort": "__INPUT_PORT_1__"
+      },
+      {
+        "edgeId": "__UUID_EDGE_2__",
+        "sourceNode": "__UUID_NODE_1__",
+        "sourcePort": "__OUTPUT_PORT_1__",
+        "targetNode": "__UUID_OUTPUT__",
+        "targetPort": "context"
+      }
+    ]
+  }
+}

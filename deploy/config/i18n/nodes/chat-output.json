@@ -1,5 +1,7 @@
 {
-  "nodes.chat.output.description": "Agent 最终回复的对话输出节点",
+  "nodes.chat.output.description": "接收消息包并渲染到对话界面，支持流式显示、虚拟化和消息导出",
+  "nodes.chat.output.inputs.artifacts.description": "要渲染为媒体附件的产物引用",
+  "nodes.chat.output.inputs.artifacts.title": "产物",
   "nodes.chat.output.inputs.autoscroll.description": "是否自动滚动到最新消息",
   "nodes.chat.output.inputs.autoscroll.title": "自动滚动",
   "nodes.chat.output.inputs.context.description": "Agent 最终回复文本或 AgentContext(自动提取文本)",

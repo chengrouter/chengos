@@ -1,378 +1,66 @@
 {
   "workflowId": "8d2b9c0e-9b56-4c41-9f41-3cdd8c6f7e21",
-  "name": "CLI Branch To Install Flow",
-  "description": "CLI subgraph starting from the LLM branch output. The main path threads a single unified context object (context_out -> context) through cli_context_init -> cli_install_plan -> validate -> cli_install. On failure, cli_fallback_context builds a redacted diagnostic + LLM prompt, the fallback LLM authors a new install.yaml, cli_fallback_response_parse merges it back, and a second validate -> install runs it. Legacy scalar ports are retained on each node for debugging only; the official path uses context.",
+  "name": "CLI Install Flow",
+  "description": "The LLM extracts only cli_name. tools/cli_install performs trusted-index lookup, manifest construction and validation, ordered check/install/verify execution, and per-step approval internally. Index misses return status=not_found without an LLM fallback.",
   "state": "draft",
-  "nodeCount": 10,
-  "edgeCount": 11,
-  "version": 2,
-  "tags": ["skill-importer", "cli", "branch", "context", "example"],
+  "nodeCount": 4,
+  "edgeCount": 3,
+  "version": 3,
+  "tags": ["skill-importer", "cli", "deterministic", "example"],
   "visibility": "private",
   "skipValidation": true,
   "definition": {
     "nodes": [
       {
         "nodeId": "f1a0c0a0-6b3c-4c9f-9d0a-0c6d4f8f7a11",
-        "nodeType": "ai/llm_branch",
-        "name": "CLI Route Branch",
+        "nodeType": "chat/input",
+        "name": "CLI Install Request",
         "position": { "x": 40, "y": 200 },
-        "config": {
-          "payload_source": "response",
-          "branch_fields": [
-            {
-              "field_name": "skill_kind",
-              "operator": "equals",
-              "match_value": "cli",
-              "description": "Route CLI installation / CLI-backed skill imports. Connect ONLY branch_0 downstream to avoid double-routing."
-            }
-          ],
-          "strict_mode": true,
-          "generate_schema": false
-        },
-        "inputs": {
-          "type": "object",
-          "properties": {
-            "context": { "type": "object" },
-            "response": { "type": "string" },
-            "custom_data": { "type": "object" },
-            "payload_source": { "type": "string" },
-            "branch_fields": { "type": "array" },
-            "strict_mode": { "type": "boolean" },
-            "generate_schema": { "type": "boolean" }
-          }
-        },
-        "outputs": {
-          "type": "object",
-          "properties": {
-            "branch_0": { "type": "object" },
-            "context_out": { "type": "object" },
-            "schema_hint": { "type": "object" }
-          }
-        }
+        "config": {}
       },
       {
-        "nodeId": "b2c3d4e5-0001-4a00-9000-000000000001",
-        "nodeType": "tools/cli_context_init",
-        "name": "CLI Context Init",
+        "nodeId": "c3d4e5f6-0002-4a00-9000-000000000002",
+        "nodeType": "ai/llm",
+        "name": "Extract CLI Name",
         "position": { "x": 360, "y": 200 },
-        "config": {},
-        "inputs": {
-          "type": "object",
-          "properties": {
-            "context": { "type": "object" },
-            "user_request": { "type": "string" },
-            "cli_name": { "type": "string" },
-            "source_type": { "type": "string" },
-            "source_location": { "type": "string" }
-          }
-        },
-        "outputs": {
-          "type": "object",
-          "properties": {
-            "context_out": { "type": "object" },
-            "cli_name": { "type": "string" },
-            "has_request": { "type": "boolean" }
-          }
-        }
-      },
-      {
-        "nodeId": "9d2e48e4-3d95-4db4-9e3d-15b4f4fbf2ab",
-        "nodeType": "tools/cli_install_plan",
-        "name": "CLI Install Plan",
-        "position": { "x": 680, "y": 200 },
-        "config": {},
-        "inputs": {
-          "type": "object",
-          "properties": {
-            "context": { "type": "object" },
-            "cli_name": { "type": "string" },
-            "package_manager": { "type": "string" },
-            "os": { "type": "string" },
-            "strict_detected_pm": { "type": "boolean" }
-          }
-        },
-        "outputs": {
-          "type": "object",
-          "properties": {
-            "context_out": { "type": "object" },
-            "success": { "type": "boolean" },
-            "found": { "type": "boolean" },
-            "source": { "type": "string" },
-            "provider_id": { "type": "string" },
-            "binary": { "type": "string" },
-            "package_manager": { "type": "string" },
-            "os": { "type": "string" },
-            "arch": { "type": "string" },
-            "install_yaml": { "type": "string" },
-            "next_action": { "type": "string" },
-            "warnings": { "type": "array" },
-            "error": { "type": "string" }
-          }
-        }
-      },
-      {
-        "nodeId": "6e0f4d8d-34e4-4b22-9c50-3f27d9db5a77",
-        "nodeType": "tools/validate_cli_install_manifest",
-        "name": "Validate CLI Install Manifest",
-        "position": { "x": 1000, "y": 200 },
-        "config": {},
-        "inputs": {
-          "type": "object",
-          "properties": {
-            "context": { "type": "object" },
-            "skill_name": { "type": "string" },
-            "install_yaml": { "type": "string" }
-          }
-        },
-        "outputs": {
-          "type": "object",
-          "properties": {
-            "context_out": { "type": "object" },
-            "success": { "type": "boolean" },
-            "provider_id": { "type": "string" },
-            "binary": { "type": "string" },
-            "validated_yaml": { "type": "string" },
-            "warnings": { "type": "array" },
-            "error": { "type": "string" }
-          }
+        "config": {
+          "instruction_prompt": "Return only the CLI executable name requested by the user, for example gh, jq, or rg. Do not return commands, JSON, Markdown, or explanations."
         }
       },
       {
         "nodeId": "2c9b7ec8-df4f-4dbe-8ac5-2fa1b76595f2",
         "nodeType": "tools/cli_install",
-        "name": "CLI Install Runner",
-        "position": { "x": 1320, "y": 200 },
-        "config": {},
-        "inputs": {
-          "type": "object",
-          "properties": {
-            "context": { "type": "object" },
-            "install_yaml": { "type": "string" },
-            "step_id": { "type": "string" },
-            "args": { "type": "object" },
-            "workspace_name": { "type": "string" },
-            "timeout_ms": { "type": "number" },
-            "memory_mb": { "type": "number" }
-          }
-        },
-        "outputs": {
-          "type": "object",
-          "properties": {
-            "context_out": { "type": "object" },
-            "success": { "type": "boolean" },
-            "provider_id": { "type": "string" },
-            "step_id": { "type": "string" },
-            "command_preview": { "type": "array" },
-            "stdout": { "type": "string" },
-            "stderr": { "type": "string" },
-            "exit_code": { "type": "number" },
-            "duration_ms": { "type": "number" },
-            "error": { "type": "string" }
-          }
-        }
-      },
-      {
-        "nodeId": "a09b5a18-0fd8-4f5c-a7f7-1c8ed0f2d3f1",
-        "nodeType": "tools/cli_fallback_context",
-        "name": "CLI Fallback Context",
-        "position": { "x": 1320, "y": 480 },
-        "config": {},
-        "inputs": {
-          "type": "object",
-          "properties": {
-            "context": { "type": "object" },
-            "cli_name": { "type": "string" },
-            "expected_binary": { "type": "string" },
-            "os": { "type": "string" },
-            "arch": { "type": "string" },
-            "detected_package_managers": { "type": "array" },
-            "attempted_source": { "type": "string" },
-            "attempted_steps": { "type": "array" },
-            "failure_category": { "type": "string" }
-          }
-        },
-        "outputs": {
-          "type": "object",
-          "properties": {
-            "context_out": { "type": "object" },
-            "fallback_context": { "type": "object" },
-            "llm_user_message": { "type": "string" },
-            "next_action": { "type": "string" }
-          }
-        }
-      },
-      {
-        "nodeId": "c3d4e5f6-0002-4a00-9000-000000000002",
-        "nodeType": "ai/llm",
-        "name": "Fallback Author",
-        "position": { "x": 1000, "y": 620 },
-        "config": {
-          "instruction_prompt": "Use the skill-importer Prompt 2C (Generate CLI Fallback install.yaml) as this node's system prompt. Author the manifest only from the provided fallback context; obey argv-only commands, install only the target binary or declared dependencies, and mark install/network/write steps high-risk + requires_approval. Respond with the strict JSON object Prompt 2C defines; it must contain a non-empty install_yaml and set source: llm_fallback."
-        },
-        "inputs": {
-          "type": "object",
-          "properties": {
-            "context": { "type": "object" },
-            "user_message": { "type": "string" },
-            "instruction_prompt": { "type": "string" },
-            "llm_config": { "type": "object" }
-          }
-        },
-        "outputs": {
-          "type": "object",
-          "properties": {
-            "context": { "type": "object" },
-            "response": { "type": "string" }
-          }
-        }
-      },
-      {
-        "nodeId": "d4e5f6a7-0003-4a00-9000-000000000003",
-        "nodeType": "tools/cli_fallback_response_parse",
-        "name": "Fallback Response Parse",
-        "position": { "x": 680, "y": 620 },
-        "config": {},
-        "inputs": {
-          "type": "object",
-          "properties": {
-            "context": { "type": "object" },
-            "response": { "type": "string" }
-          }
-        },
-        "outputs": {
-          "type": "object",
-          "properties": {
-            "context_out": { "type": "object" },
-            "install_yaml": { "type": "string" },
-            "success": { "type": "boolean" },
-            "error": { "type": "string" }
-          }
-        }
-      },
-      {
-        "nodeId": "e5f6a7b8-0004-4a00-9000-000000000004",
-        "nodeType": "tools/validate_cli_install_manifest",
-        "name": "Re-validate Fallback Manifest",
-        "position": { "x": 360, "y": 620 },
-        "config": {},
-        "inputs": {
-          "type": "object",
-          "properties": {
-            "context": { "type": "object" },
-            "skill_name": { "type": "string" },
-            "install_yaml": { "type": "string" }
-          }
-        },
-        "outputs": {
-          "type": "object",
-          "properties": {
-            "context_out": { "type": "object" },
-            "success": { "type": "boolean" },
-            "validated_yaml": { "type": "string" },
-            "error": { "type": "string" }
-          }
-        }
+        "name": "CLI Install",
+        "position": { "x": 680, "y": 200 },
+        "config": {}
       },
       {
         "nodeId": "f6a7b8c9-0005-4a00-9000-000000000005",
-        "nodeType": "tools/cli_install",
-        "name": "CLI Install Runner (Fallback)",
-        "position": { "x": 40, "y": 620 },
-        "config": {},
-        "inputs": {
-          "type": "object",
-          "properties": {
-            "context": { "type": "object" },
-            "install_yaml": { "type": "string" },
-            "step_id": { "type": "string" },
-            "args": { "type": "object" }
-          }
-        },
-        "outputs": {
-          "type": "object",
-          "properties": {
-            "context_out": { "type": "object" },
-            "success": { "type": "boolean" },
-            "error": { "type": "string" }
-          }
-        }
+        "nodeType": "chat/output",
+        "name": "Install Result",
+        "position": { "x": 1000, "y": 200 },
+        "config": {}
       }
     ],
     "edges": [
       {
-        "edgeId": "e100-branch-to-init",
+        "edgeId": "e100-input-to-llm",
         "sourceNode": "f1a0c0a0-6b3c-4c9f-9d0a-0c6d4f8f7a11",
-        "sourcePort": "branch_0",
-        "targetNode": "b2c3d4e5-0001-4a00-9000-000000000001",
-        "targetPort": "context"
-      },
-      {
-        "edgeId": "e101-init-to-plan",
-        "sourceNode": "b2c3d4e5-0001-4a00-9000-000000000001",
-        "sourcePort": "context_out",
-        "targetNode": "9d2e48e4-3d95-4db4-9e3d-15b4f4fbf2ab",
-        "targetPort": "context"
-      },
-      {
-        "edgeId": "e102-plan-to-validate",
-        "sourceNode": "9d2e48e4-3d95-4db4-9e3d-15b4f4fbf2ab",
-        "sourcePort": "context_out",
-        "targetNode": "6e0f4d8d-34e4-4b22-9c50-3f27d9db5a77",
-        "targetPort": "context"
-      },
-      {
-        "edgeId": "e103-validate-to-install",
-        "sourceNode": "6e0f4d8d-34e4-4b22-9c50-3f27d9db5a77",
-        "sourcePort": "context_out",
-        "targetNode": "2c9b7ec8-df4f-4dbe-8ac5-2fa1b76595f2",
-        "targetPort": "context"
-      },
-      {
-        "edgeId": "e104-install-to-fallback",
-        "sourceNode": "2c9b7ec8-df4f-4dbe-8ac5-2fa1b76595f2",
-        "sourcePort": "context_out",
-        "targetNode": "a09b5a18-0fd8-4f5c-a7f7-1c8ed0f2d3f1",
-        "targetPort": "context"
-      },
-      {
-        "edgeId": "e105-fallback-ctx-to-llm",
-        "sourceNode": "a09b5a18-0fd8-4f5c-a7f7-1c8ed0f2d3f1",
-        "sourcePort": "context_out",
-        "targetNode": "c3d4e5f6-0002-4a00-9000-000000000002",
-        "targetPort": "context"
-      },
-      {
-        "edgeId": "e106-fallback-msg-to-llm",
-        "sourceNode": "a09b5a18-0fd8-4f5c-a7f7-1c8ed0f2d3f1",
-        "sourcePort": "llm_user_message",
+        "sourcePort": "user_message",
         "targetNode": "c3d4e5f6-0002-4a00-9000-000000000002",
         "targetPort": "user_message"
       },
       {
-        "edgeId": "e107-fallback-ctx-to-parse",
-        "sourceNode": "a09b5a18-0fd8-4f5c-a7f7-1c8ed0f2d3f1",
-        "sourcePort": "context_out",
-        "targetNode": "d4e5f6a7-0003-4a00-9000-000000000003",
-        "targetPort": "context"
-      },
-      {
-        "edgeId": "e108-llm-response-to-parse",
+        "edgeId": "e101-llm-to-install",
         "sourceNode": "c3d4e5f6-0002-4a00-9000-000000000002",
         "sourcePort": "response",
-        "targetNode": "d4e5f6a7-0003-4a00-9000-000000000003",
-        "targetPort": "response"
+        "targetNode": "2c9b7ec8-df4f-4dbe-8ac5-2fa1b76595f2",
+        "targetPort": "cli_name"
       },
       {
-        "edgeId": "e109-parse-to-revalidate",
-        "sourceNode": "d4e5f6a7-0003-4a00-9000-000000000003",
-        "sourcePort": "context_out",
-        "targetNode": "e5f6a7b8-0004-4a00-9000-000000000004",
-        "targetPort": "context"
-      },
-      {
-        "edgeId": "e110-revalidate-to-install",
-        "sourceNode": "e5f6a7b8-0004-4a00-9000-000000000004",
-        "sourcePort": "context_out",
+        "edgeId": "e102-install-to-output",
+        "sourceNode": "2c9b7ec8-df4f-4dbe-8ac5-2fa1b76595f2",
+        "sourcePort": "status",
         "targetNode": "f6a7b8c9-0005-4a00-9000-000000000005",
         "targetPort": "context"
       }

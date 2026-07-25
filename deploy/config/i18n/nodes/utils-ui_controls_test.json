@@ -1,5 +1,5 @@
 {
-  "nodes.utils.ui_controls_test.description": "测试各类 UI 控件的展示效果",
+  "nodes.utils.ui_controls_test.description": "用于测试前端表单控件渲染（select/switch/number/textarea/code/rich_text/slider 等）",
   "nodes.utils.ui_controls_test.inputs.code_snippet.description": "代码编辑器(code_editor 控件)",
   "nodes.utils.ui_controls_test.inputs.code_snippet.placeholder": "请输入代码片段",
   "nodes.utils.ui_controls_test.inputs.code_snippet.title": "代码片段",

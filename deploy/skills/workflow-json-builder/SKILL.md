@@ -14,6 +14,17 @@ The assistant calls the separately deployed Workflow API to gather context, then
 > single source of truth for structure, field names, port handling, and
 > `skipValidation` semantics. This skill is the UI-chat front end to that
 > contract; when in doubt, defer to the contract.
+>
+> **Scope & contract boundary:** this skill targets the **UI/REST API DTO** path
+> (the endpoints below), which is distinct from the canonical **file-import**
+> contract (`workflow.json` = `WorkflowFileV1`: camelCase, required top-level
+> `name`, nested `definition`). `skipValidation` affects only this API/DTO path,
+> **not** the file importer. Use the same field names (`nodeId`, `nodeType`,
+> `sourceNode`/`sourcePort`/`targetNode`/`targetPort`) and identity rules (all
+> IDs are UUIDs) as the contract. Never emit the flat snake_case shape
+> (`node_type`, `node_config`, `source_port`) — the canonical decoder rejects it.
+> Agents running inside the engine should prefer the `tools/import_workflow`
+> structured create mode, which validates against live schemas before writing.
 
 ## Allowed APIs
 

@@ -1,6 +1,6 @@
 {
-  "nodes.io.video_extract_audio.description": "从视频工件中提取音轨并写入受信工件存储(音频工件),供语音转文本使用",
-  "nodes.io.video_extract_audio.inputs.artifact.description": "视频工件引用(首选)",
+  "nodes.io.video_extract_audio.description": "从视频文件提取音轨为工作区音频工件（通过 ffmpeg）。连接到语音转文本节点进行转录。系统需安装 ffmpeg。",
+  "nodes.io.video_extract_audio.inputs.artifact.description": "视频工件引用（首选）。从 io/file_upload.video_artifact 连接。",
   "nodes.io.video_extract_audio.inputs.artifact.title": "工件",
   "nodes.io.video_extract_audio.inputs.artifact_uri.description": "artifact://<id> URI",
   "nodes.io.video_extract_audio.inputs.artifact_uri.title": "工件 URI",
@@ -8,7 +8,7 @@
   "nodes.io.video_extract_audio.inputs.channels.title": "声道数",
   "nodes.io.video_extract_audio.inputs.duration_seconds.description": "提取的音频时长(秒),0 表示提取到结尾",
   "nodes.io.video_extract_audio.inputs.duration_seconds.title": "时长(秒)",
-  "nodes.io.video_extract_audio.inputs.file_path.description": "已弃用:视频文件本地绝对路径",
+  "nodes.io.video_extract_audio.inputs.file_path.description": "视频文件的本地绝对路径（旧版；与工件互斥）",
   "nodes.io.video_extract_audio.inputs.file_path.title": "文件路径(已弃用)",
   "nodes.io.video_extract_audio.inputs.output_format.description": "输出音频格式:wav(推荐)/ mp3 / ogg / flac",
   "nodes.io.video_extract_audio.inputs.output_format.title": "输出格式",

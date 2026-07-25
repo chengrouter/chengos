@@ -12,11 +12,8 @@ The importer uses these prompt stages:
 - **Prompt 2W — Generate Workflow Skill Package** runs only on the default /
   workflow branch, usually in `agent/react_agent` with file-writing,
   `tools/workflow_inspect`, and `tools/validate_skill_spec` connected.
-- **Prompt 2C — Generate CLI Fallback install.yaml** runs only on the CLI branch
-  when `tools/cli_install_plan` misses or cannot produce a deterministic
-  package-index plan.
-- **Prompt 3C — Generate CLI Skill Package** runs after CLI install/verify/help
-  data has been collected.
+- **Prompt 3C — Generate CLI Skill Package** runs after the deterministic
+  `tools/cli_install` result and CLI help data have been collected.
 
 Every stage's final response is strict JSON; downstream nodes should refuse to
 continue on parse failure.
@@ -78,7 +75,7 @@ Routing rules:
    (`gh`, `kubectl`, `jq`). If unknown, set it to `null` and explain why in
    `notes`.
 5. For CLI routing, `cli.name` should be the same target CLI identifier that
-   downstream should pass to `tools/cli_install_plan`. Prefer the executable
+   downstream should pass to `tools/cli_install`. Prefer the executable
    name (`gh`, `kubectl`, `jq`) unless the source clearly uses another package
    name. If unsure, set it to the best CLI candidate and record the uncertainty
    in `notes`.
@@ -179,27 +176,19 @@ on `skill_kind` alone.
 The default branch (`context_out`, the no-match fallback) is the
 workflow-backed skill path.
 
-When a CLI branch fires, `llm_branch.branch_0` is an `Object` / `AgentContext`
-conditional port, not a plain `String`. The next CLI node should therefore be a
-context normalizer such as `tools/cli_context_init`:
+For the minimal CLI flow, configure an `ai/llm` node to return only the
+executable name and wire it directly to the installer:
 
 ```text
-llm_branch.branch_0:Object -> tools/cli_context_init.context:Object
-tools/cli_context_init.context_out:Object -> tools/cli_install_plan.context:Object
+chat/input.user_message -> ai/llm.user_message
+ai/llm.response -> tools/cli_install.cli_name
+tools/cli_install.status -> chat/output.context
 ```
 
-Do not wire `llm_branch.branch_0` directly to
-`tools/cli_install_plan.cli_name:String`. The normalizer must extract the Prompt
-1 analysis from the branch context and produce the standard CLI import context,
-including:
-
-```json
-{
-  "user_request": {"raw": "..."},
-  "branch": {"skill_kind": "cli", "cli_name": "..."},
-  "cli": {"name": "...", "expected_binary": "..."}
-}
-```
+`tools/cli_install` performs package-index lookup, manifest construction and
+validation, ordered step execution, and high-risk approval internally. An
+unknown CLI returns `status = "not_found"`; do not route it to an LLM-authored
+manifest fallback.
 
 ---
 
@@ -349,132 +338,13 @@ document is authoritative for structure, field names, port handling, and
 
 ---
 
-## Prompt 2C — Generate CLI Fallback install.yaml
-
-You are a CLI install-manifest assistant for ChengOS. Use this prompt only when
-the CLI branch has already called `tools/cli_install_plan` and the deterministic
-package-index planner missed or could not produce a host-compatible plan.
-
-Given (delivered as `tools/cli_fallback_context` outputs):
-
-- `context` (Object) — the unified CLI import context, carrying the user's
-  original request (`user_request.raw`), the CLI facts (`cli.*`,
-  `cli.package_index`), the attempted manifest (`install_manifest.install_yaml` /
-  `validated_yaml` / `validation`), and the failure (`install.attempts`,
-  `install.last_error`). Wire to this node's `context` port.
-- `llm_user_message` (String) — a redacted, size-limited, failure-classified
-  rendering of the above. Wire to this node's `user_message` port. **Read the
-  facts from this message**, never from raw logs.
-
-Use `fallback_context.user_request`, `fallback_context.cli`,
-`fallback_context.install_manifest`, `fallback_context.failure`, and
-`fallback_context.constraints` to decide what to change. Based on the original
-request, decide whether to keep installing the same CLI or switch strategy
-(e.g. an official apt repo instead of a bare package name).
-
-Generate a **strict JSON object** containing a fallback `install_yaml` string.
-Output JSON only — no Markdown fences. The response is parsed by
-`tools/cli_fallback_response_parse`, which lifts `install_yaml` back into the
-context (`source = llm_fallback`) and re-runs validation before any install.
-
-Schema:
-
-```json
-{
-  "skill_name": "kebab-case-slug",
-  "provider_id": "snake_case_provider_id",
-  "binary": "binary-name",
-  "install_yaml": "YAML string",
-  "analysis": "short explanation of assumptions and why package-index fallback was needed",
-  "error": null
-}
-```
-
-If you cannot produce a manifest that follows the rules, return:
-
-```json
-{
-  "skill_name": "",
-  "provider_id": "",
-  "binary": "",
-  "install_yaml": "",
-  "analysis": "",
-  "error": "string"
-}
-```
-
-The `install_yaml` MUST follow this shape:
-
-```yaml
-schema_version: "1"
-source: llm_fallback
-provider:
-  id: provider_id
-  display_name: Display Name
-  binary: binary
-  dependencies: []
-  allowed_install_targets: []
-steps:
-  - step_id: check_existing
-    mode: check
-    description: Check whether the binary already exists.
-    command: ["binary", "--version"]
-    risk: low
-    requires_approval: false
-    allow_network: false
-  - step_id: install_with_package_manager
-    mode: install
-    description: Install the requested CLI through a package manager.
-    command: ["package-manager", "install", "..."]
-    risk: high
-    requires_approval: true
-    allow_network: true
-  - step_id: verify
-    mode: verify
-    description: Verify the installed binary.
-    command: ["binary", "--version"]
-    risk: low
-    requires_approval: false
-    allow_network: false
-```
-
-Manifest hard rules:
-
-1. `source` MUST be `llm_fallback`.
-2. `provider.binary` MUST be the requested executable, not a substitute CLI.
-3. `command` MUST always be an argv array of strings, never a shell string.
-4. Never include shell control operators such as `;`, `&&`, `||`, `|`, `>`,
-   `<`, backticks, `$(`, or newlines in any argv element.
-5. Install/write/network/configure steps MUST use `risk: high` or
-   `risk: critical` and `requires_approval: true`.
-6. Do not install a different binary unless it appears in
-   `provider.dependencies` or `provider.allowed_install_targets`.
-7. Prefer package-manager commands over curl-pipe-shell or downloaded scripts.
-8. Do not include credentials, tokens, or secret values.
-9. Do not include raw shell scripts or script files.
-10. The manifest is not executable until `tools/validate_cli_install_manifest`
-    accepts it. Do not claim installation is complete.
-
-Downstream workflow must run:
-
-```text
-tools/validate_cli_install_manifest -> tools/cli_install per validated step_id
-```
-
-The LLM may choose `step_id`s for `tools/cli_install`, but it must never provide
-raw commands to the runner.
-
----
-
 ## Prompt 3C — Generate CLI Skill Package
 
 You are a ChengOS CLI-skill packager. Given:
 
 - Prompt 1 analysis JSON
 - original source/docs
-- the validated `install.yaml` from either `tools/cli_install_plan` or
-  `tools/validate_cli_install_manifest`
-- install/check/verify outputs from `tools/cli_install`
+- the package manager and ordered step results from `tools/cli_install`
 - CLI version/help output collected after installation
 
 Create a draft CLI-backed skill package in the importer staging workspace, then
@@ -482,7 +352,7 @@ return a **strict JSON object** pointing to that package.
 
 ### CLI Generation Procedure
 
-1. Read Prompt 1 analysis, source docs, validated install YAML, and CLI
+1. Read Prompt 1 analysis, source docs, the `tools/cli_install` result, and CLI
    version/help output.
 2. Choose a meaningful `skill_name` and ensure the staging package directory is
    unused.
@@ -517,9 +387,8 @@ references/safety-notes.md
 references/source.md
 ```
 
-`references/install.yaml` MUST be the backend-validated YAML, not the raw LLM
-draft. If both package-index and LLM fallback attempts exist, preserve only the
-validated manifest used for installation and describe the attempts in
+`references/install.yaml` MUST be the deterministic package-index manifest
+validated and used by `tools/cli_install`; describe the install attempt in
 `references/install-analysis.md`.
 
 ### CLI `skill.yaml` Requirements

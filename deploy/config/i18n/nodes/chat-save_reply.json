@@ -1,5 +1,7 @@
 {
-  "nodes.chat.save_reply.description": "从 Agent 上下文保存 LLM 回复",
+  "nodes.chat.save_reply.description": "持久化 LLM 输出的 assistant 消息并通过结构化 TurnRecord 构建干净的下一轮历史（幂等）",
+  "nodes.chat.save_reply.inputs.artifacts.description": "Assistant 回复的媒体附件（ArtifactRef 或列表），持久化到消息元数据",
+  "nodes.chat.save_reply.inputs.artifacts.title": "产物",
   "nodes.chat.save_reply.inputs.clean_history_json.description": "追加当前用户消息前的干净历史(JSON 格式),来自 chat/memory.clean_history_json",
   "nodes.chat.save_reply.inputs.clean_history_json.title": "清理后的历史 JSON",
   "nodes.chat.save_reply.inputs.context.description": "来自 agent/react 的 context 输出(包含对话历史和本轮回复)",

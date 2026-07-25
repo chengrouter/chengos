@@ -1104,6 +1104,19 @@ update_native_install() {
         rm -rf "${shared_dir:?}/${item}"
         cp -a "${temp_dir}/${item}" "${shared_dir}/${item}"
     done
+
+    # Update workflow-templates (read-only templates, safe to replace)
+    if [[ -d "${temp_dir}/workflow-templates" ]]; then
+        echo "Replacing workflow-templates"
+        rm -rf "${shared_dir:?}/workflow-templates"
+        cp -a "${temp_dir}/workflow-templates" "${shared_dir}/workflow-templates"
+    fi
+
+    # Merge new config files without overwriting user edits (cp -n = no-clobber)
+    if [[ -d "${temp_dir}/config" ]]; then
+        mkdir -p "${shared_dir}/config"
+        cp -an "${temp_dir}/config/." "${shared_dir}/config/"
+    fi
     if [[ -f "${shared_dir}/bin/cheng" ]]; then
         sync_installed_cli_binaries "${shared_dir}/bin/cheng" "$shared_dir" "$cli_installed"
     fi
@@ -1379,6 +1392,16 @@ if [[ $# -gt 0 ]]; then
                     chmod +x "${shared_dir}/bin/"*
                     [[ "$enable_ui" == "true" ]] && cp -a "${TEMP_DIR}/ui/." "${shared_dir}/ui/"
                     [[ "$enable_app" == "true" ]] && cp -a "${TEMP_DIR}/app/." "${shared_dir}/app/"
+                    
+                    # Copy config and workflow-templates (shared resources, not module-gated)
+                    [[ -d "${TEMP_DIR}/config" ]] && {
+                        mkdir -p "${shared_dir}/config"
+                        cp -a "${TEMP_DIR}/config/." "${shared_dir}/config/"
+                    }
+                    [[ -d "${TEMP_DIR}/workflow-templates" ]] && {
+                        mkdir -p "${shared_dir}/workflow-templates"
+                        cp -a "${TEMP_DIR}/workflow-templates/." "${shared_dir}/workflow-templates/"
+                    }
                     
                     # Clean up — only remove temp tar if we downloaded it
                     [[ -z "$LOCAL_TARBALL_FOUND" ]] && rm -rf "$TEMP_TAR"

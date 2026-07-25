@@ -1,0 +1,70 @@
+# Global node presets (shared across all workspaces).
+#
+# Per-workspace presets.yaml can override types/presets with the same id
+# (case-insensitive) and add new ones; see PresetService::load.
+#
+# Top-level keys:
+#   preset_types – categories shown as the first selection level
+#   presets      – named config patches for one node type
+#
+# Preset fields:
+#   id           – stable, file-unique identity
+#   preset_type  – the category id this preset belongs to
+#   node_type    – the node type this patch is valid for (e.g. tools/code)
+#   label        – display label
+#   description  – optional human/LLM-facing explanation
+#   llm_visible  – whether scoped LLM discovery may surface it (default false)
+#   risk_level   – optional: "low", "medium", or "high"
+#   config_patch – JSON object shallow-merged into the target node's config
+
+preset_types:
+  - id: tool_nodes
+    label: Tool nodes
+    description: Presets for tool nodes
+
+  - id: ai_nodes
+    label: AI nodes
+    description: Presets for AI/LLM nodes
+
+presets:
+  - id: code-safe-mode
+    preset_type: tool_nodes
+    node_type: tools/code
+    label: Code execution safe mode
+    description: Restrict file and shell behavior
+    llm_visible: true
+    risk_level: high
+    config_patch:
+      allow_write: false
+      sandbox: strict
+
+  - id: code-full-access
+    preset_type: tool_nodes
+    node_type: tools/code
+    label: Code execution full access
+    description: Allow unrestricted file and shell access
+    llm_visible: false
+    risk_level: high
+    config_patch:
+      allow_write: true
+      sandbox: none
+
+  - id: search-strict
+    preset_type: tool_nodes
+    node_type: tools/search
+    label: Search strict mode
+    description: Strict matching with max results
+    config_patch:
+      match_mode: strict
+      max_results: 10
+
+  - id: agent-deep-think
+    preset_type: ai_nodes
+    node_type: ai/agent
+    label: Agent deep think
+    description: Enable extended reasoning with more iterations
+    llm_visible: true
+    risk_level: medium
+    config_patch:
+      max_iterations: 30
+      reasoning_mode: deep

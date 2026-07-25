@@ -38,5 +38,7 @@
   "nodes.io.speech_to_text.outputs.transcript_artifact.description": "provider 原始响应正文的工件引用(JSON 模式包含 segments/timestamps/language/duration 等元数据)",
   "nodes.io.speech_to_text.outputs.transcript_artifact.title": "转录工件",
   "nodes.io.speech_to_text.outputs.warning.description": "非致命告警(如工件持久化失败)",
+  "nodes.io.speech_to_text.outputs.text.description": "已废弃；等于有界预览",
+  "nodes.io.speech_to_text.outputs.text.title": "文本（已废弃）",
   "nodes.io.speech_to_text.outputs.warning.title": "告警"
 }
