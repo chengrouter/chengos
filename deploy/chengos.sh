@@ -172,7 +172,8 @@ if [[ "$LANG_VAL" == "zh" ]]; then
     t[update_type_scripts]="  1) 仅更新脚本 (chengos.sh/start.sh/stop.sh/status.sh/generate-env.sh)"
     t[update_type_package]="  2) 仅更新包 (release tar.gz 或 Docker 镜像; 包含 cheng CLI 二进制)"
     t[update_type_both]="  3) 先更新脚本再更新包 (推荐; 包含 cheng CLI 二进制)"
-    t[update_type_prompt]="选择 [1-3] (默认 3): "
+    t[update_type_force]="  4) 强制更新包 (跳过版本检查, 强制下载并替换所有目录)"
+    t[update_type_prompt]="选择 [1-4] (默认 3): "
     t[cli_install_title]="单独安装 CLI (cheng)"
     t[cli_install_local]="  1) 本机安装 (与 cheng-api 同机; 连接 127.0.0.1)"
     t[cli_install_remote]="  2) 其他终端/机器安装 (连接远程 ChengOS 服务器)"
@@ -240,7 +241,8 @@ else
     t[update_type_scripts]="  1) Script update only (chengos.sh/start.sh/stop.sh/status.sh/generate-env.sh)"
     t[update_type_package]="  2) Package update only (release tar.gz or Docker images; includes cheng CLI binary)"
     t[update_type_both]="  3) Script update, then package update (recommended; includes cheng CLI binary)"
-    t[update_type_prompt]="Choose [1-3] (Default 3): "
+    t[update_type_force]="  4) Force package update (skip version check; download and replace all directories)"
+    t[update_type_prompt]="Choose [1-4] (Default 3): "
     t[cli_install_title]="Install CLI (cheng) Only"
     t[cli_install_local]="  1) On this machine (co-located with cheng-api; connects to 127.0.0.1)"
     t[cli_install_remote]="  2) On any other terminal/machine (connects to a remote ChengOS server)"
@@ -937,8 +939,9 @@ update_script_files() {
 rebuild_native_from_git_checkout() {
     local shared_dir="$1"
     local hybrid_dir="$2"
+    local git_root="${3:-$ROOT_DIR}"
 
-    if [[ ! -d "${ROOT_DIR}/chengflow" ]]; then
+    if [[ ! -d "${git_root}/chengflow" ]]; then
         echo "No chengflow source directory found; Git checkout updated but binaries were not rebuilt."
         return 0
     fi
@@ -957,19 +960,19 @@ rebuild_native_from_git_checkout() {
     echo "Stopping services before rebuilding package-owned files..."
     bash "${hybrid_dir}/stop.sh" || true
 
-    if [[ ",$recorded_modules," == *",ui,"* && -d "${ROOT_DIR}/chengflow-ui" ]]; then
+    if [[ ",$recorded_modules," == *",ui,"* && -d "${git_root}/chengflow-ui" ]]; then
         echo "Building UI from updated source..."
-        (cd "${ROOT_DIR}/chengflow-ui" && (pnpm build:deploy || npm run build:deploy))
+        (cd "${git_root}/chengflow-ui" && (pnpm build:deploy || npm run build:deploy))
     fi
-    if [[ ",$recorded_modules," == *",app,"* && -d "${ROOT_DIR}/chengflow-app" ]]; then
+    if [[ ",$recorded_modules," == *",app,"* && -d "${git_root}/chengflow-app" ]]; then
         echo "Building Chat App from updated source..."
-        (cd "${ROOT_DIR}/chengflow-app" && (pnpm build:deploy || npm run build:deploy))
+        (cd "${git_root}/chengflow-app" && (pnpm build:deploy || npm run build:deploy))
     fi
 
     echo "Building backend Cargo packages from updated source..."
     local cargo_modules="-p cheng-api"
     [[ "$cli_installed" == "true" ]] && cargo_modules="$cargo_modules -p cheng-cli"
-    (cd "${ROOT_DIR}/chengflow" && cargo build --release $cargo_modules)
+    (cd "${git_root}/chengflow" && cargo build --release $cargo_modules)
 
     mkdir -p "${shared_dir}/bin"
     copy_chengflow_binary "cheng-api" "cheng-api" "${shared_dir}/bin"
@@ -978,6 +981,37 @@ rebuild_native_from_git_checkout() {
         sync_installed_cli_binaries "${shared_dir}/bin/cheng" "$shared_dir" "$cli_installed"
     fi
     chmod +x "${shared_dir}/bin/"* 2>/dev/null || true
+
+    # Sync shared resources from source to deploy directory
+    # (mirrors sync_deploy_resources in build.sh so git-based updates stay
+    #  consistent with tarball-based updates)
+    if [[ -d "${git_root}/chengflow/workflow-templates" ]]; then
+        echo "Syncing workflow-templates from source..."
+        rm -rf "${shared_dir:?}/workflow-templates"
+        cp -a "${git_root}/chengflow/workflow-templates" "${shared_dir}/workflow-templates"
+    fi
+    if [[ -d "${git_root}/chengflow/config" ]]; then
+        echo "Syncing config from source..."
+        mkdir -p "${shared_dir}/config"
+        cp -an "${git_root}/chengflow/config/." "${shared_dir}/config/"
+    fi
+    if [[ -d "${git_root}/chengflow/skills" ]]; then
+        echo "Syncing skills from source..."
+        mkdir -p "${shared_dir}/skills"
+        cp -a "${git_root}/chengflow/skills/." "${shared_dir}/skills/"
+    fi
+
+    # Copy built frontend assets to shared directory
+    if [[ ",$recorded_modules," == *",ui,"* && -d "${git_root}/chengflow-ui/dist" ]]; then
+        echo "Copying UI build output..."
+        rm -rf "${shared_dir:?}/ui"
+        cp -a "${git_root}/chengflow-ui/dist" "${shared_dir}/ui"
+    fi
+    if [[ ",$recorded_modules," == *",app,"* && -d "${git_root}/chengflow-app/dist-app" ]]; then
+        echo "Copying App build output..."
+        rm -rf "${shared_dir:?}/app"
+        cp -a "${git_root}/chengflow-app/dist-app" "${shared_dir}/app"
+    fi
 
     if [[ "$was_running" == "true" ]]; then
         echo "Services were running before update; restarting..."
@@ -1002,11 +1036,12 @@ update_native_install() {
     fi
     ensure_native_log_file_envs "$shared_dir"
 
-    if git -C "$ROOT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-        local before after upstream
+    if [[ "$UPDATE_KIND" == "source" ]] && git -C "$ROOT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        local before after upstream git_root
+        git_root="$(git -C "$ROOT_DIR" rev-parse --show-toplevel 2>/dev/null || printf '%s' "$ROOT_DIR")"
         before="$(git -C "$ROOT_DIR" rev-parse --short HEAD)"
         upstream="$(git -C "$ROOT_DIR" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || true)"
-        echo "Git checkout detected: ${ROOT_DIR}"
+        echo "Git checkout detected: ${git_root}"
         echo "Current revision: ${before}"
         if [[ -n "$upstream" ]]; then
             echo "Updating from upstream: ${upstream}"
@@ -1037,7 +1072,7 @@ update_native_install() {
         else
             echo "Updated Git checkout: ${before} -> ${after}"
         fi
-        rebuild_native_from_git_checkout "$shared_dir" "$hybrid_dir"
+        rebuild_native_from_git_checkout "$shared_dir" "$hybrid_dir" "$git_root"
         return 0
     fi
 
@@ -1065,9 +1100,12 @@ update_native_install() {
             return 1
         fi
         latest_tag="$(printf '%s' "$latest_url" | sed 's#.*/tag/##')"
-        if [[ -n "$local_version" && -n "$latest_tag" && "$local_version" == "$latest_tag" ]]; then
+        if [[ -n "$local_version" && -n "$latest_tag" && "$local_version" == "$latest_tag" && "$FORCE_UPDATE" != "true" ]]; then
             echo "Native package is already current (${local_version})."
             return 0
+        fi
+        if [[ "$FORCE_UPDATE" == "true" ]]; then
+            echo "Force update requested; downloading latest release package regardless of version."
         fi
 
         temp_tar="/tmp/chengos_update_$$.tar.gz"
@@ -1112,10 +1150,10 @@ update_native_install() {
         cp -a "${temp_dir}/workflow-templates" "${shared_dir}/workflow-templates"
     fi
 
-    # Merge new config files without overwriting user edits (cp -n = no-clobber)
     if [[ -d "${temp_dir}/config" ]]; then
-        mkdir -p "${shared_dir}/config"
-        cp -an "${temp_dir}/config/." "${shared_dir}/config/"
+        echo "Replacing config"
+        rm -rf "${shared_dir:?}/config"
+        cp -a "${temp_dir}/config" "${shared_dir}/config"
     fi
     if [[ -f "${shared_dir}/bin/cheng" ]]; then
         sync_installed_cli_binaries "${shared_dir}/bin/cheng" "$shared_dir" "$cli_installed"
@@ -1244,6 +1282,7 @@ if [[ $# -gt 0 ]]; then
     APP_PORT=5055
     WITH_INFRA_OPT="false"
     UPDATE_KIND="auto"
+    FORCE_UPDATE="false"
     SERVER_URL=""
     CLI_TARGET="local"
     
@@ -1287,6 +1326,10 @@ if [[ $# -gt 0 ]]; then
                 ;;
             --package-only)
                 UPDATE_KIND="package"
+                shift
+                ;;
+            --force)
+                FORCE_UPDATE="true"
                 shift
                 ;;
             *)
@@ -1350,6 +1393,35 @@ if [[ $# -gt 0 ]]; then
                 if [[ "$enable_cli" == "true" ]]; then
                     copy_chengflow_binary "cheng" "cheng" "${shared_dir}/bin"
                 fi
+
+                # Sync shared resources from source to deploy directory
+                if [[ -d "${ROOT_DIR}/chengflow/workflow-templates" ]]; then
+                    echo "Syncing workflow-templates from source..."
+                    rm -rf "${shared_dir:?}/workflow-templates"
+                    cp -a "${ROOT_DIR}/chengflow/workflow-templates" "${shared_dir}/workflow-templates"
+                fi
+                if [[ -d "${ROOT_DIR}/chengflow/config" ]]; then
+                    echo "Syncing config from source..."
+                    mkdir -p "${shared_dir}/config"
+                    cp -an "${ROOT_DIR}/chengflow/config/." "${shared_dir}/config/"
+                fi
+                if [[ -d "${ROOT_DIR}/chengflow/skills" ]]; then
+                    echo "Syncing skills from source..."
+                    mkdir -p "${shared_dir}/skills"
+                    cp -a "${ROOT_DIR}/chengflow/skills/." "${shared_dir}/skills/"
+                fi
+
+                # Copy built frontend assets to shared directory
+                if [[ "$enable_ui" == "true" && -d "${ROOT_DIR}/chengflow-ui/dist" ]]; then
+                    echo "Copying UI build output..."
+                    rm -rf "${shared_dir:?}/ui"
+                    cp -a "${ROOT_DIR}/chengflow-ui/dist" "${shared_dir}/ui"
+                fi
+                if [[ "$enable_app" == "true" && -d "${ROOT_DIR}/chengflow-app/dist-app" ]]; then
+                    echo "Copying App build output..."
+                    rm -rf "${shared_dir:?}/app"
+                    cp -a "${ROOT_DIR}/chengflow-app/dist-app" "${shared_dir}/app"
+                fi
             else
                 echo "Release bundle detected. Skipping source compilation."
                 
@@ -1361,6 +1433,8 @@ if [[ $# -gt 0 ]]; then
                 [[ "$enable_cli" == "true" && ! -f "${shared_dir}/bin/cheng" ]] && need_extract="true"
                 [[ "$enable_ui" == "true" && ! -d "${shared_dir}/ui" ]] && need_extract="true"
                 [[ "$enable_app" == "true" && ! -d "${shared_dir}/app" ]] && need_extract="true"
+                [[ ! -d "${shared_dir}/workflow-templates" ]] && need_extract="true"
+                [[ ! -d "${shared_dir}/config" ]] && need_extract="true"
                 if [[ "$need_extract" == "true" ]]; then
                     echo "Required binaries or frontend assets are missing in ${shared_dir}."
                     echo "Looking for local release package..."
@@ -1669,13 +1743,15 @@ while true; do
             echo "${t[update_type_scripts]}"
             echo "${t[update_type_package]}"
             echo "${t[update_type_both]}"
+            echo "${t[update_type_force]}"
             read -p "${t[update_type_prompt]}" update_choice < /dev/tty
             update_flag=""
             [[ "$update_choice" == "1" ]] && update_flag="--scripts-only"
             [[ "$update_choice" == "2" ]] && update_flag="--package-only"
+            [[ "$update_choice" == "4" ]] && update_flag="--package-only --force"
             echo ""
             if [[ -n "$update_flag" ]]; then
-                bash "$0" update --mode "$install_mode" "$update_flag"
+                bash "$0" update --mode "$install_mode" $update_flag
             else
                 bash "$0" update --mode "$install_mode"
             fi
