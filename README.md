@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[安装部署 / Installation](#6-部署步骤与快捷命令-quick-start--commands) · [核心特性 / Features](#2-系统核心特性-key-features) · [工具目录 / Tools](#3-工作流工具箱一览-workflow-tools-directory) · [English](#english)
+[官网 / Website](https://chengos.dev/) · [安装部署 / Installation](#6-部署步骤与快捷命令-quick-start--commands) · [核心特性 / Features](#2-系统核心特性-key-features) · [工具目录 / Tools](#3-工作流工具箱一览-workflow-tools-directory) · [English](#english)
 
 </div>
 
