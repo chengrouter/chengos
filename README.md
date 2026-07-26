@@ -76,7 +76,7 @@ ChengOS 内置了完整的 `skill-importer` 自动化导入流水线，支持将
 ### 💬 多种聊天交互入口 (Multiple Chat Entrances)
 针对不同的使用场景，ChengOS 提供了三类高效的聊天交互入口：
 1. **Web UI 前端编排 + 嵌入式聊天对话框**: 在编排工作流的同时，可以在 UI 右侧或下方调出 Chat 窗口进行实时测试、调试与生成。
-2. **App 桌面 Web + 手机 App (H5/PWA) 移动端对话**: 通过 `chengflow-app` 网关，用户可以使用手机浏览器或 PWA 移动应用进行会话，支持响应式布局与多通道隔离。
+2. **App 桌面 Web + 手机 IM / H5 / PWA 移动端对话**: 通过 `chengflow-app` 网关，接入 WhatsApp、Telegram、Slack 等主流移动社交/IM 终端以及手机浏览器/PWA 移动应用进行对话，支持响应式布局与多通道隔离。
 3. **CLI 终端实时对话**: 面向命令行爱好者与运维开发人员，通过终端 `cheng` 命令实现无 UI 依赖的高效实时交互。
 
 ---
@@ -173,7 +173,9 @@ ChengOS 提供了功能完善的一键部署与运维脚本 `chengos.sh`，支�
 5. **更新模块 (Update)**: 支持单独更新部署脚本、更新最新 Release 部署包 (含 `cheng` CLI 二进制) 或两者同时更新。
 6. **单独安装 CLI (Install CLI Only)**: 快速为本机或远程终端配置 `cheng` 命令行客户端。
 7. **查看服务状态 (Status)**: 查看进程 PID、端口占用与实时运行日志。
-8. **安装系统命令 (Install Command Shortcuts)**: 将 `chengos` 运维命令与 `cheng` 交互命令建立全局软链接（写入 `/usr/local/bin`）。
+8. **安装系统快捷命令 (Install Command Shortcuts)**: 一键向系统路径 (`/usr/local/bin`) 创建快捷启动命令软链接：
+   - 运行 **`chengos`**：在任意终端窗口快速调出控制台管理工具箱菜单；
+   - 运行 **`cheng`**：在任意终端窗口快速启动 CLI 终端实时对话。
 9. **卸载/停用模块 (Uninstall)**: 清理运行进程与静态文件，可选择保留或彻底清理数据库数据。
 10. **切换语言 (Switch Language)**: 中文 / English 界面一键切换。
 
@@ -250,6 +252,21 @@ cheng
 | **PostgreSQL** | `5432` | `POSTGRES_PORT=5432` | 主关系型数据库 |
 | **Valkey (Redis 兼容)** | `6379` | `REDIS_PORT=6379` | 高速缓存与速率限制器 |
 | **Qdrant Vector DB** | `6333` / `6334` | `QDRANT_PORT=6333` | RAG 向量检索数据库 (HTTP/gRPC) |
+
+---
+
+## 8. 许可证与授权说明 (License)
+
+ChengOS 当前为**免费使用**授权，但**不开源**。
+
+你可以免费使用 ChengOS 进行个人和商业办公自动化，但源码不公开。我们选择不开源是为了保护核心创新，避免被简单改皮后据为己有。
+
+**后期规划**：
+
+- **社区版**（免费）— 当前版本，包含核心办公自动化功能
+- **企业版**（付费）— 提供团队协作、权限管理、数据看板等高级功能
+
+如需商业合作或企业版咨询，请联系：hello@chengrouter.com
 
 ---
 
@@ -336,7 +353,7 @@ Built-in `skill-importer` pipeline converts external capability specifications i
 
 ### 💬 Multiple Chat Entry Points
 1. **Web UI Canvas + Embedded Chat**: Visual workflow editing combined with instant side-panel chat for testing and generation.
-2. **App Desktop + Mobile App (H5/PWA)**: Mobile-responsive chat widget driven by `chengflow-app` channel gateway.
+2. **App Desktop + Mobile IM / H5 / PWA Chat**: Driven by the `chengflow-app` channel gateway, connects mainstream mobile chat apps (WhatsApp, Telegram, Slack, etc.), Web Widgets, or mobile browser/PWA apps, providing decoupled channel routing and session isolation.
 3. **CLI Real-Time Terminal Chat**: Fast, lightweight command-line chat for developers and SSH power users.
 
 ---
@@ -431,7 +448,9 @@ ChengOS includes an interactive and non-interactive management utility `chengos.
 5. **Update Modules**: Update management scripts, release tarballs (with `cheng` CLI), or both.
 6. **Install CLI Only**: Quick setup for local or remote `cheng` CLI.
 7. **Service Status**: Inspect process PIDs, ports, and live logs.
-8. **Install Command Shortcuts**: Create system-wide launcher symlinks (`/usr/local/bin/chengos` and `/usr/local/bin/cheng`).
+8. **Install Command Shortcuts**: Installs global launcher symlinks to system path (`/usr/local/bin`):
+   - Run **`chengos`**: Quickly launches the interactive management toolbox menu from any terminal;
+   - Run **`cheng`**: Quickly launches the real-time CLI chat terminal from any terminal.
 9. **Uninstall Modules**: Teardown processes, with choice to keep or erase databases.
 10. **Switch Language**: Toggle Chinese / English UI.
 
@@ -507,3 +526,18 @@ cheng
 | **PostgreSQL** | `5432` | `POSTGRES_PORT=5432` | Primary relational database |
 | **Valkey (Redis compatible)** | `6379` | `REDIS_PORT=6379` | Cache & rate limiter |
 | **Qdrant Vector DB** | `6333` / `6334` | `QDRANT_PORT=6333` | RAG vector database (HTTP/gRPC) |
+
+---
+
+## 8. License
+
+ChengOS is currently **free to use** but **not open source**.
+
+You may use ChengOS for free for personal and commercial office automation. However, the source code is not publicly available. We've chosen not to open source to protect our core innovations from being simply rebranded by others.
+
+**Future Plans**:
+
+- **Community Edition** (Free) — Current version with core office automation features
+- **Enterprise Edition** (Paid) — Team collaboration, permissions management, analytics dashboard, and more
+
+For business inquiries or enterprise consultation, contact: hello@chengrouter.com
