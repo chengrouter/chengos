@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "key": "http-tools",
+  "version": "1.0.0",
+  "name": "http-tools",
+  "description": "Chat workflow with HTTP request capability. Equips an LLM with a tools/http node in LLM mode, allowing it to autonomously construct and send HTTP requests (GET/POST/PUT/DELETE/PATCH) to external APIs. Includes an HTTP Tool Guide skill (io/input_text) for reliable request construction and conversation memory for multi-turn interaction.",
+  "sortOrder": 20,
+  "enabledByDefault": true
+}

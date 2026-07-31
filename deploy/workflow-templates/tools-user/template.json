@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "key": "tools-user",
+  "version": "1.0.0",
+  "name": "tools_user",
+  "description": "ReAct agent workflow with file operation tools. Equips a ReAct agent with tools/file_ops_hub for reading, writing, and editing files within a sandbox. Includes conversation memory and reply persistence. Designed for tasks requiring autonomous file manipulation and is used as the tools sub-workflow of main_chat.",
+  "sortOrder": 90,
+  "enabledByDefault": true
+}

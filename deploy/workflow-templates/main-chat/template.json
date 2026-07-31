@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "key": "main-chat",
+  "version": "1.0.0",
+  "name": "main_chat",
+  "description": "Main chat workflow with condition-based routing. A utils/condition_router evaluates user intent and dispatches to one of three sub-workflows: memory_chat for conversations with history, no-memory-chat for single-turn exchanges, and tools_user for tasks requiring file operations via a ReAct agent.",
+  "sortOrder": 30,
+  "enabledByDefault": true
+}

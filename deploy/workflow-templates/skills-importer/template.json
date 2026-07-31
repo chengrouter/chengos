@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "key": "skills-importer",
+  "version": "1.0.0",
+  "name": "skills_importer",
+  "description": "ReAct Agent that imports a Skill from a repository, URL, pasted SKILL.md, pasted text, or a natural-language requirement. It fetches and reads source artifacts, discovers node schemas, generates a Skill package, and commits it through the protected write_skill_package boundary (mandatory validation + approval + transactional write).",
+  "sortOrder": 80,
+  "enabledByDefault": true
+}

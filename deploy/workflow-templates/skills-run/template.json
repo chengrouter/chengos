@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "key": "skills-run",
+  "version": "1.0.0",
+  "name": "skills run",
+  "description": "Chat workflow with skill execution capability. Equips an LLM with a tools/skills_hub node, allowing it to discover and run installed Skills through natural language. Includes conversation memory for multi-turn interaction and reply persistence.",
+  "sortOrder": 70,
+  "enabledByDefault": true
+}

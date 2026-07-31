@@ -253,6 +253,37 @@ cheng
 | **Valkey (Redis 兼容)** | `6379` | `REDIS_PORT=6379` | 高速缓存与速率限制器 |
 | **Qdrant Vector DB** | `6333` / `6334` | `QDRANT_PORT=6333` | RAG 向量检索数据库 (HTTP/gRPC) |
 
+### 公共只读 Demo 模式
+
+公共 Demo 使用后端运行时开关 `CHENG_DEMO_MODE=true`。该模式采用
+fail-closed 白名单，只开放健康检查、登录/刷新/验证、工作区定位，以及工作流和
+节点定义查询。工作流保存/删除、执行 REST/WebSocket、注册、密码修改、凭证、
+文件、文档、Channel、MCP、Scheduler 等其他接口统一返回
+`403 DEMO_MODE_RESTRICTED`。
+
+首次部署必须先在普通模式下初始化，之后再切换：
+
+```bash
+# deploy/.env
+CHENG_DEMO_MODE=false
+./deploy/chengos.sh start
+# 通过受信任网络访问 UI，创建固定 Demo 用户及默认工作区
+./deploy/chengos.sh stop
+
+# 将 deploy/.env 改为 CHENG_DEMO_MODE=true
+./deploy/chengos.sh start
+```
+
+进入 Demo 模式后，`RUN_MIGRATIONS` 会被忽略，后台 Scheduler、MCP 恢复、
+Channel polling/stream、OAuth token refresh、代码索引、文件 watcher 和清理
+任务也不会启动。迁移、重置或更新演示数据时，应先从公网摘除实例，关闭 Demo
+模式完成维护，再重新启用 Demo 模式。
+
+网络层仍应只公开反向代理的 `443`：Docker Compose 已将 API、PostgreSQL、
+Valkey 和 Qdrant 的宿主机端口绑定到 `127.0.0.1`；原生部署应通过防火墙阻止
+公网访问 `3000/5432/6379/6333/6334`。不要在 Docker API 容器内把
+`BIND_ADDRESS` 改成 `127.0.0.1`，否则 UI 容器无法连接 API。
+
 ---
 
 ## 8. 许可证与授权说明 (License)
@@ -526,6 +557,27 @@ cheng
 | **PostgreSQL** | `5432` | `POSTGRES_PORT=5432` | Primary relational database |
 | **Valkey (Redis compatible)** | `6379` | `REDIS_PORT=6379` | Cache & rate limiter |
 | **Qdrant Vector DB** | `6333` / `6334` | `QDRANT_PORT=6333` | RAG vector database (HTTP/gRPC) |
+
+### Public read-only demo mode
+
+Set `CHENG_DEMO_MODE=true` at runtime to enable the fail-closed public demo
+allowlist. Health checks, authentication, workspace discovery, workflow reads,
+and supporting node-definition reads remain available. Saves, deletes,
+execution REST/WebSockets, registration, password changes, credentials, files,
+documents, channels, MCP and scheduler APIs return
+`403 DEMO_MODE_RESTRICTED`.
+
+Initialize the fixed demo user and workspace with demo mode disabled on a
+trusted network. Stop the service, set `CHENG_DEMO_MODE=true` in `deploy/.env`,
+and start it again. Demo mode also suppresses migrations and background
+mutating/execution workers. Disable public access and demo mode before
+maintenance or data reset, then re-enable it afterward.
+
+At the network layer, expose only reverse-proxy port `443`. Docker Compose
+already binds backend and datastore host ports to `127.0.0.1`; for native
+deployments, block public access to `3000/5432/6379/6333/6334` with the host
+firewall. Do not bind the API to loopback *inside* its Docker container, because
+the UI container must reach it over the Compose network.
 
 ---
 

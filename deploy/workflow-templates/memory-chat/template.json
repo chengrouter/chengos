@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "key": "memory-chat",
+  "version": "1.0.0",
+  "name": "memory_chat",
+  "description": "Chat workflow with conversation memory. Loads and maintains conversation history through the turn coordinator (configurable window size, optional history search), sends context to an LLM for response generation, and persists replies via the turn coordinator. Used as the memory-enabled sub-workflow of main_chat.",
+  "sortOrder": 40,
+  "enabledByDefault": true
+}

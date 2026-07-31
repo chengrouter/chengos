@@ -1,0 +1,608 @@
+{
+  "name": "create_workflow",
+  "description": "ReAct Agent that creates new workflows through natural language. Equips a ReAct agent with file operations (tools/file_ops_hub), workflow inspection (tools/workflow_inspect), repository fetching (tools/fetch_repository), and workflow import (tools/import_workflow) tools. Reads workflow templates from files, inspects available node schemas, and generates complete workflow definitions.",
+  "state": "active",
+  "nodeCount": 11,
+  "edgeCount": 10,
+  "createdAt": "2026-07-21T07:09:02.847206211+00:00",
+  "updatedAt": "2026-07-24T06:19:16.919189+00:00",
+  "version": 1,
+  "isFavorite": false,
+  "isTemplate": true,
+  "isDraft": false,
+  "tags": [
+    "ai_chat"
+  ],
+  "visibility": "private",
+  "definition": {
+    "nodes": [
+      {
+        "nodeId": "3b4b404b-7ac4-459b-82ee-238340eb600b",
+        "nodeType": "chat/output",
+        "name": "对话输出",
+        "position": {
+          "x": 1363.4618942800514,
+          "y": 996.230048959358
+        },
+        "config": {},
+        "inputs": [
+          {
+            "description": "Agent final reply text or AgentContext (auto extracts text)",
+            "name": "context",
+            "required": true,
+            "type": "agent_context",
+            "x-i18n-key": "nodes.chat.output.inputs.context"
+          },
+          {
+            "default": null,
+            "description": "Agent execution trace (thinking process)",
+            "name": "trace",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.chat.output.inputs.trace"
+          },
+          {
+            "control": "select",
+            "default": "system",
+            "description": "Display theme",
+            "enum": [
+              "light",
+              "dark",
+              "system"
+            ],
+            "name": "theme",
+            "options": [
+              {
+                "label": "light",
+                "value": "light"
+              },
+              {
+                "label": "dark",
+                "value": "dark"
+              },
+              {
+                "label": "system",
+                "value": "system"
+              }
+            ],
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.chat.output.inputs.theme"
+          },
+          {
+            "default": true,
+            "description": "Auto scroll to latest message",
+            "name": "autoscroll",
+            "required": false,
+            "type": "boolean",
+            "x-i18n-key": "nodes.chat.output.inputs.autoscroll"
+          },
+          {
+            "default": 1000,
+            "description": "Maximum messages to keep in memory",
+            "format": "uint",
+            "maximum": 10000,
+            "minimum": 10,
+            "name": "keep_messages",
+            "required": false,
+            "type": "integer",
+            "x-i18n-key": "nodes.chat.output.inputs.keep_messages"
+          },
+          {
+            "default": 100,
+            "description": "Enable virtualization when message count exceeds this value",
+            "format": "uint",
+            "maximum": 1000,
+            "minimum": 10,
+            "name": "virtualize_threshold",
+            "required": false,
+            "type": "integer",
+            "x-i18n-key": "nodes.chat.output.inputs.virtualize_threshold"
+          },
+          {
+            "default": "standard",
+            "description": "Message display format",
+            "name": "display_format",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.chat.output.inputs.display_format"
+          },
+          {
+            "default": true,
+            "description": "Show message timestamp",
+            "name": "show_timestamp",
+            "required": false,
+            "type": "boolean",
+            "x-i18n-key": "nodes.chat.output.inputs.show_timestamp"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "Assistant final reply text content",
+            "name": "reply",
+            "type": "string"
+          },
+          {
+            "description": "Agent execution trace (thinking process)",
+            "name": "trace",
+            "type": "string"
+          },
+          {
+            "description": "UI events to send to frontend",
+            "name": "ui_events",
+            "type": "array"
+          },
+          {
+            "description": "Current total messages retained",
+            "format": {},
+            "name": "message_count",
+            "type": "integer"
+          },
+          {
+            "description": "Whether virtualization rendering is enabled",
+            "name": "virtualized",
+            "type": "boolean"
+          },
+          {
+            "description": "Processing statistics",
+            "name": "stats",
+            "type": "object"
+          }
+        ]
+      },
+      {
+        "nodeId": "7287d36b-2d17-4112-82a8-b01bcedfd0d6",
+        "nodeType": "agent/react_agent",
+        "name": "ReAct 智能体",
+        "position": {
+          "x": 1081.623294787464,
+          "y": 709.1828147421355
+        },
+        "config": {
+          "tool_1": "",
+          "tool_2": "",
+          "tool_3": ""
+        },
+        "inputs": [
+          {
+            "description": "Tool slot 0",
+            "group": "dynamic-array",
+            "name": "tool_0",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "description": "tools slot 1",
+            "group": "dynamic-array",
+            "name": "tool_1",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "description": "tools slot 2",
+            "group": "dynamic-array",
+            "name": "tool_2",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "description": "tools slot 3",
+            "group": "dynamic-array",
+            "name": "tool_3",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "outputs": []
+      },
+      {
+        "nodeId": "b5aa16bb-448e-4dcc-845c-db118bc38364",
+        "nodeType": "tools/import_workflow",
+        "name": "[TODO-zh] Import Workflow",
+        "position": {
+          "x": 790.5128580902698,
+          "y": 1111.3815860261798
+        },
+        "config": {},
+        "inputs": [],
+        "outputs": []
+      },
+      {
+        "nodeId": "6d27a29f-d1b6-4246-8b5a-41c57e7bbcb5",
+        "nodeType": "ai/llm_config",
+        "name": "LLM 配置",
+        "position": {
+          "x": 1084.810805460661,
+          "y": 618.0831446198841
+        },
+        "config": {
+          "model": "de77ce6d-c193-4bfd-abcf-a965835a3663::MiniMax-M2.7"
+        },
+        "inputs": [
+          {
+            "description": "Select a connected LLM model",
+            "name": "model",
+            "required": true,
+            "type": "string",
+            "x-allow-custom": true,
+            "x-i18n-key": "nodes.ai.llm_config.inputs.model"
+          },
+          {
+            "default": null,
+            "description": "Model override (format: credential_id::model_name, takes priority over model)",
+            "name": "model_override",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.ai.llm_config.inputs.model_override"
+          },
+          {
+            "default": 0.699999988079071,
+            "description": "Controls randomness of generation, higher values are more random (0.0 - 2.0)",
+            "format": "float",
+            "maximum": 2,
+            "minimum": 0,
+            "name": "temperature",
+            "required": false,
+            "step": "0.1",
+            "type": "number",
+            "x-i18n-key": "nodes.ai.llm_config.inputs.temperature",
+            "x-step": "0.1"
+          },
+          {
+            "default": 5000,
+            "description": "Maximum number of tokens to generate (default 5000)",
+            "format": "uint32",
+            "minimum": 0,
+            "name": "max_tokens",
+            "required": false,
+            "type": "integer",
+            "x-i18n-key": "nodes.ai.llm_config.inputs.max_tokens"
+          },
+          {
+            "default": 1,
+            "description": "Nucleus sampling threshold (0.0 - 1.0)",
+            "format": "float",
+            "maximum": 1,
+            "minimum": 0,
+            "name": "top_p",
+            "required": false,
+            "step": "0.1",
+            "type": "number",
+            "x-i18n-key": "nodes.ai.llm_config.inputs.top_p",
+            "x-step": "0.1"
+          },
+          {
+            "default": 0,
+            "description": "Reduce likelihood of repeating the same line (-2.0 to 2.0)",
+            "format": "float",
+            "maximum": 2,
+            "minimum": -2,
+            "name": "frequency_penalty",
+            "required": false,
+            "step": "0.1",
+            "type": "number",
+            "x-i18n-key": "nodes.ai.llm_config.inputs.frequency_penalty",
+            "x-step": "0.1"
+          },
+          {
+            "default": 0,
+            "description": "Encourage the model to discuss new topics (-2.0 to 2.0)",
+            "format": "float",
+            "maximum": 2,
+            "minimum": -2,
+            "name": "presence_penalty",
+            "required": false,
+            "step": "0.1",
+            "type": "number",
+            "x-i18n-key": "nodes.ai.llm_config.inputs.presence_penalty",
+            "x-step": "0.1"
+          },
+          {
+            "default": true,
+            "description": "Enable real-time streaming of results",
+            "name": "stream",
+            "required": false,
+            "type": "boolean",
+            "x-i18n-key": "nodes.ai.llm_config.inputs.stream"
+          },
+          {
+            "default": 60,
+            "description": "API request timeout (1-600 seconds)",
+            "format": "uint32",
+            "maximum": 600,
+            "minimum": 1,
+            "name": "timeout_secs",
+            "required": false,
+            "type": "integer",
+            "x-i18n-key": "nodes.ai.llm_config.inputs.timeout_secs"
+          },
+          {
+            "default": false,
+            "description": "Inject response_format: json_object (for weaker/open-source models, reduces non-JSON text; no system-level validation)",
+            "name": "json_mode",
+            "required": false,
+            "type": "boolean",
+            "x-i18n-key": "nodes.ai.llm_config.inputs.json_mode"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "Complete LLM configuration",
+            "name": "llm_config",
+            "type": "object"
+          }
+        ]
+      },
+      {
+        "nodeId": "a5d24566-275f-49b5-9c12-c7b759741dd6",
+        "nodeType": "tools/fetch_repository",
+        "name": "获取技能源码",
+        "position": {
+          "x": 1075.866156791198,
+          "y": 1124.3810854429755
+        },
+        "config": {
+          "sandbox_root": "/home/cheng/works/chengos/chengflow/examples"
+        },
+        "inputs": [],
+        "outputs": []
+      },
+      {
+        "nodeId": "db184702-04ad-4152-8703-7fd8cf77f35b",
+        "nodeType": "tools/workflow_inspect",
+        "name": "工作流检查器",
+        "position": {
+          "x": 799.01908302593,
+          "y": 991.839715539532
+        },
+        "config": {
+          "mode": "llm"
+        },
+        "inputs": [],
+        "outputs": []
+      },
+      {
+        "nodeId": "09f09ab7-87ff-46fe-8937-d1a6bd0a9838",
+        "nodeType": "tools/file_ops_hub",
+        "name": "文件操作中心",
+        "position": {
+          "x": 788.0858656078883,
+          "y": 864.7782494149816
+        },
+        "config": {
+          "sandbox_root": "/home/cheng/works/chengos/chengflow/examples"
+        },
+        "inputs": [],
+        "outputs": []
+      },
+      {
+        "nodeId": "3fc11f33-6f08-4ad5-a9dc-3ffadecb381d",
+        "nodeType": "io/read_file",
+        "name": "读取文件",
+        "position": {
+          "x": 783.9658270425334,
+          "y": 782.2959503000386
+        },
+        "config": {
+          "file_path": "artifact://e3fba7e4-ede7-4756-b8d1-8d6b8917bbfa"
+        },
+        "inputs": [],
+        "outputs": []
+      },
+      {
+        "nodeId": "a4c5f548-ec3b-4452-adae-f79dd1b30012",
+        "nodeType": "chat/input",
+        "name": "对话输入",
+        "position": {
+          "x": 441.326834716496,
+          "y": 595.2892575333794
+        },
+        "config": {
+          "raw_input": "hello"
+        },
+        "inputs": [
+          {
+            "description": "Raw input payload (JSON format)",
+            "name": "raw_input",
+            "required": true,
+            "type": "string",
+            "x-i18n-key": "nodes.chat.input.inputs.raw_input"
+          },
+          {
+            "default": null,
+            "description": "Optional rich user message from upstream nodes",
+            "name": "user_message_rich",
+            "required": false,
+            "type": "object",
+            "x-i18n-key": "nodes.chat.input.inputs.user_message_rich"
+          },
+          {
+            "default": null,
+            "description": "Conversation ID (optional), generated at entry and passed through to all downstream nodes",
+            "name": "conversation_id",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.chat.input.inputs.conversation_id"
+          },
+          {
+            "default": null,
+            "description": "Workspace ID (optional), passed to the turn coordinator for per-workspace chat isolation",
+            "name": "workspace_id",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.chat.input.inputs.workspace_id"
+          },
+          {
+            "default": null,
+            "description": "Document ID (optional), injected by document page and passed through ambient context to downstream nodes",
+            "name": "document_id",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.chat.input.inputs.document_id"
+          },
+          {
+            "default": false,
+            "description": "Enable streaming send",
+            "name": "stream_mode",
+            "required": false,
+            "type": "boolean",
+            "x-i18n-key": "nodes.chat.input.inputs.stream_mode"
+          },
+          {
+            "default": false,
+            "description": "Enable OCR for images",
+            "name": "enable_ocr",
+            "required": false,
+            "type": "boolean",
+            "x-i18n-key": "nodes.chat.input.inputs.enable_ocr"
+          },
+          {
+            "default": "per_file",
+            "description": "Multi-input merge strategy",
+            "name": "merge_strategy",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.chat.input.inputs.merge_strategy"
+          },
+          {
+            "default": 50,
+            "description": "Maximum file size (MB)",
+            "format": "uint64",
+            "maximum": 500,
+            "minimum": 1,
+            "name": "max_file_size_mb",
+            "required": false,
+            "type": "integer",
+            "x-i18n-key": "nodes.chat.input.inputs.max_file_size_mb"
+          },
+          {
+            "default": null,
+            "description": "Model override (format: credential_id::model_name)",
+            "name": "model_override",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.chat.input.inputs.model_override"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "AgentContext wrapper, connectable directly to agent/llm context port",
+            "name": "context",
+            "type": "agent_context"
+          },
+          {
+            "description": "AgentContext wrapper, connectable directly to agent/llm context port (alias/compatibility)",
+            "name": "agent_context",
+            "type": "agent_context"
+          },
+          {
+            "description": "User message text",
+            "name": "user_message",
+            "type": "string"
+          },
+          {
+            "description": "Structured user message with multimodal parts",
+            "name": "user_message_rich",
+            "type": "object"
+          },
+          {
+            "description": "Conversation ID (passed through to downstream nodes)",
+            "name": "conversation_id",
+            "type": "string"
+          },
+          {
+            "description": "Workspace ID (passed through to the turn coordinator for per-workspace isolation)",
+            "name": "workspace_id",
+            "type": "string"
+          },
+          {
+            "description": "Document ID (passed through ambient context to downstream document nodes)",
+            "name": "document_id",
+            "type": "string"
+          },
+          {
+            "description": "Processing statistics",
+            "name": "stats",
+            "type": "object"
+          },
+          {
+            "description": "UI event",
+            "name": "ui_event",
+            "type": "object"
+          },
+          {
+            "description": "Model override (format: credential_id::model_name)",
+            "name": "model_override",
+            "type": "string"
+          },
+          {
+            "description": "Attachments JSON array, connectable directly to io/file_upload.files_json",
+            "name": "attachments_json",
+            "type": "string"
+          }
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "edgeId": "3bebb320-8daf-422c-89c7-032ea7b78ab8",
+        "sourceNode": "7287d36b-2d17-4112-82a8-b01bcedfd0d6",
+        "sourcePort": "context",
+        "targetNode": "3b4b404b-7ac4-459b-82ee-238340eb600b",
+        "targetPort": "context"
+      },
+      {
+        "edgeId": "f4cf5200-4c7c-4bac-b464-21148c6afe2a",
+        "sourceNode": "db184702-04ad-4152-8703-7fd8cf77f35b",
+        "sourcePort": "status",
+        "targetNode": "7287d36b-2d17-4112-82a8-b01bcedfd0d6",
+        "targetPort": "tool_1"
+      },
+      {
+        "edgeId": "51908b32-3ba4-4491-b57e-4e044b5c585f",
+        "sourceNode": "a5d24566-275f-49b5-9c12-c7b759741dd6",
+        "sourcePort": "success",
+        "targetNode": "7287d36b-2d17-4112-82a8-b01bcedfd0d6",
+        "targetPort": "tool_3"
+      },
+      {
+        "edgeId": "af4ef13b-eb83-46a2-9d3f-190fb5ea7929",
+        "sourceNode": "b5aa16bb-448e-4dcc-845c-db118bc38364",
+        "sourcePort": "workflow_id",
+        "targetNode": "7287d36b-2d17-4112-82a8-b01bcedfd0d6",
+        "targetPort": "tool_2"
+      },
+      {
+        "edgeId": "289ccaf2-7a69-48b7-9cc6-bfd42a4d872a",
+        "sourceNode": "09f09ab7-87ff-46fe-8937-d1a6bd0a9838",
+        "sourcePort": "operation",
+        "targetNode": "7287d36b-2d17-4112-82a8-b01bcedfd0d6",
+        "targetPort": "tool_0"
+      },
+      {
+        "edgeId": "37a84310-639b-46ed-91bd-a18610852d0c",
+        "sourceNode": "3fc11f33-6f08-4ad5-a9dc-3ffadecb381d",
+        "sourcePort": "content",
+        "targetNode": "7287d36b-2d17-4112-82a8-b01bcedfd0d6",
+        "targetPort": "instruction_prompt"
+      },
+      {
+        "edgeId": "2e61085b-cafe-4501-a83a-7716731c6006",
+        "sourceNode": "6d27a29f-d1b6-4246-8b5a-41c57e7bbcb5",
+        "sourcePort": "llm_config",
+        "targetNode": "7287d36b-2d17-4112-82a8-b01bcedfd0d6",
+        "targetPort": "llm_config"
+      },
+      {
+        "edgeId": "be98b35c-d8a7-4a8b-bbcb-ef7d0cce9fc0",
+        "sourceNode": "a4c5f548-ec3b-4452-adae-f79dd1b30012",
+        "sourcePort": "agent_context",
+        "targetNode": "7287d36b-2d17-4112-82a8-b01bcedfd0d6",
+        "targetPort": "context"
+      }
+    ],
+    "notes": [],
+    "containers": []
+  },
+  "schemaVersion": 1
+}

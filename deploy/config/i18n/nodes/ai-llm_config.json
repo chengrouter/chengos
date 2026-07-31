@@ -1,5 +1,9 @@
 {
   "nodes.ai.llm_config.description": "选择已连接的 LLM 模型并输出其完整配置",
+  "nodes.ai.llm_config.inputs.compatibility_profile.description": "自定义 OpenAI 兼容端点的协议模板(conservative | openai | deepseek | minimax | zhipu),覆盖凭证级默认值;内置厂商忽略此字段",
+  "nodes.ai.llm_config.inputs.compatibility_profile.title": "兼容协议模板",
+  "nodes.ai.llm_config.inputs.ephemeral.description": "一次性调用,不读取或保存会话历史",
+  "nodes.ai.llm_config.inputs.ephemeral.title": "临时调用",
   "nodes.ai.llm_config.inputs.frequency_penalty.description": "降低重复相同行的可能性(-2.0 到 2.0)",
   "nodes.ai.llm_config.inputs.frequency_penalty.title": "频率惩罚",
   "nodes.ai.llm_config.inputs.json_mode.description": "注入 response_format: json_object 以获取纯 JSON 输出",

@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "key": "create-workflow",
+  "version": "1.0.0",
+  "name": "create_workflow",
+  "description": "ReAct Agent that creates new workflows through natural language. Equips a ReAct agent with file operations (tools/file_ops_hub), workflow inspection (tools/workflow_inspect), repository fetching (tools/fetch_repository), and workflow import (tools/import_workflow) tools. Reads workflow templates from files, inspects available node schemas, and generates complete workflow definitions.",
+  "sortOrder": 10,
+  "enabledByDefault": true
+}

@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "key": "scheduled-task",
+  "version": "1.0.0",
+  "name": "scheduled task",
+  "description": "Chat workflow with scheduled task management. Equips an LLM with a tools/schedule node, allowing it to create, list, and manage scheduled tasks through natural language. Includes conversation memory for multi-turn task configuration and reply persistence.",
+  "sortOrder": 60,
+  "enabledByDefault": true
+}

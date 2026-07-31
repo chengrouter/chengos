@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "key": "no-memory-chat",
+  "version": "1.0.0",
+  "name": "no-memory-chat",
+  "description": "Lightweight single-turn chat workflow without conversation memory. Sends user input directly to an LLM and returns the response with no history retention. Suitable for stateless Q&A or one-shot tasks where context from previous turns is not needed. Used as the no-memory sub-workflow of main_chat.",
+  "sortOrder": 50,
+  "enabledByDefault": true
+}

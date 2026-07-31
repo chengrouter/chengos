@@ -20,7 +20,7 @@
   "nodes.chat.input.inputs.stream_mode.title": "流式模式",
   "nodes.chat.input.inputs.user_message_rich.description": "来自上游节点的可选富用户消息",
   "nodes.chat.input.inputs.user_message_rich.title": "用户消息丰富",
-  "nodes.chat.input.inputs.workspace_id.description": "工作空间 ID(可选),传给 chat/memory 以实现按工作空间隔离对话",
+  "nodes.chat.input.inputs.workspace_id.description": "工作空间 ID(可选),传给 turn coordinator 以实现按工作空间隔离对话",
   "nodes.chat.input.inputs.workspace_id.title": "工作空间 ID",
   "nodes.chat.input.name": "对话输入",
   "nodes.chat.input.outputs.attachments_json.description": "附件 JSON 数组,可直接连接 io/file_upload.files_json",
@@ -41,6 +41,6 @@
   "nodes.chat.input.outputs.user_message.title": "用户消息",
   "nodes.chat.input.outputs.user_message_rich.description": "具有多模式部分的结构化用户消息",
   "nodes.chat.input.outputs.user_message_rich.title": "用户消息丰富",
-  "nodes.chat.input.outputs.workspace_id.description": "工作空间 ID(透传给 chat/memory 以实现按工作空间隔离)",
+  "nodes.chat.input.outputs.workspace_id.description": "工作空间 ID(透传给 turn coordinator 以实现按工作空间隔离)",
   "nodes.chat.input.outputs.workspace_id.title": "工作空间 ID"
 }
