@@ -1,8 +1,26 @@
-# ChengOS
-
 <div align="center">
 
-**Visual AI data processing and agentic workflow platform**
+<img src="deploy/config/image/vite.svg" alt="ChengOS logo" width="168" height="168">
+
+<h1 id="chengos">ChengOS</h1>
+
+<hr>
+
+<strong>Visual AI workflows and agent runtime</strong>
+
+Build, publish, and deploy intelligent workflows across web, mobile, messaging, and terminal clients.
+
+<br>
+<br>
+
+<img src="https://img.shields.io/badge/Backend-Rust-c96442?style=flat-square" alt="Rust backend">
+<img src="https://img.shields.io/badge/Frontend-React-149eca?style=flat-square" alt="React frontend">
+<img src="https://img.shields.io/badge/Protocol-MCP-6f42c1?style=flat-square" alt="MCP support">
+<img src="https://img.shields.io/badge/Deployment-Native%20%7C%20Docker-2496ed?style=flat-square" alt="Native and Docker deployment">
+<img src="https://img.shields.io/badge/License-Free%20to%20use-2da44e?style=flat-square" alt="Free to use">
+
+<br>
+<br>
 
 [Website](https://chengos.dev/) · [Live Demo](#live-demo) · [Overview](#overview) · [Screenshots](#screenshots) · [Quick start](#quick-start) · [中文介绍](#中文介绍)
 
