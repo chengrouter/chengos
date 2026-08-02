@@ -1,5 +1,5 @@
 {
-  "nodes.tools.view_file.description": "按指定行范围读取文件内容。始终返回 total_lines 和 eof 标记，帮助 LLM 感知文件全貌并防止幻觉。每次请求最多 500 行。",
+  "nodes.tools.view_file.description": "按指定行范围读取文件内容。四种互斥模式：line（start_line/end_line）、tail（tail_lines）、byte（offset_bytes/limit_bytes）、char（offset_chars/limit_chars）。始终返回 total_lines 和 eof 标记，帮助 LLM 感知文件全貌并防止幻觉。line 模式单次最多 500 行且受字符预算约束；还有内容时响应会给出唯一的续读游标与 truncated_reason。不填任何范围参数时，超过 500 行的文件只返回前 200 行结构预览（truncated_reason=large_file_preview），应先用 search_files 定位再精读。",
   "nodes.tools.view_file.inputs.end_line.description": "结束行号（含），默认 min(start_line+499, total_lines)",
   "nodes.tools.view_file.inputs.end_line.title": "结束行",
   "nodes.tools.view_file.inputs.file_path.description": "输入 - 文件路径",
@@ -12,7 +12,7 @@
   "nodes.tools.view_file.inputs.offset_bytes.title": "字节偏移",
   "nodes.tools.view_file.inputs.offset_chars.description": "字符偏移量(启用字符模式,从 0 开始).",
   "nodes.tools.view_file.inputs.offset_chars.title": "字符偏移",
-  "nodes.tools.view_file.inputs.start_line.description": "输入 - 启动 Line",
+  "nodes.tools.view_file.inputs.start_line.description": "LINE 模式。起始行号（1-indexed），默认 1。与 tail_lines、byte 模式、char 模式互斥。续读被截断的结果时，把响应里的 next_start_line 填到这里。注意：完全不填任何范围参数时，超过 500 行的文件只返回前 200 行结构预览（truncated_reason=large_file_preview）。",
   "nodes.tools.view_file.inputs.start_line.title": "起始行",
   "nodes.tools.view_file.inputs.tail_lines.description": "一次调用返回文件最后 N 行（无需知道文件长度）。与 start_line/end_line 和字节/字符偏移模式互斥。上限 500 显示行（保留最近的行）。",
   "nodes.tools.view_file.inputs.tail_lines.title": "尾部行数",

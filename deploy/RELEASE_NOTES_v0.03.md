@@ -1,126 +1,188 @@
-# ChengOS v0.03 发布说明
+# ChengOS v0.03 Release Notes
 
-> 发布日期：2025-07-25
-> 上一版本：v0.02
-
----
-
-## 概述
-
-v0.03 是 ChengOS 的第三个预览版本。本次更新聚焦于 **节点预设系统**、**分流快捷方式**、**工作流模板库** 以及 **LLM 分流节点增强**，让工作流的搭建和路由更加灵活、开箱即用。
+> Release Date: 2026-08-02
+> Previous Version: v0.02
 
 ---
 
-## 新功能
+## Overview
 
-### 1. 节点预设系统（Node Presets）
-
-新增全局节点预设配置（`presets.yaml`），为常用节点提供预定义配置方案，免去手动调参：
-
-- **预设分类**：支持 `preset_types` 分类管理（如 Tool nodes、AI nodes），UI 中分级展示
-- **配置补丁**：每个预设通过 `config_patch` 对目标节点配置进行浅合并，无需重复填写参数
-- **风险等级**：支持 `low` / `medium` / `high` 三级风险标记，高风险预设默认不向 LLM 暴露
-- **LLM 可见性**：`llm_visible` 字段控制预设是否可被 ReAct Agent 在工具发现阶段感知和使用
-- **内置预设**：
-  - `code-safe-mode` — 代码执行安全模式（禁止写入、严格沙箱）
-  - `code-full-access` — 代码执行完全访问模式（允许写入、无沙箱）
-  - `search-strict` — 搜索严格匹配模式（精确匹配、最多 10 条结果）
-  - `agent-deep-think` — Agent 深度思考模式（30 轮迭代、深度推理）
-- **分层覆盖**：全局预设放在 `CHENG_GLOBAL_CONFIG_DIR/presets.yaml`，工作区可同 ID 覆盖或新增
-
-### 2. 分流快捷方式（Routing Shortcuts）
-
-新增全局分流快捷方式配置（`shortcuts.yaml`），为 LLM 分流节点（`ai/llm_branch`）提供预置路由方案：
-
-- **预置快捷方式**：
-  - `Need Tools` — 路由到工具分支（`need_tools: true`，持续生效）
-  - `Search` — 路由到搜索动作（`action.name: search`，单次生效）
-  - `Deep Think` — 启用深度推理模式（`reasoning.mode: deep`，20 步推理，持续生效）
-  - `Memory` — 路由到记忆写入分支（`memory: true`，持续生效）
-- **路由模式**：
-  - `once` — 仅对下一轮生效，自动清除
-  - `always` — 持续生效，直到手动清除
-- **分层覆盖**：全局快捷方式放在 `CHENG_GLOBAL_CONFIG_DIR/shortcuts.yaml`，工作区可同名称覆盖或新增
-
-### 3. 工作流模板库（Workflow Templates）
-
-系统启动时自动将 9 个预置工作流模板安装到新工作区，开箱即用：
-
-| 模板名称 | 说明 |
-|----------|------|
-| `main_chat` | 主聊天工作流，通过条件路由分发到三个子工作流（记忆聊天 / 无记忆聊天 / 工具智能体） |
-| `memory_chat` | 带对话记忆的聊天工作流，支持可配置窗口大小和历史搜索 |
-| `no-memory-chat` | 轻量无记忆单轮聊天，适合状态less问答和一次性任务 |
-| `http-tools` | 带 HTTP 请求能力的聊天工作流，LLM 可自主构造并发送 HTTP 请求 |
-| `scheduled task` | 带定时任务管理的聊天工作流，通过自然语言创建和管理定时任务 |
-| `skills run` | 带技能执行能力的聊天工作流，LLM 可发现并运行已安装的技能 |
-| `tools_user` | 带文件操作工具的 ReAct 智能体工作流，支持沙箱内文件读写编辑 |
-| `skills_importer` | 技能导入工作流，从仓库/URL/文本导入并生成技能包 |
-| `create_workflow` | 工作流创建智能体，通过自然语言生成完整工作流定义 |
-
-每个模板均包含详细的 `description` 字段，说明工作流用途、节点组成和典型场景。
-
-### 4. LLM 分流节点增强（LlmBranchNode）
-
-`ai/llm_branch` 节点全面升级，支持更灵活的路由逻辑：
-
-- **多种匹配运算符**：`Truthy`（默认）、`Exists`、`Equals`、`NotEquals`、`Contains`、`GreaterThan`、`LessThan`
-- **嵌套字段路径**：`field_name` 支持点号路径（如 `action.name`），访问嵌套 JSON 字段
-- **Schema 提示生成**：根据 `branch_fields` 自动生成 JSON Schema 和系统提示片段，可接入上游 LLM 节点引导输出格式
-- **增强兜底元数据**：路由失败时 `context_out` 携带失败原因、已尝试字段列表等诊断信息
+v0.03 is the third preview release of ChengOS. This update spans three days of development across three repositories (**chengos**, **chengflow**, **chengflow-ui**), focusing on **agent strategy overhaul**, **ReAct pipeline improvements**, **file operations enhancement**, **LLM routing node upgrades**, **workflow template library**, **node presets & routing shortcuts**, and **UI rendering improvements**.
 
 ---
 
-## 优化与改进
+## New Features
 
-### 配置架构
-- **全局配置目录**：`CHENG_GLOBAL_CONFIG_DIR` 统一管理 `shortcuts.yaml` 和 `presets.yaml`，Docker 模式默认 `/app/config`，原生模式自动检测安装目录
-- **分层配置体系**：全局配置 → 工作区配置，同 ID/名称可覆盖，支持灵活的多环境部署
-- **环境变量文档化**：`.env.example` 新增 `CHENG_GLOBAL_CONFIG_DIR` 和 `TEMPLATE_WORKFLOWS_DIR` 详细注释
+### 1. Node Presets System
 
-### 工作流模板
-- **自动安装机制**：系统启动时检测 `TEMPLATE_WORKFLOWS_DIR`，自动将模板安装到新工作区
-- **模板描述完善**：所有 9 个工作流模板均添加详细的英文描述，涵盖用途、节点组成和子工作流关系
+Added global node preset configuration (`presets.yaml`) providing pre-defined configuration profiles for common nodes:
+
+- **Preset categories**: `preset_types` classification (e.g. Tool nodes, AI nodes) with hierarchical display in UI
+- **Config patch**: Each preset applies a shallow merge via `config_patch` to the target node configuration
+- **Risk levels**: `low` / `medium` / `high` risk marking; high-risk presets are hidden from LLM by default
+- **LLM visibility**: `llm_visible` field controls whether presets are discoverable by ReAct Agent during tool discovery
+- **Built-in presets**:
+  - `code-safe-mode` — Code execution safe mode (no writes, strict sandbox)
+  - `code-full-access` — Code execution full access mode (writes allowed, no sandbox)
+  - `search-strict` — Search strict match mode (exact match, max 10 results)
+  - `agent-deep-think` — Agent deep thinking mode (30 iterations, deep reasoning)
+- **Layered override**: Global presets in `CHENG_GLOBAL_CONFIG_DIR/presets.yaml`, workspace-level overrides by same ID
+
+### 2. Routing Shortcuts
+
+Added global routing shortcut configuration (`shortcuts.yaml`) for LLM branch nodes (`ai/llm_branch`):
+
+- **Built-in shortcuts**:
+  - `Need Tools` — Route to tool branch (`need_tools: true`, persistent)
+  - `Search` — Route to search action (`action.name: search`, one-shot)
+  - `Deep Think` — Enable deep reasoning mode (`reasoning.mode: deep`, 20 steps, persistent)
+  - `Memory` — Route to memory write branch (`memory: true`, persistent)
+- **Routing modes**: `once` (auto-clear after next turn) / `always` (persistent until manually cleared)
+- **Layered override**: Global shortcuts in `CHENG_GLOBAL_CONFIG_DIR/shortcuts.yaml`, workspace-level overrides by same name
+
+### 3. Workflow Template Library
+
+9 pre-built workflow templates auto-installed to new workspaces on system startup:
+
+| Template | Description |
+|----------|-------------|
+| `main-chat` | Main chat workflow with conditional routing to three sub-workflows (memory chat / no-memory chat / tool agent) |
+| `memory-chat` | Chat workflow with conversation memory, configurable window size and history search |
+| `no-memory-chat` | Lightweight stateless single-turn chat for Q&A and one-shot tasks |
+| `http-tools` | Chat workflow with HTTP request capability; LLM can construct and send HTTP requests |
+| `scheduled-task` | Chat workflow with scheduled task management via natural language |
+| `skills-run` | Chat workflow with skill execution; LLM can discover and run installed skills |
+| `tools-user` | ReAct agent workflow with file operation tools (read/write/edit in sandbox) |
+| `skills-importer` | Skill import workflow from repo/URL/text, generates skill packages |
+| `create-workflow` | Workflow creation agent that generates complete workflow definitions from natural language |
+
+Templates were reorganized from flat JSON files into a directory structure (`template.json` + `workflow.json` per template).
+
+### 4. LLM Branch Node Enhancement
+
+`ai/llm_branch` node fully upgraded with flexible routing logic:
+
+- **Multiple match operators**: `Truthy` (default), `Exists`, `Equals`, `NotEquals`, `Contains`, `GreaterThan`, `LessThan`
+- **Nested field paths**: `field_name` supports dot notation (e.g. `action.name`) for nested JSON access
+- **Schema hint generation**: Auto-generates JSON Schema and system prompt fragments from `branch_fields`
+- **Enhanced fallback metadata**: `context_out` carries failure reason and attempted field list on routing failure
 
 ---
 
-## 环境变量变更
+## Agent Strategy Overhaul (chengflow)
 
-| 变量名 | 默认值 | 说明 |
+### ReAct Pipeline Improvements
+
+- **Plan protocol refactor** (`plan/protocol.rs`): Rewrote the LLM response parsing protocol with stricter JSON parsing, format repair, and checkpoint handling
+- **Prompt optimization** (`plan/prompt.rs`): Reworked system prompt construction with budget-aware token management and first-turn token reduction
+- **Budget snapshot** (`plan/budget_snapshot.rs`): New module for tracking token budget consumption across agent iterations
+- **Reminder policy** (`reminder_policy.rs`): Redesigned reminder injection logic to reduce redundant context in long conversations
+- **Loop driver** (`agent/loop_driver.rs`): Improved loop detection, ambiguous completion confirmation, and tool dispatch flow
+- **Assessment** (`agent/assessment.rs`): Enhanced completion detection and loop-failure diagnosis
+- **Finalization** (`agent/finalization.rs`): Refined final answer extraction and trace durability
+- **Tool adapter** (`agent/tools/adapter.rs`): Expanded tool discovery, schema generation, and LLM-visible tool exposure control
+- **Types** (`strategy/types.rs`): Extended `AgentContext`, `AgentLimits`, and observation types for the new protocol
+- **Observation builder** (`observation.rs`): Improved observation message construction with metadata-first inline cleanup
+- **Compaction** (`compaction/executor.rs`, `compaction/mod.rs`): Enhanced context compaction for long-running agent sessions
+
+### Agent Think/Tools Mode Rendering
+
+- **WebSocket events** (`cheng-api/src/ws/events.rs`): Restructured event payload to separate think-mode and tools-mode traces
+- **CLI tool summary** (`cheng-cli/src/tool_summary.rs`): New module for summarizing tool usage in CLI output
+- **TUI trace rendering** (`cheng-cli/src/tui/trace.rs`, `tui/app.rs`): Improved trace display with think/tools mode visualization
+- **Coherence metrics** (`cheng-core/src/services/coherence_metrics.rs`): New metrics for tracking agent coherence across turns
+- **Agent completion loop tests** (`tests/agent_completion_loop.rs`): New test suite for loop detection and completion behavior
+
+### Routing Node Debugging
+
+- **Condition router** (`utils/condition_router.rs`): Reworked condition evaluation logic with improved error handling
+- **Sub-flow tools** (`tools/sub_flow.rs`, `tools/batch_sub_flow.rs`): Enhanced sub-workflow invocation with better context passing
+- **Workflow REST API** (`rest/handlers/workflow/mod.rs`, `rest/routes.rs`): New endpoints for workflow management
+- **Workflow file import** (`cheng-storage/src/workflow_file_import/service.rs`): Improved import validation and error reporting
+
+---
+
+## File Operations Enhancement (chengflow)
+
+- **`view_file`** (`cheng-file-ops/src/view_file.rs`): Large file preview support with configurable line limits and syntax-aware truncation
+- **`list_directory`** (`cheng-file-ops/src/list_directory.rs`): Enhanced directory listing with metadata, sorting, and filtering
+- **File ops dispatch** (`cheng-file-ops/src/dispatch.rs`): Reworked dispatch logic for unified file operation handling
+- **File ops spec** (`cheng-file-ops/src/spec.rs`): New specification module for file operation parameters
+- **File ops validation** (`cheng-file-ops/src/validation.rs`): Enhanced input validation for file operations
+- **Hub description** (`file_ops/hub_description.rs`): New module for generating tool descriptions exposed to LLM
+- **Regression tests** (`call_corpus_regression.rs`): New regression test corpus for file operation calls
+
+---
+
+## LLM Provider & Chat Improvements (chengflow)
+
+- **Anthropic provider** (`cheng-llm/src/providers/anthropic.rs`): Improved response parsing and error handling
+- **LLM module** (`ai/llm/mod.rs`): Enhanced LLM node configuration and context merge logic
+- **Chat history projection** (`chat/history_projection.rs`): Improved history windowing and projection for multi-turn conversations
+- **Session store** (`chat/session_store.rs`): Enhanced session persistence with better history management
+- **Demo mode middleware** (`cheng-api/src/middleware/demo_mode.rs`): New demo mode middleware for API
+- **LLM REST handler** (`cheng-api/src/rest/handlers/llm/mod.rs`): New REST endpoints for LLM interaction
+
+---
+
+## UI Improvements (chengflow-ui)
+
+- **Agent think/tools mode rendering**: `MessageBubble`, `useConversationWebSocket`, `assistantPresentation`, `executionTrace` utils updated to render agent thinking steps and tool usage in chat UI
+- **Stream chunk routing**: `streamChunkRouting` test updated for new event protocol
+- **Conversation types** (`types/conversation.ts`): Extended type definitions for think/tools mode support
+- **ChatInput** (`ChatInput.tsx`): Routing toolbar integration for LLM branch shortcuts
+- **i18n** (`i18n.ts`): New translation keys for routing features
+- **Full UI asset rebuild**: All production JS/CSS assets rebuilt with latest frontend changes
+
+---
+
+## Configuration & Deployment (chengos)
+
+- **Global config directory**: `CHENG_GLOBAL_CONFIG_DIR` manages `shortcuts.yaml` and `presets.yaml`; Docker mode defaults to `/app/config`, native mode auto-detects install directory
+- **Layered config system**: Global config → workspace config, same ID/name overrides supported
+- **Template auto-install**: System detects `TEMPLATE_WORKFLOWS_DIR` on startup and auto-installs templates to new workspaces
+- **README updated**: Updated with latest deployment instructions and screenshots
+- **Deployment images**: Updated config images for documentation
+
+---
+
+## Environment Variables
+
+| Variable | Default | Description |
 |---|---|---|
-| `CHENG_GLOBAL_CONFIG_DIR` | 自动检测 | 全局配置目录（`shortcuts.yaml` / `presets.yaml`），v0.02 引入，v0.03 完善配置内容 |
-| `TEMPLATE_WORKFLOWS_DIR` | 自动检测 | 工作流模板目录，v0.02 引入，v0.03 填充 9 个预置模板 |
+| `CHENG_GLOBAL_CONFIG_DIR` | Auto-detected | Global config directory (`shortcuts.yaml` / `presets.yaml`); introduced in v0.02, content added in v0.03 |
+| `TEMPLATE_WORKFLOWS_DIR` | Auto-detected | Workflow template directory; introduced in v0.02, 9 templates added in v0.03 |
 
-> 无新增环境变量，以上两项在 v0.02 已定义，v0.03 补充了实际配置文件和模板内容。
+> No new environment variables; both were defined in v0.02 and populated with actual content in v0.03.
 
 ---
 
-## 升级说明
+## Upgrade Instructions
 
-### 从 v0.02 升级
+### From v0.02
 
 ```bash
-# 下载最新安装包
+# Download latest build
 ./chengos.sh update
 
-# 或手动升级
+# Or manual upgrade
 ./build.sh --hybrid
-# 然后将 dist/chengos-full-linux-amd64.tar.gz 传到服务器执行 chengos.sh update
+# Then transfer dist/chengos-full-linux-amd64.tar.gz to server and run chengos.sh update
 ```
 
-升级后，新的 `presets.yaml` 和 `shortcuts.yaml` 会自动部署到全局配置目录，9 个工作流模板会安装到新创建的工作区。已有工作区不受影响，可通过手动导入模板获取新工作流。
+After upgrade, new `presets.yaml` and `shortcuts.yaml` are deployed to the global config directory, and 9 workflow templates are installed to new workspaces. Existing workspaces are unaffected; templates can be imported manually.
 
-### 全新安装
+### Fresh Install
 
 ```bash
-# Docker 模式
+# Docker mode
 curl -fsSL https://raw.githubusercontent.com/chengrouter/chengos/main/deploy/chengos.sh | bash
 
-# 原生二进制模式
+# Native binary mode
 curl -fsSL https://raw.githubusercontent.com/chengrouter/chengos/main/deploy/chengos.sh | bash -s -- --mode native
 ```
 
-安装完成后编辑 `.env` 文件配置数据库密码和密钥，然后启动：
+After installation, edit `.env` to configure database password and secret key, then start:
 
 ```bash
 ./chengos.sh start
@@ -128,16 +190,16 @@ curl -fsSL https://raw.githubusercontent.com/chengrouter/chengos/main/deploy/che
 
 ---
 
-## 已知限制
+## Known Limitations
 
-- 节点预设的 UI 选择面板仍在开发中，当前通过配置文件管理
-- 分流快捷方式的 UI 切换入口尚未完成，当前通过 API 和配置文件使用
-- 工作流模板为只读源，用户基于模板创建的工作流副本与模板无关联更新机制
-- `presets.yaml` 的 `config_patch` 为浅合并，不支持嵌套对象的深度合并
+- Node preset UI selection panel is still under development; currently managed via config files
+- Routing shortcut UI toggle is not yet complete; currently used via API and config files
+- Workflow templates are read-only sources; user copies created from templates have no update association with the source template
+- `presets.yaml` `config_patch` uses shallow merge; deep merge of nested objects is not supported
 
 ---
 
-## 反馈
+## Feedback
 
 - GitHub Issues: https://github.com/chengrouter/chengos/issues
-- 社区平台: ChengHub
+- Community: ChengHub
