@@ -138,7 +138,8 @@ if [[ "$LANG_VAL" == "zh" ]]; then
     t[menu_uninstall]="9) 卸载/停用模块 (Uninstall)"
     t[menu_lang]="10) 切换语言 (Switch Language)"
     t[menu_exit]="11) 退出 (Exit)"
-    t[select_op]="请选择操作 [1-11]: "
+    t[menu_reset_credentials]="12) 重置登录用户名/密码 (Reset Credentials)"
+    t[select_op]="请选择操作 [1-12]: "
     t[mode_select]="请选择安装模式:\n  1) 二进制原生安装 (Native Host)\n  2) Docker 容器化安装 (Docker)"
     t[mode_prompt]="选择 [1-2] (默认 1): "
     t[install_config]="请选择安装配置:\n  1) 全量安装 (默认)\n  2) 最小安装 (Postgres + API + UI)\n  3) 自定义选择"
@@ -166,6 +167,7 @@ if [[ "$LANG_VAL" == "zh" ]]; then
     t[db_mode_prompt]="选择 [1-2] (默认 1): "
     t[prompt_ui_port]="请输入 UI 端口 (默认 8080): "
     t[prompt_app_port]="请输入 App 端口 (默认 5055): "
+    t[prompt_workspace_root]="请输入工作区根目录路径 (留空则使用默认 ./workspaces): "
     t[press_enter]="按回车键继续..."
     t[prompt_stop_db]="是否同时停止/删除数据库服务? (y/n) [默认 n]: "
     t[update_type_select]="请选择更新类型:"
@@ -194,6 +196,14 @@ if [[ "$LANG_VAL" == "zh" ]]; then
     t[symlink_cheng_hint]="现在你可以在任何地方运行 'cheng' 快速开启命令行对话（默认使用免密文件存储凭证）。"
     t[exit_msg]="再见！"
     t[invalid_op]="无效选项: %s"
+    t[reset_title]="重置登录凭证"
+    t[reset_target_prompt]="现有用户名或邮箱 (只有一个账号时可留空): "
+    t[reset_username_prompt]="新用户名 (留空不修改): "
+    t[reset_email_prompt]="新邮箱 (留空不修改): "
+    t[reset_password_prompt]="新密码 (至少 8 位，留空不修改): "
+    t[reset_password_confirm]="再次输入新密码: "
+    t[reset_password_mismatch]="两次输入的密码不一致。"
+    t[reset_failed]="凭证重置失败。"
 else
     t[banner]="===========================================\n       ChengOS Unified Management Utility\n==========================================="
     t[menu_install]="1) Install/Initialize Modules"
@@ -207,7 +217,8 @@ else
     t[menu_uninstall]="9) Uninstall/Stop Modules"
     t[menu_lang]="10) Switch Language"
     t[menu_exit]="11) Exit"
-    t[select_op]="Select option [1-11]: "
+    t[menu_reset_credentials]="12) Reset Login Username/Password"
+    t[select_op]="Select option [1-12]: "
     t[mode_select]="Select Installation Mode:\n  1) Native Host Binary\n  2) Docker Containers"
     t[mode_prompt]="Choose [1-2] (Default 1): "
     t[install_config]="Select Modules Configuration:\n  1) Full Installation (Default)\n  2) Minimal (Postgres + API + UI)\n  3) Custom Selection"
@@ -235,6 +246,7 @@ else
     t[db_mode_prompt]="Choose [1-2] (Default 1): "
     t[prompt_ui_port]="Select UI port (Default 8080): "
     t[prompt_app_port]="Select App port (Default 5055): "
+    t[prompt_workspace_root]="Enter workspace root path (leave empty for default ./workspaces): "
     t[press_enter]="Press Enter to continue..."
     t[prompt_stop_db]="Do you also want to stop/delete database services? (y/n) [Default n]: "
     t[update_type_select]="Select update type:"
@@ -263,6 +275,14 @@ else
     t[symlink_cheng_hint]="Now you can run 'cheng' from anywhere to quickly start the chat (defaults to passwordless file storage)."
     t[exit_msg]="Goodbye!"
     t[invalid_op]="Invalid option: %s"
+    t[reset_title]="Reset Login Credentials"
+    t[reset_target_prompt]="Current username or email (leave empty if only one account exists): "
+    t[reset_username_prompt]="New username (leave empty to keep): "
+    t[reset_email_prompt]="New email (leave empty to keep): "
+    t[reset_password_prompt]="New password (min 8 chars; leave empty to keep): "
+    t[reset_password_confirm]="Confirm new password: "
+    t[reset_password_mismatch]="The passwords do not match."
+    t[reset_failed]="Credential reset failed."
 fi
 
 # ── Local Tarball Detection ───────────────────────────────────────────────────
@@ -411,6 +431,238 @@ detect_install_mode() {
         printf 'docker\n'
     else
         printf 'native\n'
+    fi
+}
+
+# ── Bubblewrap (bwrap) Dependency Check ──────────────────────────────────────
+# The code_shell / code_python nodes require bubblewrap for OS-namespace
+# sandboxing. This function checks for bwrap and installs it automatically
+# via the system package manager when it is absent.
+ensure_bubblewrap() {
+    if command -v bwrap > /dev/null 2>&1; then
+        echo "[✓] bubblewrap (bwrap) is already installed: $(command -v bwrap)"
+        return 0
+    fi
+
+    echo "[!] bubblewrap (bwrap) is not installed. Required for sandboxed code execution."
+    echo "    Attempting automatic installation..."
+
+    if command -v apt-get > /dev/null 2>&1; then
+        ${SUDO} apt-get update -qq
+        ${SUDO} apt-get install -y bubblewrap
+    elif command -v dnf > /dev/null 2>&1; then
+        ${SUDO} dnf install -y bubblewrap
+    elif command -v yum > /dev/null 2>&1; then
+        # CentOS 7 is EOL: mirrorlist.centos.org is dead, repos must point to vault.
+        # Auto-fix before any yum operation so installation doesn't fail on stale mirrors.
+        if [[ -d /etc/yum.repos.d ]] && ! command -v dnf > /dev/null 2>&1; then
+            local _needs_vault_fix=false
+            for _repo in /etc/yum.repos.d/CentOS-*.repo; do
+                [[ -f "$_repo" ]] || continue
+                if grep -q 'mirrorlist=' "$_repo" 2>/dev/null; then
+                    _needs_vault_fix=true
+                    break
+                fi
+            done
+            if [[ "$_needs_vault_fix" == true ]]; then
+                echo "[!] CentOS 7 mirrors are EOL. Switching to vault.centos.org..."
+                ${SUDO} sed -i \
+                    's|^mirrorlist=|#mirrorlist=|g; s|^#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' \
+                    /etc/yum.repos.d/CentOS-*.repo
+            fi
+        fi
+        # bubblewrap is in EPEL, not CentOS/RHEL base repos
+        if ! rpm -q epel-release > /dev/null 2>&1; then
+            ${SUDO} yum install -y epel-release 2>/dev/null || true
+        fi
+        ${SUDO} yum install -y bubblewrap
+    elif command -v pacman > /dev/null 2>&1; then
+        ${SUDO} pacman -Sy --noconfirm bubblewrap
+    elif command -v zypper > /dev/null 2>&1; then
+        ${SUDO} zypper install -y bubblewrap
+    elif command -v apk > /dev/null 2>&1; then
+        ${SUDO} apk add --no-cache bubblewrap
+    else
+        echo "ERROR: No supported package manager found. Please install bubblewrap manually:" >&2
+        echo "  Debian/Ubuntu: sudo apt-get install bubblewrap" >&2
+        echo "  RHEL/CentOS:   sudo dnf install bubblewrap" >&2
+        echo "  Arch Linux:    sudo pacman -S bubblewrap" >&2
+        return 1
+    fi
+
+    if ! command -v bwrap > /dev/null 2>&1; then
+        echo "ERROR: bubblewrap installation failed. Please install it manually." >&2
+        if command -v yum > /dev/null 2>&1 && ! command -v dnf > /dev/null 2>&1; then
+            echo "  For CentOS/RHEL 7:" >&2
+            echo "    1. Enable EPEL:  sudo yum install epel-release" >&2
+            echo "    2. Install:      sudo yum install bubblewrap" >&2
+            echo "  If base mirrors are dead (CentOS 7 EOL), switch to vault:" >&2
+            echo "    sudo sed -i 's|mirrorlist=|#mirrorlist=|g; s|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*.repo" >&2
+        fi
+        return 1
+    fi
+    echo "[✓] bubblewrap installed successfully: $(command -v bwrap)"
+
+    # Verify kernel supports unprivileged user namespaces (required for bwrap)
+    local clone_unpriv="/proc/sys/kernel/unprivileged_userns_clone"
+    if [[ -f "$clone_unpriv" ]]; then
+        local val
+        val="$(cat "$clone_unpriv" 2>/dev/null || echo 1)"
+        if [[ "$val" != "1" ]]; then
+            echo "[!] Enabling kernel.unprivileged_userns_clone=1 for bubblewrap..."
+            ${SUDO} sysctl -w kernel.unprivileged_userns_clone=1 || true
+            # Persist across reboots
+            if [[ -d /etc/sysctl.d ]]; then
+                echo 'kernel.unprivileged_userns_clone=1' | ${SUDO} tee /etc/sysctl.d/99-bubblewrap.conf > /dev/null
+                echo "    Persisted to /etc/sysctl.d/99-bubblewrap.conf"
+            fi
+        fi
+    fi
+}
+
+# ── Systemd User Session Setup ────────────────────────────────────────────────
+# When cheng-api is started from a systemd service, SSH session, or any other
+# non-login shell, the user-scope D-Bus socket and XDG_RUNTIME_DIR may not be
+# set. Without them, systemd-run --user (used by bubblewrap cgroup v2 memory
+# limiting) will fail with a D-Bus error.
+#
+# This function:
+#   1. Enables systemd-user linger so the user session survives after logout.
+#   2. Sets XDG_RUNTIME_DIR and DBUS_SESSION_BUS_ADDRESS in the current shell
+#      session so cheng-api can invoke systemd-run --user without errors.
+#   3. Adds the environment variables to the .env file so they are inherited
+#      by the cheng-api process on every restart.
+setup_systemd_user_session() {
+    local shared_dir="$1"
+    local uid
+    uid="$(id -u)"
+    local user_runtime_dir="/run/user/${uid}"
+
+    # 1. Enable linger so the user session stays alive without an active login.
+    if command -v loginctl > /dev/null 2>&1; then
+        local current_user
+        current_user="$(id -un)"
+        if loginctl show-user "$current_user" 2>/dev/null | grep -q 'Linger=yes'; then
+            echo "[✓] systemd-user linger already enabled for ${current_user}"
+        else
+            echo "    Enabling systemd-user linger for ${current_user}..."
+            ${SUDO} loginctl enable-linger "$current_user" 2>/dev/null \
+                && echo "[✓] loginctl enable-linger OK" \
+                || echo "[!] loginctl enable-linger failed (non-fatal, continuing)"
+        fi
+    fi
+
+    # 2. Explicitly start the systemd user manager for this UID if not running.
+    #    On servers (especially root via SSH), user@<uid>.service may not be active
+    #    even with linger enabled. This creates /run/user/<uid>/ and the bus socket.
+    if [[ ! -d "$user_runtime_dir" ]] && command -v systemctl > /dev/null 2>&1; then
+        echo "    Starting systemd user manager for uid=${uid}..."
+        systemctl start "user@${uid}.service" 2>/dev/null \
+            && echo "[✓] user@${uid}.service started" \
+            || echo "[!] user@${uid}.service start failed (non-fatal, continuing)"
+    fi
+
+    # 3. Wait briefly for the runtime dir to appear (linger activation is async).
+    if [[ ! -d "$user_runtime_dir" ]]; then
+        echo "    Waiting for systemd user runtime dir ${user_runtime_dir}..."
+        local waited=0
+        while [[ ! -d "$user_runtime_dir" && $waited -lt 5 ]]; do
+            sleep 1
+            waited=$((waited + 1))
+        done
+    fi
+
+    # 4. Export env vars in the current shell so subsequent commands inherit them.
+    if [[ -d "$user_runtime_dir" ]]; then
+        export XDG_RUNTIME_DIR="$user_runtime_dir"
+        echo "[✓] XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR}"
+        local bus_socket="${user_runtime_dir}/bus"
+        local bus_addr="unix:path=${bus_socket}"
+
+        # If the D-Bus session bus socket doesn't exist yet, try multiple approaches.
+        if [[ ! -S "$bus_socket" ]]; then
+            echo "    D-Bus session bus socket not found at ${bus_socket}, attempting to start it..."
+
+            # 4a. Try systemctl --user start dbus (works when user manager is running)
+            if command -v systemctl > /dev/null 2>&1; then
+                systemctl --user start dbus 2>/dev/null \
+                    && echo "[✓] systemctl --user start dbus OK" \
+                    || echo "[!] systemctl --user start dbus failed"
+            fi
+
+            # 4b. Try dbus-launch as a fallback (creates a new session bus)
+            if [[ ! -S "$bus_socket" ]] && command -v dbus-launch > /dev/null 2>&1; then
+                echo "    Trying dbus-launch fallback..."
+                local dbus_launch_output
+                dbus_launch_output="$(dbus-launch --sh-syntax 2>/dev/null || true)"
+                if echo "$dbus_launch_output" | grep -q "DBUS_SESSION_BUS_ADDRESS="; then
+                    bus_addr="$(echo "$dbus_launch_output" | grep "DBUS_SESSION_BUS_ADDRESS=" | head -1 | cut -d= -f2- | tr -d "'\"")"
+                    bus_socket=""  # socket path may differ from the default
+                    echo "[✓] dbus-launch started a session bus: ${bus_addr}"
+                fi
+            fi
+
+            # 4c. Try dbus-daemon directly (when dbus-launch is not installed)
+            if [[ -n "$bus_socket" && ! -S "$bus_socket" ]] && command -v dbus-daemon > /dev/null 2>&1; then
+                echo "    Trying dbus-daemon fallback..."
+                dbus-daemon --session --print-address --fork \
+                    --address="unix:path=${bus_socket}" 2>/dev/null \
+                    && echo "[✓] dbus-daemon started at ${bus_socket}" \
+                    || echo "[!] dbus-daemon start failed"
+            fi
+
+            # 4d. Brief wait for socket to appear after start attempts
+            if [[ -n "$bus_socket" && ! -S "$bus_socket" ]]; then
+                local waited2=0
+                while [[ ! -S "$bus_socket" && $waited2 -lt 3 ]]; do
+                    sleep 1
+                    waited2=$((waited2 + 1))
+                done
+            fi
+        fi
+
+        if [[ -z "$bus_socket" || -S "$bus_socket" ]]; then
+            export DBUS_SESSION_BUS_ADDRESS="$bus_addr"
+            echo "[✓] DBUS_SESSION_BUS_ADDRESS=${DBUS_SESSION_BUS_ADDRESS}"
+        else
+            # Socket still missing — set the default address anyway; systemd-run
+            # will attempt to connect and fail gracefully if the bus is truly gone.
+            export DBUS_SESSION_BUS_ADDRESS="$bus_addr"
+            echo "[!] D-Bus socket not available at ${bus_socket} — set DBUS_SESSION_BUS_ADDRESS=${bus_addr} (may fail at runtime)"
+        fi
+    else
+        echo "[!] ${user_runtime_dir} not available — cgroup v2 memory limit will fall back to prlimit/ulimit (safe, non-fatal)"
+    fi
+
+    # 4. Persist the env vars into the installation .env file so cheng-api
+    #    always starts with them, even when launched by a systemd unit or cron.
+    if [[ -n "${shared_dir:-}" && -f "${shared_dir}/.env" ]]; then
+        local env_file="${shared_dir}/.env"
+
+        persist_env_var() {
+            local key="$1"
+            local val="$2"
+            [[ -n "$val" ]] || return 0
+            if grep -q "^${key}=" "$env_file"; then
+                # Update only if the value differs
+                local existing
+                existing="$(grep "^${key}=" "$env_file" | head -1 | cut -d= -f2-)"
+                if [[ "$existing" != "$val" ]]; then
+                    sed -i "s|^${key}=.*|${key}=${val}|" "$env_file"
+                    echo "    Updated ${key} in .env"
+                fi
+            else
+                {
+                    echo ""
+                    echo "# Systemd user session (for bubblewrap cgroup v2 memory limit)"
+                    echo "${key}=${val}"
+                } >> "$env_file"
+                echo "    Added ${key} to .env"
+            fi
+        }
+
+        persist_env_var "XDG_RUNTIME_DIR" "${XDG_RUNTIME_DIR:-}"
+        persist_env_var "DBUS_SESSION_BUS_ADDRESS" "${DBUS_SESSION_BUS_ADDRESS:-}"
     fi
 }
 
@@ -786,6 +1038,7 @@ setup_native_env() {
     local enable_qdrant="$3"
     local ui_port="$4"
     local app_port="$5"
+    local workspace_root="${6:-}"
 
     local shared_dir
     shared_dir="$(resolve_shared_dir)"
@@ -797,15 +1050,41 @@ setup_native_env() {
     export UI_PORT="$ui_port"
     export APP_PORT="$app_port"
 
+    local gen_args=()
+    [[ -n "$workspace_root" ]] && gen_args+=(--workspace-root "$workspace_root")
+
     if [[ -f .env ]]; then
-        echo "Using existing environment configuration: ${shared_dir}/.env"
+        # Check for placeholder values indicating incomplete env generation
+        if grep -qE 'replace_with_|change_this_' .env 2>/dev/null; then
+            echo "[!] Existing .env has placeholder values. Regenerating with --force..."
+            gen_args+=(--force)
+            bash generate-env.sh "${gen_args[@]+"${gen_args[@]}"}"
+        else
+            echo "Using existing environment configuration: ${shared_dir}/.env"
+            # Persist workspace_root into existing .env if provided
+            if [[ -n "$workspace_root" ]]; then
+                local env_file="${shared_dir}/.env"
+                if grep -q "^#\?CHENG_WORKSPACE_ROOT=" "$env_file"; then
+                    sed -i "s|^#\?CHENG_WORKSPACE_ROOT=.*|CHENG_WORKSPACE_ROOT=${workspace_root}|" "$env_file"
+                else
+                    echo "" >> "$env_file"
+                    echo "# Workspace root for non-CLI workflow execution" >> "$env_file"
+                    echo "CHENG_WORKSPACE_ROOT=${workspace_root}" >> "$env_file"
+                fi
+                echo "Configured CHENG_WORKSPACE_ROOT=${workspace_root} in .env"
+            fi
+        fi
     else
         echo "Generating environment configuration (.env)..."
-        bash generate-env.sh
+        bash generate-env.sh "${gen_args[@]+"${gen_args[@]}"}"
     fi
     # Keep native/binary runs logging to the installation-local logs directory.
     # Docker deployments set their container log path in docker-compose.yml.
     ensure_native_log_file_envs "$shared_dir"
+
+    # Configure systemd user session environment for bubblewrap cgroup v2 support.
+    # This sets XDG_RUNTIME_DIR / DBUS_SESSION_BUS_ADDRESS and persists them to .env.
+    setup_systemd_user_session "$shared_dir"
 }
 
 # Setup env for docker
@@ -1271,6 +1550,63 @@ uninstall_native_install() {
 
 # ── CLI Commands Execution ───────────────────────────────────────────────────
 
+reset_login_credentials() {
+    local install_mode shared_dir docker_dir target new_username new_email new_password confirm
+    local reset_args=(reset-credentials)
+
+    install_mode="$(detect_install_mode)"
+    shared_dir="$(resolve_shared_dir)"
+    docker_dir="$(resolve_docker_dir)"
+
+    echo "${t[reset_title]}"
+    echo ""
+    read -r -p "${t[reset_target_prompt]}" target < /dev/tty
+    read -r -p "${t[reset_username_prompt]}" new_username < /dev/tty
+    read -r -p "${t[reset_email_prompt]}" new_email < /dev/tty
+    read -r -s -p "${t[reset_password_prompt]}" new_password < /dev/tty
+    echo ""
+    if [[ -n "$new_password" ]]; then
+        read -r -s -p "${t[reset_password_confirm]}" confirm < /dev/tty
+        echo ""
+        if [[ "$new_password" != "$confirm" ]]; then
+            echo "${t[reset_password_mismatch]}" >&2
+            return 1
+        fi
+    fi
+
+    [[ -n "$target" ]] && reset_args+=(--user "$target")
+    [[ -n "$new_username" ]] && reset_args+=(--username "$new_username")
+    [[ -n "$new_email" ]] && reset_args+=(--email "$new_email")
+    if [[ -n "$new_password" ]]; then
+        reset_args+=(--password-stdin)
+    else
+        reset_args+=(--no-password)
+    fi
+
+    if [[ "$install_mode" == "docker" ]]; then
+        ensure_docker_compose
+        if [[ -n "$new_password" ]]; then
+            printf '%s' "$new_password" | (cd "$docker_dir" && docker compose --env-file ../.env run --rm -T api "${reset_args[@]}")
+        else
+            (cd "$docker_dir" && docker compose --env-file ../.env run --rm -T api "${reset_args[@]}")
+        fi
+    else
+        if [[ ! -x "${shared_dir}/bin/cheng-api" ]]; then
+            echo "cheng-api binary not found: ${shared_dir}/bin/cheng-api" >&2
+            return 1
+        fi
+        if [[ -f "${shared_dir}/.env" ]]; then
+            # shellcheck disable=SC1090
+            set -a; source "${shared_dir}/.env"; set +a
+        fi
+        if [[ -n "$new_password" ]]; then
+            printf '%s' "$new_password" | (cd "$shared_dir" && "${shared_dir}/bin/cheng-api" "${reset_args[@]}")
+        else
+            (cd "$shared_dir" && "${shared_dir}/bin/cheng-api" "${reset_args[@]}")
+        fi
+    fi
+}
+
 if [[ $# -gt 0 ]]; then
     CMD="$1"
     shift
@@ -1280,6 +1616,7 @@ if [[ $# -gt 0 ]]; then
     DB_INSTALL_MODE="managed-process"
     UI_PORT=8080
     APP_PORT=5055
+    WORKSPACE_ROOT=""
     WITH_INFRA_OPT="false"
     UPDATE_KIND="auto"
     FORCE_UPDATE="false"
@@ -1314,6 +1651,10 @@ if [[ $# -gt 0 ]]; then
                 ;;
             --app-port)
                 APP_PORT="$2"
+                shift 2
+                ;;
+            --workspace-root)
+                WORKSPACE_ROOT="$2"
                 shift 2
                 ;;
             --with-infra)
@@ -1489,7 +1830,10 @@ if [[ $# -gt 0 ]]; then
                 setup_docker_env "$enable_redis" "$enable_qdrant" "$UI_PORT" "$APP_PORT"
                 docker compose pull || true
             else
-                setup_native_env "$DB_INSTALL_MODE" "$enable_redis" "$enable_qdrant" "$UI_PORT" "$APP_PORT"
+                # 3a. Check & install bubblewrap (required for code_shell / code_python nodes)
+                ensure_bubblewrap || echo "[!] bubblewrap unavailable — sandboxed code nodes will fail until it is installed"
+                # 3b. Setup .env and systemd user session (XDG_RUNTIME_DIR / DBUS)
+                setup_native_env "$DB_INSTALL_MODE" "$enable_redis" "$enable_qdrant" "$UI_PORT" "$APP_PORT" "$WORKSPACE_ROOT"
             fi
             write_install_metadata "$MODE"
 
@@ -1604,6 +1948,10 @@ if [[ $# -gt 0 ]]; then
             echo "Installing cheng CLI (target: ${CLI_TARGET})..."
             install_cli_standalone "$CLI_TARGET" "$SERVER_URL"
             ;;
+
+        reset-credentials|reset-admin)
+            reset_login_credentials
+            ;;
             
         *)
             echo "Unknown command: $CMD"
@@ -1629,6 +1977,7 @@ while true; do
     echo "  ${t[menu_uninstall]}"
     echo "  ${t[menu_lang]}"
     echo "  ${t[menu_exit]}"
+    echo "  ${t[menu_reset_credentials]}"
     echo "==========================================="
     read -p "${t[select_op]}" op < /dev/tty
     
@@ -1695,6 +2044,11 @@ while true; do
             read -p "${t[prompt_app_port]}" app_p < /dev/tty
             app_port="${app_p:-5055}"
 
+            workspace_root=""
+            if [[ "$install_mode" == "native" ]]; then
+                read -p "${t[prompt_workspace_root]}" workspace_root < /dev/tty
+            fi
+
             modules_list="api"
             [[ "$enable_redis" == "true" ]] && modules_list="${modules_list},redis"
             [[ "$enable_qdrant" == "true" ]] && modules_list="${modules_list},qdrant"
@@ -1703,7 +2057,9 @@ while true; do
             [[ "$enable_cli" == "true" ]] && modules_list="${modules_list},cli"
             
             echo ""
-            bash "$0" install --mode "$install_mode" --with "$modules_list" --db-install-mode "$db_mode" --ui-port "$ui_port" --app-port "$app_port"
+            install_args=(install --mode "$install_mode" --with "$modules_list" --db-install-mode "$db_mode" --ui-port "$ui_port" --app-port "$app_port")
+            [[ -n "$workspace_root" ]] && install_args+=(--workspace-root "$workspace_root")
+            bash "$0" "${install_args[@]}"
             read -p "${t[press_enter]}" dummy < /dev/tty
             ;;
             
@@ -1890,6 +2246,15 @@ EOF
         11)
             echo "${t[exit_msg]}"
             exit 0
+            ;;
+
+        12)
+            clear
+            if ! reset_login_credentials; then
+                echo ""
+                echo "${t[reset_failed]}" >&2
+            fi
+            read -p "${t[press_enter]}" dummy < /dev/tty
             ;;
             
         *)

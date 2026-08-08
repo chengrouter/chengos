@@ -19,6 +19,7 @@ DB_INSTALL_MODE=""
 ENABLE_REDIS=""
 ENABLE_QDRANT=""
 CLI_WORKSPACE=""
+WORKSPACE_ROOT=""
 PUBLIC_UI_URL=""
 PUBLIC_APP_URL=""
 PUBLIC_API_URL=""
@@ -41,6 +42,7 @@ Options:
   --enable-redis true|false   Set ENABLE_REDIS
   --enable-qdrant true|false  Set ENABLE_QDRANT
   --cli-workspace PATH     Set CHENG_CLI_ALLOWED_ROOTS to an absolute workspace path
+  --workspace-root PATH    Set CHENG_WORKSPACE_ROOT to an absolute workspace root path
   --public-ui-url URL      Set PUBLIC_UI_URL (docker deployments)
   --public-app-url URL     Set PUBLIC_APP_URL (docker deployments)
   --public-api-url URL     Set PUBLIC_API_URL (docker deployments)
@@ -93,6 +95,11 @@ while [[ $# -gt 0 ]]; do
             [[ -n "$CLI_WORKSPACE" ]] || fail "--cli-workspace requires a value"
             shift 2
             ;;
+        --workspace-root)
+            WORKSPACE_ROOT="${2:-}"
+            [[ -n "$WORKSPACE_ROOT" ]] || fail "--workspace-root requires a value"
+            shift 2
+            ;;
         --public-ui-url)
             PUBLIC_UI_URL="${2:-}"
             [[ -n "$PUBLIC_UI_URL" ]] || fail "--public-ui-url requires a value"
@@ -142,7 +149,15 @@ replace_env_line() {
     local key="$1"
     local value="$2"
 
-    KEY="$key" VALUE="$value" perl -0pi -e 's/^(#+\s*)?\Q$ENV{KEY}\E=.*/$ENV{KEY}."=".$ENV{VALUE}/me' "$ENV_FILE"
+    if command -v perl > /dev/null 2>&1; then
+        KEY="$key" VALUE="$value" perl -0pi -e 's/^(#+\s*)?\Q$ENV{KEY}\E=.*/$ENV{KEY}."=".$ENV{VALUE}/me' "$ENV_FILE"
+    else
+        # sed fallback: use | as delimiter (the pattern contains # for matching commented lines)
+        # escape & and | in the replacement value
+        local escaped_value="${value//&/\\&}"
+        escaped_value="${escaped_value//|/\\|}"
+        sed -i "s|^\(#*[[:space:]]*\)${key}=.*|${key}=${escaped_value}|" "$ENV_FILE"
+    fi
 }
 
 replace_env_line "POSTGRES_PASSWORD" "${postgres_password}"
@@ -171,6 +186,12 @@ if [[ -n "$CLI_WORKSPACE" ]]; then
     mkdir -p "$CLI_WORKSPACE"
     CLI_WORKSPACE="$(cd "$CLI_WORKSPACE" && pwd)"
     replace_env_line "CHENG_CLI_ALLOWED_ROOTS" "${CLI_WORKSPACE}"
+fi
+
+if [[ -n "$WORKSPACE_ROOT" ]]; then
+    mkdir -p "$WORKSPACE_ROOT"
+    WORKSPACE_ROOT="$(cd "$WORKSPACE_ROOT" && pwd)"
+    replace_env_line "CHENG_WORKSPACE_ROOT" "${WORKSPACE_ROOT}"
 fi
 
 # Resolve global config and workflow template directories relative to the

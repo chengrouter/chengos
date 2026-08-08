@@ -38,7 +38,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-bash generate-env.sh "${args[@]}"
+bash generate-env.sh "${args[@]+"${args[@]}"}"
 
 # Apply distributed-specific overrides if a VPS env file is present.
 if [[ -f "$VPS_ENV_FILE" ]]; then

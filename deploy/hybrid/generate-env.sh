@@ -21,4 +21,4 @@ args=()
 [[ -n "${APP_PORT:-}" ]] && args+=("--app-port" "$APP_PORT")
 [[ -n "${CHENG_CLI_WORKSPACE:-}" ]] && args+=("--cli-workspace" "$CHENG_CLI_WORKSPACE")
 
-exec bash generate-env.sh "${args[@]}" "$@"
+exec bash generate-env.sh "${args[@]+"${args[@]}"}" "$@"

@@ -67,7 +67,13 @@ replace_env_line() {
   local key="$1"
   local value="$2"
 
-  KEY="$key" VALUE="$value" perl -0pi -e 's/^\Q$ENV{KEY}\E=.*/$ENV{KEY}."=".$ENV{VALUE}/me' "$ENV_FILE"
+  if command -v perl > /dev/null 2>&1; then
+    KEY="$key" VALUE="$value" perl -0pi -e 's/^\Q$ENV{KEY}\E=.*/$ENV{KEY}.".".$ENV{VALUE}/me' "$ENV_FILE"
+  else
+    local escaped_value="${value//&/\\&}"
+    escaped_value="${escaped_value//|/\\|}"
+    sed -i "s|^\(#*[[:space:]]*\)${key}=.*|${key}=${escaped_value}|" "$ENV_FILE"
+  fi
 }
 
 generate_env_fallback() {
@@ -75,7 +81,6 @@ generate_env_fallback() {
 
   [[ -f "$env_example" ]] || fail "Missing template: ${env_example}"
   command -v openssl >/dev/null 2>&1 || fail "openssl is required to generate random secrets"
-  command -v perl >/dev/null 2>&1 || fail "perl is required to update .env"
 
   local postgres_password redis_password credential_master_key_1 jwt_secret
   postgres_password="$(openssl rand -hex 16)"

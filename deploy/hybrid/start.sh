@@ -118,9 +118,11 @@ fi
 require_hex64 CREDENTIAL_MASTER_KEY_1
 require_hex64 JWT_SECRET
 
-# Add PostgreSQL server binaries to PATH (on Debian/Ubuntu they are under /usr/lib/postgresql/*/bin)
+# Add PostgreSQL server binaries to PATH
+# Debian/Ubuntu: /usr/lib/postgresql/*/bin
+# CentOS/RHEL:   /usr/pgsql-*/bin
 add_pg_bins_to_path() {
-    for pg_bin in /usr/lib/postgresql/*/bin; do
+    for pg_bin in /usr/lib/postgresql/*/bin /usr/pgsql-*/bin; do
         if [[ -d "$pg_bin" ]]; then
             export PATH="$pg_bin:$PATH"
         fi
@@ -133,8 +135,21 @@ setup_and_start_postgres() {
         # 1. System service installation
         if ! command -v psql >/dev/null 2>&1; then
             log "Installing native PostgreSQL system package..."
-            ${SUDO} apt-get update
-            ${SUDO} apt-get install -y postgresql postgresql-contrib
+            if command -v apt-get >/dev/null 2>&1; then
+                ${SUDO} apt-get update
+                ${SUDO} apt-get install -y postgresql postgresql-contrib
+            elif command -v dnf >/dev/null 2>&1; then
+                ${SUDO} dnf install -y postgresql-server postgresql-contrib
+            elif command -v yum >/dev/null 2>&1; then
+                # CentOS 7 base repos only have PG 9.2; install PG 15 from pgdg repo
+                if ! rpm -q pgdg-redhat-repo >/dev/null 2>&1; then
+                    ${SUDO} yum --disablerepo='*' install -y "https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm"
+                fi
+                ${SUDO} yum-config-manager --disable pgdg12 pgdg13 pgdg11 pgdg10 pgdg96 pgdg95 pgdg94 pgdg93 2>/dev/null || true
+                ${SUDO} yum install -y --enablerepo='pgdg15' --disablerepo='pgdg1[0-4],pgdg9*' "postgresql15-server" "postgresql15-contrib"
+            else
+                fail "No supported package manager found. Please install PostgreSQL manually."
+            fi
         fi
         
         # Ensure started
@@ -150,15 +165,18 @@ setup_and_start_postgres() {
         ${SUDO} -u postgres psql -c "ALTER USER tianai_db WITH PASSWORD '${POSTGRES_PASSWORD}';" || true
         ${SUDO} -u postgres psql -c "CREATE DATABASE master_router OWNER tianai_db;" || true
         ${SUDO} -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE master_router TO tianai_db;" || true
+        ${SUDO} -u postgres psql -c "ALTER USER tianai_db WITH SUPERUSER;" || true
+        ${SUDO} -u postgres psql -d master_router -c "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";" || true
+        ${SUDO} -u postgres psql -d master_router -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;" || true
     else
         # 2. Managed sandboxed process (without root)
         if ! command -v initdb >/dev/null 2>&1; then
+            local local_sudo=""
+            if [[ "$(id -u)" -ne 0 ]]; then
+                local_sudo="sudo"
+            fi
             if command -v apt-get >/dev/null 2>&1; then
                 log "PostgreSQL tools not found. Automatically installing PostgreSQL via apt-get..."
-                local local_sudo=""
-                if [[ "$(id -u)" -ne 0 ]]; then
-                    local_sudo="sudo"
-                fi
                 $local_sudo apt-get update
                 $local_sudo apt-get install -y postgresql postgresql-contrib
                 
@@ -170,8 +188,21 @@ setup_and_start_postgres() {
                 else
                     $local_sudo service postgresql stop || true
                 fi
+            elif command -v dnf >/dev/null 2>&1; then
+                log "PostgreSQL tools not found. Automatically installing PostgreSQL via dnf..."
+                $local_sudo dnf install -y postgresql-server postgresql-contrib
+            elif command -v yum >/dev/null 2>&1; then
+                log "PostgreSQL tools not found. Installing PostgreSQL 15 from official repo via yum..."
+                # CentOS 7 base repos only have PG 9.2; install PG 15 from pgdg repo
+                if ! rpm -q pgdg-redhat-repo >/dev/null 2>&1; then
+                    $local_sudo yum --disablerepo='*' install -y "https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm"
+                fi
+                # Disable stale PG repos (pgdg12 etc.) that return 410 Gone
+                $local_sudo yum-config-manager --disable pgdg12 pgdg13 pgdg11 pgdg10 pgdg96 pgdg95 pgdg94 pgdg93 2>/dev/null || true
+                # Install PG 15 (confirmed available for EL7)
+                $local_sudo yum install -y --enablerepo='pgdg15' --disablerepo='pgdg1[0-4],pgdg9*' "postgresql15-server" "postgresql15-contrib"
             else
-                fail "Postgres tools (initdb, postgres) are not installed. Please install them manually on your host (e.g. apt-get install postgresql)."
+                fail "Postgres tools (initdb, postgres) are not installed. Please install them manually on your host."
             fi
         fi
         add_pg_bins_to_path
@@ -205,21 +236,32 @@ setup_and_start_postgres() {
         
         # Check if already running on 5432
         if ! pg_isready -h 127.0.0.1 -p 5432 >/dev/null 2>&1; then
-            log "Starting local PostgreSQL process..."
-            (cd /tmp && exec ${run_prefix} env PATH="$PATH" postgres -D "$pg_data" -p 5432 > "${ROOT_DIR}/logs/postgres.log" 2>&1) &
-            local pg_pid=$!
-            echo "$pg_pid" > "$pg_pid_file"
-            
-            # Wait for PG
-            log "Waiting for local PostgreSQL to become ready..."
-            local attempts=0
-            until pg_isready -h 127.0.0.1 -p 5432 >/dev/null 2>&1 || [[ $attempts -ge 10 ]]; do
+            # Kill any stale postgres process occupying port 5432
+            local stale_pg_pid
+            stale_pg_pid="$(ss -tlnp 2>/dev/null | grep ':5432 ' | sed -n 's/.*pid=\([0-9]\+\).*/\1/p' | head -1 || true)"
+            if [[ -n "$stale_pg_pid" ]]; then
+                log "Killing stale process (PID ${stale_pg_pid}) on port 5432..."
+                kill "$stale_pg_pid" 2>/dev/null || true
                 sleep 1
-                attempts=$((attempts + 1))
-            done
-            if [[ $attempts -ge 10 ]]; then
-                fail "Local PostgreSQL failed to start. Check: ${ROOT_DIR}/logs/postgres.log"
+                kill -9 "$stale_pg_pid" 2>/dev/null || true
             fi
+            # Remove stale postmaster.pid from a previous failed start
+            if [[ -f "${pg_data}/postmaster.pid" ]]; then
+                log "Removing stale postmaster.pid..."
+                rm -f "${pg_data}/postmaster.pid"
+            fi
+            log "Starting local PostgreSQL process..."
+            # When running as postgres user, ensure the log file is writable
+            local pg_log="${ROOT_DIR}/logs/postgres.log"
+            if [[ -n "$run_prefix" ]]; then
+                pg_log="/var/lib/chengos/postgres.log"
+                touch "$pg_log"
+                chown postgres:postgres "$pg_log"
+            fi
+            (cd /tmp && ${run_prefix} env PATH="$PATH" pg_ctl -D "$pg_data" -o "-p 5432" -l "$pg_log" -w start)
+            local pg_pid
+            pg_pid="$(cat "${pg_data}/postmaster.pid" 2>/dev/null | head -1 || echo "")"
+            [[ -n "$pg_pid" ]] && echo "$pg_pid" > "$pg_pid_file"
         fi
         
         # Configure DB & user natively under current user context
@@ -227,6 +269,11 @@ setup_and_start_postgres() {
         (cd /tmp && ${run_prefix} env PATH="$PATH" psql -h 127.0.0.1 -p 5432 -d postgres -c "ALTER USER tianai_db WITH PASSWORD '${POSTGRES_PASSWORD}';" 2>/dev/null) || true
         (cd /tmp && ${run_prefix} env PATH="$PATH" psql -h 127.0.0.1 -p 5432 -d postgres -c "CREATE DATABASE master_router OWNER tianai_db;" 2>/dev/null) || true
         (cd /tmp && ${run_prefix} env PATH="$PATH" psql -h 127.0.0.1 -p 5432 -d postgres -c "GRANT ALL PRIVILEGES ON DATABASE master_router TO tianai_db;" 2>/dev/null) || true
+        # Grant superuser so migrations can create extensions (uuid-ossp, etc.)
+        (cd /tmp && ${run_prefix} env PATH="$PATH" psql -h 127.0.0.1 -p 5432 -d postgres -c "ALTER USER tianai_db WITH SUPERUSER;" 2>/dev/null) || true
+        # Pre-create common extensions in master_router database
+        (cd /tmp && ${run_prefix} env PATH="$PATH" psql -h 127.0.0.1 -p 5432 -d master_router -c "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";" 2>/dev/null) || true
+        (cd /tmp && ${run_prefix} env PATH="$PATH" psql -h 127.0.0.1 -p 5432 -d master_router -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;" 2>/dev/null) || true
         log "Local PostgreSQL is ready"
     fi
 }
@@ -435,14 +482,29 @@ fi
 # Verify Node.js is installed if running UI/App
 if has_module "ui" || has_module "app"; then
     if ! command -v node >/dev/null 2>&1; then
+        local_sudo=""
+        if [[ "$(id -u)" -ne 0 ]]; then
+            local_sudo="sudo"
+        fi
         if command -v apt-get >/dev/null 2>&1; then
             log "Node.js not found. Automatically installing Node.js via apt-get..."
-            local_sudo=""
-            if [[ "$(id -u)" -ne 0 ]]; then
-                local_sudo="sudo"
-            fi
             $local_sudo apt-get update
             $local_sudo apt-get install -y nodejs npm
+        elif command -v dnf >/dev/null 2>&1; then
+            log "Node.js not found. Installing Node.js 20 via NodeSource (dnf)..."
+            curl -fsSL https://rpm.nodesource.com/setup_20.x | $local_sudo bash -
+            $local_sudo dnf install -y nodejs
+        elif command -v yum >/dev/null 2>&1; then
+            log "Node.js not found. Installing Node.js 16 via NodeSource (yum)..."
+            # Node 18+ requires glibc 2.28+ (not available on CentOS 7); use Node 16
+            # Disable all stale pgdg repos to avoid 410 Gone errors
+            $local_sudo yum-config-manager --disable 'pgdg1[0-4]' pgdg13 pgdg96 pgdg95 pgdg94 pgdg93 2>/dev/null || true
+            # Remove any existing nodesource repo to avoid stale cache
+            $local_sudo rm -f /etc/yum.repos.d/nodesource*.repo 2>/dev/null || true
+            $local_sudo yum clean all 2>/dev/null || true
+            curl -fsSL https://rpm.nodesource.com/setup_16.x | $local_sudo bash -
+            $local_sudo yum clean all 2>/dev/null || true
+            $local_sudo yum install -y --disablerepo='pgdg*' nodejs
         else
             fail "Node.js is not installed. Please install Node.js on your host first."
         fi
