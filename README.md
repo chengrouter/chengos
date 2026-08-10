@@ -172,6 +172,29 @@ Database installation modes:
 ./chengos.sh stop
 ```
 
+Pin an exact release instead of `latest` — all four ChengOS images resolve their
+tag from one `CHENGOS_VERSION` value in `.env`:
+
+```bash
+# deploy/.env
+CHENGOS_VERSION=0.1.0
+```
+
+`latest` is a first-install convenience only. It is **not** a reproducible
+production version and is never an update or rollback target.
+
+### Versions, updates, and rollback
+
+```bash
+./chengos.sh status     # installed version, running version, latest stable, health
+./chengos.sh update     # upgrade-only; checksum + signature verified, auto-restore on failure
+./chengos.sh rollback   # restore the previous release
+```
+
+Full release, artifact-verification, update, and rollback procedures — including
+when a database migration makes automatic rollback unsafe — are documented in the
+[Release Operations Guide](chengflow/docs/release-operations-guide.md).
+
 ### Standalone CLI and remote access
 
 Install only the `cheng` terminal client:
@@ -368,6 +391,27 @@ ChengOS 内置 Word（`.docx`）和电子表格（`.xlsx` 或网格）工作区�
 ./chengos.sh start
 ./chengos.sh stop
 ```
+
+建议固定到确切版本，而不要使用 `latest`：四个 ChengOS 镜像的标签统一由 `.env`
+中的 `CHENGOS_VERSION` 决定。
+
+```bash
+# deploy/.env
+CHENGOS_VERSION=0.1.0
+```
+
+`latest` 仅是首次安装的便捷默认值，**不是可复现的生产版本**，也永远不是更新或回滚目标。
+
+### 版本、更新与回滚
+
+```bash
+./chengos.sh status     # 已安装版本、运行版本、最新稳定版、健康状态
+./chengos.sh update     # 仅升级；校验校验和与签名，失败自动恢复
+./chengos.sh rollback   # 回滚到上一个版本
+```
+
+完整的发布、制品校验、更新与回滚流程（含"数据库迁移何时使自动回滚不安全"）见
+[发布运维指南](chengflow/docs/release-operations-guide.md)。
 
 ### 单独安装 CLI 与远程连接
 

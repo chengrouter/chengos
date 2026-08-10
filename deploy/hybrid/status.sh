@@ -89,10 +89,20 @@ HR
 log "HTTP Endpoints & Health"
 HR
 
-# Check /health
+# Check /health.
+# The exit code of this script is the API verdict: the updater and any external
+# supervisor rely on it, so a failed health check must never be reported as 0.
 HEALTH_URL="http://127.0.0.1:${PORT}/health"
-if curl -sf --max-time 3 "$HEALTH_URL" >/dev/null 2>&1; then
-    log "  API Health (/health) : OK"
+API_HEALTHY=false
+HEALTH_BODY=""
+if HEALTH_BODY="$(curl -sf --max-time 3 "$HEALTH_URL" 2>/dev/null)"; then
+    API_HEALTHY=true
+    RUNNING_VERSION="$(printf '%s' "$HEALTH_BODY" | sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)"
+    if [[ -n "$RUNNING_VERSION" ]]; then
+        log "  API Health (/health) : OK (ChengOS ${RUNNING_VERSION})"
+    else
+        log "  API Health (/health) : OK"
+    fi
 else
     log "  API Health (/health) : NOT RESPONDING (${HEALTH_URL})"
 fi
@@ -141,3 +151,13 @@ print_logs "$APP_LOG_FILE" "cheng-app"
 if [[ "$ENABLE_QDRANT" == "true" ]]; then
     print_logs "${ROOT_DIR}/logs/qdrant.log" "Qdrant"
 fi
+
+HR
+# Exit code contract: 0 = the API is serving, 1 = it is not. Callers such as
+# `chengos.sh update` treat a non-zero status as a failed release.
+if [[ "$API_HEALTHY" == "true" ]]; then
+    log "Overall: API is serving"
+    exit 0
+fi
+log "Overall: API is NOT serving"
+exit 1

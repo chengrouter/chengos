@@ -1,0 +1,80 @@
+name: Release contract checks
+
+# Fast, non-publishing checks that run on every pull request or push touching
+# release-critical files. They catch a broken version, a broken updater, or a
+# broken packaging script long before a tag is ever created.
+on:
+  pull_request:
+    paths:
+      - 'VERSION'
+      - 'CHANGELOG.md'
+      - 'release.sh'
+      - 'scripts/**'
+      - 'deploy/**'
+      - 'chengflow/build.sh'
+      - 'chengflow/Dockerfile'
+      - 'chengflow/crates/cheng-cli/Dockerfile'
+      - 'chengflow/crates/cheng-common/build.rs'
+      - 'chengflow/crates/cheng-common/src/version.rs'
+      - 'chengflow/Cargo.toml'
+      - '.github/workflows/release*.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'VERSION'
+      - 'release.sh'
+      - 'scripts/**'
+      - 'deploy/**'
+      - 'chengflow/build.sh'
+      - '.github/workflows/release*.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    name: Version, shell, and updater checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: Release contract gates (no build, no publish)
+        # --fast skips the Rust build; the tagged release workflow runs the
+        # full gate including binary version verification.
+        run: ./scripts/test-release-contract.sh --fast
+
+      - name: Updater smoke tests
+        run: bash deploy/tests/update-smoke.sh
+
+  rust-version:
+    name: Embedded Rust release version
+    runs-on: ubuntu-latest
+    # Only worth a Rust build when the version plumbing itself changed.
+    if: >
+      contains(github.event.pull_request.title, 'version') ||
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Verify cheng-api and cheng report the release version
+        run: |
+          set -euo pipefail
+          if [[ ! -d chengflow ]]; then
+            echo "chengflow/ is not part of this checkout; skipping."
+            exit 0
+          fi
+          version="$(tr -d '[:space:]' < VERSION)"
+          cd chengflow
+          cargo build --release -p cheng-api -p cheng-cli
+          reported="$(./target/release/cheng-api --version | awk '{print $2}')"
+          [[ "$reported" == "$version" ]] || { echo "cheng-api reported ${reported}, expected ${version}"; exit 1; }
+          reported="$(./target/release/cheng --version | awk '{print $2}')"
+          [[ "$reported" == "$version" ]] || { echo "cheng reported ${reported}, expected ${version}"; exit 1; }

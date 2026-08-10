@@ -91,9 +91,66 @@ MODE_FILE="${ROOT_DIR}/.chengos_install_mode"
 VERSION_FILE="${ROOT_DIR}/.chengos_version"
 MODULES_FILE="${ROOT_DIR}/.chengos_modules"
 CLI_TARGET_FILE="${ROOT_DIR}/.chengos_cli_target"
+DOCKER_VERSION_FILE="${ROOT_DIR}/.chengos_docker_version"
+# Defaults for the update/rollback flags. The CLI argument parser overrides
+# them; declaring them here keeps every helper safe under `set -u` no matter
+# which entry point (menu or command) reached it.
+: "${FORCE_UPDATE:=false}"
+: "${UPDATE_TARGET_VERSION:=}"
+: "${UPDATE_KIND:=auto}"
 UPDATE_BRANCH="${CHENGOS_UPDATE_BRANCH:-main}"
 RAW_BASE_URL="${CHENGOS_RAW_BASE_URL:-https://raw.githubusercontent.com/chengrouter/chengos/${UPDATE_BRANCH}}"
 DEFAULT_LANG="zh"
+
+# ── Release update library ────────────────────────────────────────────────────
+# Version parsing, discovery, verification, staging, backup, and rollback live
+# in lib/release-update.sh so they stay testable outside this menu code. The
+# library ships inside the release bundle (lib/) and also exists in the source
+# tree (deploy/lib/).
+RELEASE_LIB=""
+RELEASE_VERIFIER=""
+for _candidate_dir in "${ROOT_DIR}/lib" "${ROOT_DIR}/deploy/lib" "${REAL_SCRIPT_DIR}/lib"; do
+    if [[ -f "${_candidate_dir}/release-update.sh" ]]; then
+        RELEASE_LIB="${_candidate_dir}/release-update.sh"
+        [[ -f "${_candidate_dir}/verify-release-archive.sh" ]] \
+            && RELEASE_VERIFIER="${_candidate_dir}/verify-release-archive.sh"
+        break
+    fi
+done
+unset _candidate_dir
+if [[ -z "$RELEASE_VERIFIER" && -f "${ROOT_DIR}/scripts/verify-release-archive.sh" ]]; then
+    RELEASE_VERIFIER="${ROOT_DIR}/scripts/verify-release-archive.sh"
+fi
+if [[ -n "$RELEASE_LIB" ]]; then
+    # shellcheck source=lib/release-update.sh
+    source "$RELEASE_LIB"
+    RELEASE_LIB_LOADED="true"
+else
+    RELEASE_LIB_LOADED="false"
+fi
+
+require_release_lib() {
+    if [[ "$RELEASE_LIB_LOADED" != "true" ]]; then
+        echo "ERROR: release update library not found (expected lib/release-update.sh)." >&2
+        echo "Reinstall from a current release package, or run './chengos.sh update --scripts-only'." >&2
+        return 1
+    fi
+    return 0
+}
+
+# Health endpoint of the local API, honouring a configured API port.
+resolve_health_url() {
+    local shared_dir port
+    shared_dir="$(resolve_shared_dir)"
+    port="3000"
+    if [[ -f "${shared_dir}/.env" ]]; then
+        local configured
+        configured="$(sed -n 's/^API_PORT=\(.*\)$/\1/p' "${shared_dir}/.env" | tail -n1 | tr -d '[:space:]')"
+        [[ -z "$configured" ]] && configured="$(sed -n 's/^PORT=\(.*\)$/\1/p' "${shared_dir}/.env" | tail -n1 | tr -d '[:space:]')"
+        [[ -n "$configured" ]] && port="$configured"
+    fi
+    printf 'http://127.0.0.1:%s/health' "$port"
+}
 
 # Load or ask for language preference
 if [[ -f "$LANG_FILE" ]]; then
@@ -139,6 +196,7 @@ if [[ "$LANG_VAL" == "zh" ]]; then
     t[menu_lang]="10) 切换语言 (Switch Language)"
     t[menu_exit]="11) 退出 (Exit)"
     t[menu_reset_credentials]="12) 重置登录用户名/密码 (Reset Credentials)"
+    t[menu_rollback]="13) 回滚到上一个版本 (Rollback)"
     t[select_op]="请选择操作 [1-12]: "
     t[mode_select]="请选择安装模式:\n  1) 二进制原生安装 (Native Host)\n  2) Docker 容器化安装 (Docker)"
     t[mode_prompt]="选择 [1-2] (默认 1): "
@@ -153,6 +211,10 @@ if [[ "$LANG_VAL" == "zh" ]]; then
     t[install_done]="安装/初始化完成！"
     t[update_start]="开始执行更新流程..."
     t[update_done]="更新完成！"
+    t[rollback_start]="开始回滚到上一个版本..."
+    t[rollback_done]="回滚流程结束。"
+    t[rollback_confirm]="确认回滚到上一个已备份的版本? [y/N]: "
+    t[rollback_cancelled]="已取消回滚。"
     t[uninstall_start]="开始执行卸载/停用流程..."
     t[uninstall_done]="卸载完成！"
     t[stopping]="正在停止所有服务..."
@@ -218,6 +280,7 @@ else
     t[menu_lang]="10) Switch Language"
     t[menu_exit]="11) Exit"
     t[menu_reset_credentials]="12) Reset Login Username/Password"
+    t[menu_rollback]="13) Roll Back to the Previous Version"
     t[select_op]="Select option [1-12]: "
     t[mode_select]="Select Installation Mode:\n  1) Native Host Binary\n  2) Docker Containers"
     t[mode_prompt]="Choose [1-2] (Default 1): "
@@ -232,6 +295,10 @@ else
     t[install_done]="Installation/Initialization completed successfully!"
     t[update_start]="Starting update process..."
     t[update_done]="Update completed!"
+    t[rollback_start]="Starting rollback to the previous version..."
+    t[rollback_done]="Rollback finished."
+    t[rollback_confirm]="Roll back to the most recent backed-up version? [y/N]: "
+    t[rollback_cancelled]="Rollback cancelled."
     t[uninstall_start]="Starting uninstall/teardown process..."
     t[uninstall_done]="Uninstall completed!"
     t[stopping]="Stopping all services..."
@@ -290,13 +357,18 @@ fi
 # Returns the path on stdout if found, returns non-zero otherwise.
 find_local_tarball() {
     local candidates=()
+    local versioned
 
     # 1) Explicit override via env var
     if [[ -n "${CHENGOS_LOCAL_TARBALL:-}" && -f "$CHENGOS_LOCAL_TARBALL" ]]; then
         candidates+=("$CHENGOS_LOCAL_TARBALL")
     fi
 
-    # 2) Standard release asset name in ROOT_DIR
+    # 2) Versioned release asset name (newest first), then the transitional
+    #    unversioned alias, in ROOT_DIR
+    while IFS= read -r versioned; do
+        [[ -n "$versioned" ]] && candidates+=("$versioned")
+    done < <(ls -1 "${ROOT_DIR}"/chengos-full-linux-amd64-v*.tar.gz 2>/dev/null | sort -V -r)
     candidates+=("${ROOT_DIR}/chengos-full-linux-amd64.tar.gz")
     # 3) Generic name in ROOT_DIR
     candidates+=("${ROOT_DIR}/chengos.tar.gz")
@@ -1111,29 +1183,316 @@ setup_docker_env() {
     fi
 }
 
+# Reads a key from the managed Compose environment file.
+read_env_value() {
+    local env_file="$1" key="$2"
+    [[ -f "$env_file" ]] || return 1
+    local value
+    value="$(sed -n "s/^${key}=\(.*\)$/\1/p" "$env_file" | tail -n1 | tr -d '[:space:]')"
+    [[ -n "$value" ]] || return 1
+    printf '%s' "$value"
+}
+
+# Writes (or replaces) a key in the managed Compose environment file.
+write_env_value() {
+    local env_file="$1" key="$2" value="$3"
+    touch "$env_file"
+    if grep -q "^${key}=" "$env_file"; then
+        local tmp
+        tmp="$(mktemp)"
+        sed "s|^${key}=.*|${key}=${value}|" "$env_file" > "$tmp"
+        cat "$tmp" > "$env_file"
+        rm -f "$tmp"
+    else
+        printf '%s=%s\n' "$key" "$value" >> "$env_file"
+    fi
+}
+
+# True when any per-image override is set, which makes coordinated release
+# updates impossible: the pin no longer decides what runs.
+docker_overrides_present() {
+    local env_file="$1" key
+    for key in CHENGOS_API_IMAGE CHENGOS_UI_IMAGE CHENGOS_APP_IMAGE CHENGOS_CLI_IMAGE; do
+        if [[ -n "${!key:-}" ]]; then
+            printf '%s' "$key"
+            return 0
+        fi
+        if [[ -f "$env_file" ]] && grep -qE "^${key}=.+" "$env_file"; then
+            printf '%s' "$key"
+            return 0
+        fi
+    done
+    return 1
+}
+
+docker_compose_cmd() {
+    local docker_dir="$1"
+    shift
+    ( cd "$docker_dir" && docker compose --env-file ../.env "$@" )
+}
+
+# Pins every ChengOS application service to one exact release, pulls it,
+# recreates the services, and verifies health. On any failure the previous pin
+# is restored and the previous images are recreated. Data volumes are never
+# touched: PostgreSQL, Valkey, Qdrant, and user volumes are out of scope for an
+# application image update.
 update_docker_install() {
-    local shared_dir
+    require_release_lib || return 1
+
+    local shared_dir docker_dir env_file
     shared_dir="$(resolve_shared_dir)"
-    local docker_dir
     docker_dir="$(resolve_docker_dir)"
+    env_file="${shared_dir}/.env"
+
     cd "$shared_dir"
     ensure_docker_compose
     [[ -f .env ]] || bash generate-env.sh
-    cd "$docker_dir"
 
-    local recorded_modules docker_services
-    recorded_modules="$(read_installed_modules 2>/dev/null || echo "")"
-
-    if [[ -f upgrade.sh ]]; then
-        bash upgrade.sh
-    elif [[ -n "$recorded_modules" ]]; then
-        docker_services="$(modules_to_docker_services "$recorded_modules")"
-        docker compose --env-file ../.env pull $docker_services
-        docker compose --env-file ../.env up -d $docker_services
-    else
-        docker compose --env-file ../.env pull
-        docker compose --env-file ../.env up -d
+    local override
+    if override="$(docker_overrides_present "$env_file")"; then
+        echo "ERROR: ${override} is set, so images no longer come from the release pin." >&2
+        echo "Coordinated Docker release updates are disabled while a per-image override is present." >&2
+        echo "Remove the override(s) from ${env_file} to re-enable version-pinned updates." >&2
+        return 1
     fi
+
+    local current_pin target_version
+    current_pin="$(read_env_value "$env_file" CHENGOS_VERSION || true)"
+    current_pin="$(rel_normalize_version "$current_pin")"
+
+    if [[ -n "$UPDATE_TARGET_VERSION" ]]; then
+        target_version="$(rel_normalize_version "$UPDATE_TARGET_VERSION")"
+        rel_is_stable_semver "$target_version" || {
+            echo "ERROR: --to '${UPDATE_TARGET_VERSION}' is not a stable release version." >&2
+            return 1
+        }
+    else
+        echo "Checking the latest stable ChengOS release..."
+        if ! target_version="$(rel_fetch_latest_version)"; then
+            echo "ERROR: could not determine the latest stable release (network, rate limit, or malformed metadata)." >&2
+            echo "Nothing was changed. Retry later, or pin a version with './chengos.sh update --to X.Y.Z'." >&2
+            return 1
+        fi
+    fi
+
+    echo "Current pin      : ${current_pin:-latest (unpinned)}"
+    echo "Target release   : ${target_version}"
+
+    if [[ "$FORCE_UPDATE" != "true" && -z "$UPDATE_TARGET_VERSION" ]]; then
+        if rel_is_stable_semver "$current_pin" && ! rel_version_gt "$target_version" "$current_pin"; then
+            echo "Already up to date (${current_pin}); updates are upgrade-only."
+            echo "Use --force, or --to X.Y.Z, to reinstall or downgrade deliberately."
+            return 0
+        fi
+    fi
+
+    # Pin first so `docker compose pull` resolves the exact tags, but remember
+    # the previous pin so a failure can put it back.
+    write_env_value "$env_file" CHENGOS_VERSION "$target_version"
+
+    restore_docker_pin() {
+        local reason="$1"
+        echo "ERROR: ${reason}" >&2
+        if [[ -n "$current_pin" ]]; then
+            echo "Restoring the previous version pin (${current_pin})..." >&2
+            write_env_value "$env_file" CHENGOS_VERSION "$current_pin"
+        else
+            echo "Restoring the previous unpinned configuration..." >&2
+            write_env_value "$env_file" CHENGOS_VERSION "latest"
+        fi
+        docker_compose_cmd "$docker_dir" up -d --no-deps api ui app >/dev/null 2>&1 \
+            || echo "ERROR: failed to recreate the previous services; run './chengos.sh start'." >&2
+        return 1
+    }
+
+    echo "Pulling ChengOS images for ${target_version}..."
+    if ! docker_compose_cmd "$docker_dir" pull api ui app; then
+        restore_docker_pin "failed to pull one or more ChengOS images for ${target_version}"
+        return 1
+    fi
+    # The CLI image is optional (profile-gated); its absence must not fail the
+    # application update.
+    docker_compose_cmd "$docker_dir" --profile cli pull cli >/dev/null 2>&1 || \
+        echo "NOTE: the CLI image for ${target_version} was not pulled (profile disabled or image unavailable)."
+
+    echo "Recreating ChengOS services..."
+    if ! docker_compose_cmd "$docker_dir" up -d --no-deps api ui app; then
+        restore_docker_pin "failed to recreate ChengOS services on ${target_version}"
+        return 1
+    fi
+
+    local health_url
+    health_url="$(resolve_health_url)"
+    echo "Waiting for ${health_url} to report healthy (timeout ${CHENGOS_HEALTH_TIMEOUT}s)..."
+    if ! rel_wait_for_health "$health_url" "$CHENGOS_HEALTH_TIMEOUT"; then
+        restore_docker_pin "the API did not become healthy on ${target_version} within ${CHENGOS_HEALTH_TIMEOUT}s"
+        return 1
+    fi
+
+    # Rollback metadata and the version record are written only after health
+    # verification, so a failed update never claims to have happened.
+    if [[ -n "$current_pin" ]]; then
+        printf '%s\n' "$current_pin" > "$DOCKER_VERSION_FILE"
+    fi
+    rel_write_installed_version "$VERSION_FILE" "$target_version"
+
+    echo "Docker update completed: ${current_pin:-unpinned} -> ${target_version}"
+    docker_compose_cmd "$docker_dir" ps api ui app || true
+}
+
+# Restores the previous exact version pin, pulls it if needed, recreates the
+# application services, and verifies health. Named data volumes are never
+# deleted or recreated.
+rollback_docker_install() {
+    require_release_lib || return 1
+
+    local shared_dir docker_dir env_file
+    shared_dir="$(resolve_shared_dir)"
+    docker_dir="$(resolve_docker_dir)"
+    env_file="${shared_dir}/.env"
+
+    cd "$shared_dir"
+    ensure_docker_compose
+
+    if ! rel_rollback_allowed "$shared_dir"; then
+        echo "ERROR: the installed release declares an irreversible database migration." >&2
+        rel_print_manual_recovery
+        return 1
+    fi
+
+    local current_pin previous_pin
+    current_pin="$(rel_normalize_version "$(read_env_value "$env_file" CHENGOS_VERSION || true)")"
+
+    if [[ -n "$UPDATE_TARGET_VERSION" ]]; then
+        previous_pin="$(rel_normalize_version "$UPDATE_TARGET_VERSION")"
+    elif [[ -f "$DOCKER_VERSION_FILE" ]]; then
+        previous_pin="$(rel_normalize_version "$(cat "$DOCKER_VERSION_FILE")")"
+    else
+        previous_pin=""
+    fi
+
+    if ! rel_is_stable_semver "$previous_pin"; then
+        echo "ERROR: no previous exact version is recorded for this Docker installation." >&2
+        echo "Rollback metadata is written by './chengos.sh update'. Pin a version explicitly with" >&2
+        echo "  ./chengos.sh rollback --to X.Y.Z" >&2
+        return 1
+    fi
+
+    echo "Rolling back Docker services: ${current_pin:-unpinned} -> ${previous_pin}"
+    write_env_value "$env_file" CHENGOS_VERSION "$previous_pin"
+
+    if ! docker_compose_cmd "$docker_dir" pull api ui app; then
+        echo "ERROR: failed to pull ChengOS images for ${previous_pin}; restoring the current pin." >&2
+        write_env_value "$env_file" CHENGOS_VERSION "${current_pin:-latest}"
+        return 1
+    fi
+
+    if ! docker_compose_cmd "$docker_dir" up -d --no-deps api ui app; then
+        echo "ERROR: failed to recreate services on ${previous_pin}; restoring the current pin." >&2
+        write_env_value "$env_file" CHENGOS_VERSION "${current_pin:-latest}"
+        docker_compose_cmd "$docker_dir" up -d --no-deps api ui app || true
+        return 1
+    fi
+
+    local health_url
+    health_url="$(resolve_health_url)"
+    if ! rel_wait_for_health "$health_url" "$CHENGOS_HEALTH_TIMEOUT"; then
+        echo "ERROR: the API did not become healthy on ${previous_pin} within ${CHENGOS_HEALTH_TIMEOUT}s." >&2
+        echo "The pin was left at ${previous_pin}; inspect 'docker compose logs api'." >&2
+        return 1
+    fi
+
+    rel_write_installed_version "$VERSION_FILE" "$previous_pin"
+    rm -f "$DOCKER_VERSION_FILE"
+    echo "Docker rollback completed: now on ${previous_pin}."
+}
+
+# Version-aware status block printed above the service status.
+#
+# A failed network lookup is reported as "latest version unavailable" — never
+# silently rendered as "up to date", which would hide a pending security fix.
+print_version_status() {
+    local mode="${1:-native}"
+    local shared_dir
+    shared_dir="$(resolve_shared_dir)"
+
+    echo "-------------------------------------------"
+    echo "ChengOS Version"
+    echo "-------------------------------------------"
+    printf '  Install mode      : %s\n' "$mode"
+
+    if [[ "$RELEASE_LIB_LOADED" != "true" ]]; then
+        echo "  Version reporting : unavailable (lib/release-update.sh missing)"
+        echo ""
+        return 0
+    fi
+
+    local recorded status
+    status=0
+    recorded="$(rel_read_installed_version "$VERSION_FILE")" || status=$?
+    if (( status == 0 )); then
+        printf '  Installed version : %s\n' "$recorded"
+    elif (( status == 2 )); then
+        printf '  Installed version : %s (malformed record; will be normalized on the next update)\n' "$recorded"
+    else
+        echo "  Installed version : unknown (no .chengos_version record)"
+    fi
+
+    # The version the package on disk actually carries, which can differ from
+    # the record if files were replaced by hand.
+    if [[ -f "${shared_dir}/VERSION" ]]; then
+        printf '  Package version   : %s\n' "$(rel_normalize_version "$(cat "${shared_dir}/VERSION")")"
+    else
+        echo "  Package version   : unknown (bundle predates the release contract)"
+    fi
+
+    if [[ "$mode" == "docker" ]]; then
+        local env_file pin override
+        env_file="${shared_dir}/.env"
+        pin="$(read_env_value "$env_file" CHENGOS_VERSION || true)"
+        printf '  Compose pin       : %s\n' "${pin:-latest (unpinned)}"
+        if override="$(docker_overrides_present "$env_file")"; then
+            printf '  Image overrides   : %s set — coordinated release updates are DISABLED\n' "$override"
+        fi
+        if [[ -f "$DOCKER_VERSION_FILE" ]]; then
+            printf '  Rollback target   : %s\n' "$(rel_normalize_version "$(cat "$DOCKER_VERSION_FILE")")"
+        fi
+    else
+        local backup_dir
+        if backup_dir="$(rel_latest_backup "$ROOT_DIR")"; then
+            printf '  Rollback target   : %s (%s)\n' "$(rel_backup_version "$backup_dir")" "$(basename "$backup_dir")"
+        else
+            echo "  Rollback target   : none (no update has been performed yet)"
+        fi
+    fi
+
+    printf '  Migration policy  : %s\n' "$(rel_migration_policy "$shared_dir")"
+
+    local health_url running
+    health_url="$(resolve_health_url)"
+    if running="$(rel_running_version "$health_url")"; then
+        printf '  Running version   : %s (API healthy)\n' "$running"
+        if (( status == 0 )) && [[ "$running" != "$recorded" ]]; then
+            echo "  WARNING           : the running API reports a different version than the record"
+        fi
+    else
+        echo "  Running version   : API not responding"
+    fi
+
+    local latest
+    if latest="$(rel_fetch_latest_version)"; then
+        printf '  Latest stable     : %s\n' "$latest"
+        if (( status == 0 )); then
+            if rel_version_gt "$latest" "$recorded"; then
+                printf '  Update available  : %s -> %s (run ./chengos.sh update)\n' "$recorded" "$latest"
+            else
+                echo "  Update available  : no (up to date)"
+            fi
+        fi
+    else
+        echo "  Latest stable     : unavailable (release lookup failed; this is NOT a claim of being up to date)"
+    fi
+    echo ""
 }
 
 download_text_file() {
@@ -1355,131 +1714,252 @@ update_native_install() {
         return 0
     fi
 
-    local_version=""
-    [[ -f "$VERSION_FILE" ]] && local_version="$(tr -d '[:space:]' < "$VERSION_FILE")"
+    require_release_lib || return 1
 
-    local temp_tar temp_dir was_running local_tarball_found latest_tag
-    temp_dir="/tmp/chengos_update_$$"
+    local local_version local_version_status
+    local_version=""
+    local_version_status=0
+    local_version="$(rel_read_installed_version "$VERSION_FILE")" || local_version_status=$?
+    if (( local_version_status == 2 )); then
+        echo "WARNING: installed version record '${local_version}' is not a valid SemVer; treating the installation as unknown." >&2
+        local_version=""
+    fi
+
+    local was_running
     was_running="false"
-    local_tarball_found=""
-    latest_tag=""
     [[ -f "${shared_dir}/runtime/cheng-api.pid" ]] && was_running="true"
 
-    echo "Looking for local release package..."
+    local recorded_modules
+    recorded_modules="$(read_installed_modules 2>/dev/null || echo "api,ui,app")"
+
+    # ── Select the release and obtain a verified bundle ───────────────────────
+    # Nothing below this block touches the installation: an invalid download,
+    # a bad checksum/signature, a malformed archive, or a version mismatch all
+    # abort while the running system is still completely untouched.
+    local stage_dir bundle_root target_version archive_path
+    stage_dir="$(mktemp -d "${TMPDIR:-/tmp}/chengos-update-XXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '${stage_dir}'" RETURN
+
+    local local_tarball_found
+    local_tarball_found=""
     if local_tarball_found="$(find_local_tarball)"; then
         echo "Using local release package: ${local_tarball_found}"
-        temp_tar="$local_tarball_found"
-    else
-        echo "No local package found. Checking latest ChengOS release on GitHub..."
-        latest_url=""
-        if ! latest_url="$(curl -fsSLI -o /dev/null -w '%{url_effective}' https://github.com/chengrouter/chengos/releases/latest 2>&1)"; then
-            echo "ERROR: Failed to query latest release from GitHub." >&2
-            echo "$latest_url" >&2
-            echo "Hint: Place a release tarball (chengos-full-linux-amd64.tar.gz) in the same directory as chengos.sh to update offline." >&2
+        archive_path="$local_tarball_found"
+
+        # A local package still has to declare its own version, and it is only
+        # installed when it is newer — or when --force was given explicitly.
+        local peeked
+        peeked="$(rel_normalize_version "$(tar -xzOf "$archive_path" chengos/VERSION 2>/dev/null || true)")"
+        if [[ -z "$peeked" ]]; then
+            echo "ERROR: local package does not contain chengos/VERSION; it predates the release contract and cannot be verified." >&2
             return 1
         fi
-        latest_tag="$(printf '%s' "$latest_url" | sed 's#.*/tag/##')"
-        if [[ -n "$local_version" && -n "$latest_tag" && "$local_version" == "$latest_tag" && "$FORCE_UPDATE" != "true" ]]; then
-            echo "Native package is already current (${local_version})."
-            return 0
+        target_version="$peeked"
+
+        if [[ -f "${archive_path}.sha256" ]]; then
+            rel_verify_checksum "$archive_path" "${archive_path}.sha256" || return 1
+            rel_verify_signature "$archive_path" "${archive_path}.sig" || return 1
+        elif [[ "$CHENGOS_REQUIRE_SIGNATURE" == "required" ]]; then
+            echo "ERROR: no checksum file found next to the local package (${archive_path}.sha256)," >&2
+            echo "       and CHENGOS_REQUIRE_SIGNATURE=required. Download the .sha256 (and .sig)" >&2
+            echo "       asset from the release, or update over the network instead." >&2
+            return 1
+        else
+            # Only the checksum is missing here; signature policy is handled by
+            # rel_verify_signature in the verified path above.
+            echo "WARNING: no checksum file found next to the local package (${archive_path}.sha256)." >&2
+            echo "         Installing on structural verification only: the archive layout and its" >&2
+            echo "         embedded VERSION are checked, but its origin is not." >&2
         fi
-        if [[ "$FORCE_UPDATE" == "true" ]]; then
-            echo "Force update requested; downloading latest release package regardless of version."
+    else
+        echo "No local package found. Checking the latest stable ChengOS release..."
+        if ! target_version="$(rel_fetch_latest_version)"; then
+            echo "ERROR: could not determine the latest stable release (network, rate limit, or malformed metadata)." >&2
+            echo "Nothing was changed. Retry later, or place a release tarball next to chengos.sh to update offline." >&2
+            return 1
+        fi
+        echo "Latest stable release: ${target_version}"
+        echo "Installed version    : ${local_version:-unknown}"
+
+        if [[ "$FORCE_UPDATE" != "true" ]]; then
+            if [[ -n "$local_version" ]] && ! rel_version_gt "$target_version" "$local_version"; then
+                echo "Already up to date (${local_version}); updates are upgrade-only."
+                echo "Use --force to reinstall or downgrade to ${target_version} deliberately."
+                return 0
+            fi
+        else
+            echo "Force update requested; installing ${target_version} regardless of the installed version."
         fi
 
-        temp_tar="/tmp/chengos_update_$$.tar.gz"
-        echo "Downloading latest release package..."
-        if ! curl -fL "https://github.com/chengrouter/chengos/releases/latest/download/chengos-full-linux-amd64.tar.gz" -o "$temp_tar"; then
-            echo "ERROR: Failed to download ChengOS release package." >&2
-            rm -f "$temp_tar"
+        if ! archive_path="$(rel_download_release "$target_version" "$stage_dir")"; then
             return 1
         fi
+        rel_verify_checksum "$archive_path" || return 1
+        rel_verify_signature "$archive_path" || return 1
     fi
-    mkdir -p "$temp_dir"
-    if ! tar -xzf "$temp_tar" -C "$temp_dir" --strip-components=1; then
-        echo "ERROR: Failed to extract ChengOS release package." >&2
-        [[ -z "$local_tarball_found" ]] && rm -f "$temp_tar"
-        rm -rf "$temp_dir"
+
+    # Refuse to stage a package the filesystem cannot hold. The extracted tree
+    # is larger than the archive; four times the compressed size is a cheap,
+    # deliberately conservative bound.
+    local archive_bytes
+    archive_bytes="$(wc -c < "$archive_path" | tr -d '[:space:]')"
+    rel_check_free_space "$stage_dir" "$(( archive_bytes * 4 ))" || return 1
+    rel_check_free_space "$shared_dir" "$(( archive_bytes * 4 ))" || return 1
+
+    if ! bundle_root="$(rel_extract_and_verify "$archive_path" "${stage_dir}/extract" "$target_version" "$RELEASE_VERIFIER")"; then
+        echo "ERROR: the downloaded package failed verification; the installation was not modified." >&2
+        return 1
+    fi
+    echo "Package verified: ChengOS ${target_version}"
+
+    # ── Everything below mutates the installation ────────────────────────────
+    echo "Backing up the current package-owned state..."
+    local backup_dir
+    if ! backup_dir="$(rel_backup_package_state "$ROOT_DIR" "$shared_dir" "$hybrid_dir" "${local_version:-unknown}")"; then
+        echo "ERROR: failed to back up the current package; refusing to update." >&2
+        return 1
+    fi
+    echo "Backup: ${backup_dir}"
+
+    # A stop that leaves a process running would let the updater replace files
+    # underneath it. Nothing has been mutated yet, so abort cleanly.
+    echo "Stopping services before replacing package-owned files..."
+    if ! bash "${hybrid_dir}/stop.sh"; then
+        echo "ERROR: services could not be stopped; the installation was not modified." >&2
+        echo "Stop ChengOS manually, then rerun the update." >&2
         return 1
     fi
 
-    echo "Stopping services before replacing package-owned files..."
-    bash "${hybrid_dir}/stop.sh" || true
+    # Restores the previous package and service, then reports the original
+    # failure. Used for every failure mode after the first mutation.
+    restore_previous_release() {
+        local reason="$1"
+        echo "ERROR: ${reason}" >&2
+        echo "Restoring the previous package from ${backup_dir}..." >&2
+        bash "${hybrid_dir}/stop.sh" >/dev/null 2>&1 || true
+        if rel_restore_package_state "$backup_dir" "$ROOT_DIR" "$shared_dir" "$hybrid_dir"; then
+            echo "Previous package restored (${local_version:-unknown}); restarting services..." >&2
+            if [[ "$was_running" == "true" ]]; then
+                bash "${hybrid_dir}/start.sh" --with "$(compute_native_modules "$shared_dir")" || \
+                    echo "ERROR: the previous service failed to restart; run './chengos.sh start' after inspecting the logs." >&2
+            fi
+        else
+            echo "ERROR: automatic restore failed. The backup is intact at ${backup_dir}." >&2
+            echo "Recover manually as described in chengflow/docs/release-operations-guide.md." >&2
+        fi
+        return 1
+    }
 
-    # Update shared resources (only for installed modules)
-    local recorded_modules
-    recorded_modules="$(read_installed_modules 2>/dev/null || echo "api,ui,app")"
-    local cli_installed="false"
-    if [[ ",$recorded_modules," == *",cli,"* || -f "${shared_dir}/bin/cheng" ]]; then
-        cli_installed="true"
+    if ! rel_install_package_state "$bundle_root" "$ROOT_DIR" "$shared_dir" "$hybrid_dir" "$recorded_modules"; then
+        restore_previous_release "failed to install package-owned files for ${target_version}"
+        return 1
     fi
 
-    # Always update bin (contains cheng-api and, when packaged, cheng CLI) and .env.example
-    for item in bin .env.example; do
-        [[ -e "${temp_dir}/${item}" ]] || continue
-        echo "Replacing ${item}"
-        rm -rf "${shared_dir:?}/${item}"
-        cp -a "${temp_dir}/${item}" "${shared_dir}/${item}"
-    done
-
-    # Update workflow-templates (read-only templates, safe to replace)
-    if [[ -d "${temp_dir}/workflow-templates" ]]; then
-        echo "Replacing workflow-templates"
-        rm -rf "${shared_dir:?}/workflow-templates"
-        cp -a "${temp_dir}/workflow-templates" "${shared_dir}/workflow-templates"
-    fi
-
-    if [[ -d "${temp_dir}/config" ]]; then
-        echo "Replacing config"
-        rm -rf "${shared_dir:?}/config"
-        cp -a "${temp_dir}/config" "${shared_dir}/config"
-    fi
     if [[ -f "${shared_dir}/bin/cheng" ]]; then
-        sync_installed_cli_binaries "${shared_dir}/bin/cheng" "$shared_dir" "$cli_installed"
+        local cli_installed="false"
+        [[ ",${recorded_modules}," == *",cli,"* ]] && cli_installed="true"
+        sync_installed_cli_binaries "${shared_dir}/bin/cheng" "$shared_dir" "$cli_installed" || true
     fi
 
-    # Only update ui/app if they were installed
-    if [[ ",$recorded_modules," == *",ui,"* ]]; then
-        [[ -e "${temp_dir}/ui" ]] && {
-            echo "Replacing ui"
-            rm -rf "${shared_dir:?}/ui"
-            cp -a "${temp_dir}/ui" "${shared_dir}/ui"
-        }
-    fi
-    if [[ ",$recorded_modules," == *",app,"* ]]; then
-        [[ -e "${temp_dir}/app" ]] && {
-            echo "Replacing app"
-            rm -rf "${shared_dir:?}/app"
-            cp -a "${temp_dir}/app" "${shared_dir}/app"
-        }
-    fi
-
-    # Update chengos.sh manager at deployment root
-    if [[ -e "${temp_dir}/chengos.sh" ]]; then
-        echo "Replacing chengos.sh"
-        rm -f "${ROOT_DIR}/chengos.sh"
-        cp -a "${temp_dir}/chengos.sh" "${ROOT_DIR}/chengos.sh"
-        chmod +x "${ROOT_DIR}/chengos.sh"
-    fi
-
-    # Update native scripts in hybrid directory
-    for item in start.sh stop.sh status.sh generate-env.sh; do
-        [[ -e "${temp_dir}/${item}" ]] || continue
-        echo "Replacing ${item}"
-        rm -rf "${hybrid_dir:?}/${item}"
-        cp -a "${temp_dir}/${item}" "${hybrid_dir}/${item}"
-    done
-    chmod +x "${hybrid_dir}/"*.sh "${shared_dir}/bin/"* 2>/dev/null || true
-    [[ -n "$latest_tag" ]] && printf '%s\n' "$latest_tag" > "$VERSION_FILE"
-    [[ -z "$local_tarball_found" ]] && rm -f "$temp_tar"
-    rm -rf "$temp_dir"
+    # ── Start and prove the new release is actually serving ──────────────────
     if [[ "$was_running" == "true" ]]; then
-        echo "Services were running before update; restarting..."
-        local restart_modules
-        restart_modules="$(compute_native_modules "$shared_dir")"
-        bash "${hybrid_dir}/start.sh" --with "$restart_modules"
+        echo "Starting services on ${target_version}..."
+        if ! bash "${hybrid_dir}/start.sh" --with "$(compute_native_modules "$shared_dir")"; then
+            restore_previous_release "the new release failed to start"
+            return 1
+        fi
+
+        local health_url
+        health_url="$(resolve_health_url)"
+        echo "Waiting for ${health_url} to report healthy (timeout ${CHENGOS_HEALTH_TIMEOUT}s)..."
+        if ! rel_wait_for_health "$health_url" "$CHENGOS_HEALTH_TIMEOUT"; then
+            restore_previous_release "the new release did not become healthy within ${CHENGOS_HEALTH_TIMEOUT}s"
+            return 1
+        fi
+        echo "Health check passed."
+    else
+        echo "Services were not running before the update; skipping the post-update health check."
     fi
-    echo "Native package update completed."
+
+    # The version record is written only now: a system whose update failed
+    # health verification never claims to be on the new version.
+    rel_write_installed_version "$VERSION_FILE" "$target_version"
+    rel_prune_backups "$ROOT_DIR" "$CHENGOS_BACKUP_KEEP"
+
+    echo "Native package update completed: ${local_version:-unknown} -> ${target_version}"
+}
+
+# Restores the most recent eligible backup and validates it the same way an
+# update validates a new release.
+rollback_native_install() {
+    require_release_lib || return 1
+
+    local shared_dir hybrid_dir
+    shared_dir="$(resolve_shared_dir)"
+    hybrid_dir="$(resolve_hybrid_dir)"
+
+    local current_version
+    current_version="$(rel_read_installed_version "$VERSION_FILE" || true)"
+
+    # A release that rewrote data irreversibly cannot be rolled back by moving
+    # files: the previous binaries cannot read the migrated database.
+    if ! rel_rollback_allowed "$shared_dir"; then
+        echo "ERROR: release ${current_version:-unknown} declares an irreversible database migration." >&2
+        rel_print_manual_recovery
+        return 1
+    fi
+
+    local backup_dir
+    if ! backup_dir="$(rel_latest_backup "$ROOT_DIR")"; then
+        echo "ERROR: no rollback point available under $(rel_backup_root "$ROOT_DIR")." >&2
+        echo "Backups are created by './chengos.sh update'; a system that has never been updated has nothing to roll back to." >&2
+        return 1
+    fi
+
+    local previous_version
+    previous_version="$(rel_backup_version "$backup_dir")"
+    echo "Rolling back: ${current_version:-unknown} -> ${previous_version}"
+    echo "Rollback point: ${backup_dir}"
+
+    local was_running="false"
+    [[ -f "${shared_dir}/runtime/cheng-api.pid" ]] && was_running="true"
+
+    echo "Stopping services..."
+    if ! bash "${hybrid_dir}/stop.sh"; then
+        echo "ERROR: services could not be stopped; no files were restored." >&2
+        return 1
+    fi
+
+    if ! rel_restore_package_state "$backup_dir" "$ROOT_DIR" "$shared_dir" "$hybrid_dir"; then
+        echo "ERROR: rollback failed while restoring package files. The backup at ${backup_dir} is intact." >&2
+        return 1
+    fi
+
+    if [[ "$was_running" == "true" ]]; then
+        echo "Starting services on ${previous_version}..."
+        if ! bash "${hybrid_dir}/start.sh" --with "$(compute_native_modules "$shared_dir")"; then
+            echo "ERROR: the restored release failed to start. Inspect the logs and run './chengos.sh start'." >&2
+            return 1
+        fi
+        local health_url
+        health_url="$(resolve_health_url)"
+        if ! rel_wait_for_health "$health_url" "$CHENGOS_HEALTH_TIMEOUT"; then
+            echo "ERROR: the restored release did not become healthy within ${CHENGOS_HEALTH_TIMEOUT}s." >&2
+            echo "Files were restored; investigate the service logs before retrying." >&2
+            return 1
+        fi
+        echo "Health check passed."
+    fi
+
+    if [[ "$previous_version" != "unknown" ]]; then
+        rel_write_installed_version "$VERSION_FILE" "$previous_version"
+    fi
+    # The consumed rollback point is removed so a second rollback walks further
+    # back rather than restoring the same release again.
+    rm -rf "$backup_dir"
+
+    echo "Rollback completed: now on ${previous_version}."
 }
 
 uninstall_docker_install() {
@@ -1620,6 +2100,7 @@ if [[ $# -gt 0 ]]; then
     WITH_INFRA_OPT="false"
     UPDATE_KIND="auto"
     FORCE_UPDATE="false"
+    UPDATE_TARGET_VERSION=""
     SERVER_URL=""
     CLI_TARGET="local"
     
@@ -1672,6 +2153,12 @@ if [[ $# -gt 0 ]]; then
             --force)
                 FORCE_UPDATE="true"
                 shift
+                ;;
+            --to)
+                # Explicit exact release for update/rollback. Reinstall and
+                # downgrade are deliberate acts, never the default direction.
+                UPDATE_TARGET_VERSION="$2"
+                shift 2
                 ;;
             *)
                 echo "Unknown option: $1"
@@ -1882,8 +2369,22 @@ if [[ $# -gt 0 ]]; then
             ;;
             
         status)
+            # Exit code mirrors the service verdict: 0 when the API is serving,
+            # non-zero when it is not, so `status` is usable in a health probe.
             echo "${t[status_header]}"
-            run_service_cmd status "$MODE"
+            print_version_status "$MODE"
+            status_rc=0
+            run_service_cmd status "$MODE" || status_rc=$?
+            exit "$status_rc"
+            ;;
+
+        version)
+            if [[ "$RELEASE_LIB_LOADED" == "true" ]]; then
+                rel_read_installed_version "$VERSION_FILE" 2>/dev/null || echo "unknown"
+                echo ""
+            else
+                cat "$VERSION_FILE" 2>/dev/null || echo "unknown"
+            fi
             ;;
 
         restart)
@@ -1940,6 +2441,16 @@ if [[ $# -gt 0 ]]; then
             echo "${t[update_done]}"
             ;;
 
+        rollback)
+            echo "${t[rollback_start]}"
+            if [[ "$MODE" == "docker" ]]; then
+                rollback_docker_install
+            else
+                rollback_native_install
+            fi
+            echo "${t[rollback_done]}"
+            ;;
+
         install-cli)
             if [[ "$CLI_TARGET" != "local" && "$CLI_TARGET" != "remote" ]]; then
                 echo "Invalid --target: $CLI_TARGET (expected 'local' or 'remote')"
@@ -1978,6 +2489,7 @@ while true; do
     echo "  ${t[menu_lang]}"
     echo "  ${t[menu_exit]}"
     echo "  ${t[menu_reset_credentials]}"
+    echo "  ${t[menu_rollback]}"
     echo "==========================================="
     read -p "${t[select_op]}" op < /dev/tty
     
@@ -2257,6 +2769,20 @@ EOF
             read -p "${t[press_enter]}" dummy < /dev/tty
             ;;
             
+        13)
+            clear
+            install_mode="$(detect_install_mode)"
+            print_version_status "$install_mode"
+            read -p "${t[rollback_confirm]}" rollback_yn < /dev/tty
+            if [[ "$rollback_yn" =~ ^[Yy]$ ]]; then
+                echo ""
+                bash "$0" rollback --mode "$install_mode"
+            else
+                echo "${t[rollback_cancelled]}"
+            fi
+            read -p "${t[press_enter]}" dummy < /dev/tty
+            ;;
+
         *)
             printf "${t[invalid_op]}\n" "$op"
             sleep 1

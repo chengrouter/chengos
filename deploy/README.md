@@ -170,7 +170,7 @@ ChengOS 提供了功能完善的一键部署与运维脚本 `chengos.sh`，支�
 2. **启动服务 (Start)**: 启动选定的部署服务。
 3. **停止服务 (Stop)**: 停止运行中的服务，可选是否一并停止数据库。
 4. **重启服务 (Restart)**: 一键重新加载配置与重启应用服务。
-5. **更新模块 (Update)**: 支持单独更新部署脚本、更新最新 Release 部署包 (含 `cheng` CLI 二进制) 或两者同时更新。
+5. **更新模块 (Update)**: 支持单独更新部署脚本、更新最新 Release 部署包 (含 `cheng` CLI 二进制) 或两者同时更新。更新为**仅升级**：先校验 SHA-256 校验和与签名、核对包内嵌 `VERSION`，再停服替换；健康检查通过后才写入版本记录，失败会自动回滚到更新前的包。
 6. **单独安装 CLI (Install CLI Only)**: 快速为本机或远程终端配置 `cheng` 命令行客户端。
 7. **查看服务状态 (Status)**: 查看进程 PID、端口占用与实时运行日志。
 8. **安装系统快捷命令 (Install Command Shortcuts)**: 一键向系统路径 (`/usr/local/bin`) 创建快捷启动命令软链接：
@@ -178,6 +178,12 @@ ChengOS 提供了功能完善的一键部署与运维脚本 `chengos.sh`，支�
    - 运行 **`cheng`**：在任意终端窗口快速启动 CLI 终端实时对话。
 9. **卸载/停用模块 (Uninstall)**: 清理运行进程与静态文件，可选择保留或彻底清理数据库数据。
 10. **切换语言 (Switch Language)**: 中文 / English 界面一键切换。
+13. **回滚 (Rollback)**: 恢复上一个已备份的版本，并重新执行启动与健康校验。若该版本声明了不可逆的数据库迁移，将拒绝自动回滚并给出手工恢复步骤。
+
+> **版本固定**：Docker 部署的四个 ChengOS 镜像统一由 `.env` 中的 `CHENGOS_VERSION` 决定标签。
+> `latest` 只是首次安装的便捷默认值，**不是可复现的生产版本**，也永远不是更新/回滚目标。
+> 完整的发布、校验、更新与回滚流程见
+> [发布运维指南](../chengflow/docs/release-operations-guide.md)。
 
 ---
 
@@ -476,7 +482,7 @@ ChengOS includes an interactive and non-interactive management utility `chengos.
 2. **Start Services**: Launch configured services.
 3. **Stop Services**: Stop running services (optionally teardown databases).
 4. **Restart Services**: Reload configurations and restart services.
-5. **Update Modules**: Update management scripts, release tarballs (with `cheng` CLI), or both.
+5. **Update Modules**: Update management scripts, release tarballs (with `cheng` CLI), or both. Updates are **upgrade-only**: the SHA-256 checksum and signature are verified, the archive's embedded `VERSION` is matched against the selected release, and the version record is written only after a post-update health check passes. A failure restores the previous package automatically.
 6. **Install CLI Only**: Quick setup for local or remote `cheng` CLI.
 7. **Service Status**: Inspect process PIDs, ports, and live logs.
 8. **Install Command Shortcuts**: Installs global launcher symlinks to system path (`/usr/local/bin`):
@@ -484,6 +490,13 @@ ChengOS includes an interactive and non-interactive management utility `chengos.
    - Run **`cheng`**: Quickly launches the real-time CLI chat terminal from any terminal.
 9. **Uninstall Modules**: Teardown processes, with choice to keep or erase databases.
 10. **Switch Language**: Toggle Chinese / English UI.
+13. **Rollback**: Restore the most recent backed-up release and re-run start + health validation. Refused when the installed release declares an irreversible database migration; the manual recovery procedure is printed instead.
+
+> **Version pinning**: all four ChengOS Docker images resolve their tag from a single
+> `CHENGOS_VERSION` value in `.env`. `latest` is a first-install convenience default —
+> **not a reproducible production version**, and never an update or rollback target.
+> Full release, verification, update, and rollback procedures:
+> [Release Operations Guide](../chengflow/docs/release-operations-guide.md).
 
 ---
 

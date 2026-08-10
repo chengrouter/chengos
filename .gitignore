@@ -23,6 +23,17 @@ RELEASE_WORKFLOW.md
 # Ignore Local Configs & Variables
 .env
 .chengos_lang
+
+# Ignore per-installation release state written by chengos.sh.
+# NOTE: this must never cover release metadata that is meant to be published —
+# /VERSION, /CHANGELOG.md, and generated .sha256/.sig assets stay tracked or
+# uploaded as Release assets.
+.chengos_version
+.chengos_docker_version
+.chengos_install_mode
+.chengos_modules
+.chengos_cli_target
+.chengos_backups/
 deploy/.env
 deploy/hybrid/.env
 deploy/hybrid/install/.env

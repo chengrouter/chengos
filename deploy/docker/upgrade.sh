@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Low-level Compose refresh. It pulls and restarts whatever CHENGOS_VERSION in
+# ../.env currently pins, and performs NO release discovery, checksum/signature
+# verification, health validation, or rollback.
+#
+# For a real release update use `./chengos.sh update --mode docker`, which
+# selects an exact version, verifies it, restarts, health-checks, and restores
+# the previous pin on failure.
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_FILE="${SCRIPT_DIR}/../.env"
 

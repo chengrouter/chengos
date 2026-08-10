@@ -3,6 +3,16 @@ set -euo pipefail
 
 # Unified environment generator for ChengOS.
 # Creates a single deploy/.env shared by hybrid, docker, and distributed modes.
+#
+# The generated .env is INSTANCE-OWNED: it sits at the installation root, not
+# inside any package-owned directory, and it is never staged, backed up,
+# replaced, or removed by `chengos.sh update` / `rollback` (see
+# deploy/lib/release-update.sh). Only .env.example is package-owned, so a new
+# release can introduce settings without ever overwriting operator values.
+#
+# CHENGOS_VERSION lives in this file for Docker installations: it is the single
+# release pin from which API, UI, App, and CLI resolve their image tags, and the
+# updater rewrites it only after the selected release has been verified.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$SCRIPT_DIR"

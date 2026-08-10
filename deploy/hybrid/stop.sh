@@ -28,6 +28,10 @@ DB_INSTALL_MODE="${DB_INSTALL_MODE:-managed-process}"
 POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-}"
 REDIS_PASSWORD="${REDIS_PASSWORD:-}"
 
+# Counts services that refused to stop. The final exit code reports it, so a
+# caller never replaces package files while an old process is still running.
+STOP_FAILURES=0
+
 stop_pid() {
     local pid_file="$1"
     local name="$2"
@@ -56,17 +60,24 @@ stop_pid() {
         fi
         sleep 1
     done
+    if kill -0 "$pid" 2>/dev/null; then
+        # SIGKILL was already sent and the process is still present: report the
+        # failure rather than letting an updater replace files underneath it.
+        STOP_FAILURES=$(( STOP_FAILURES + 1 ))
+        log "ERROR: ${name} (PID ${pid}) could not be stopped"
+        return 1
+    fi
     rm -f "$pid_file"
     log "${name} stopped"
 }
 
 # 1. Stop Applications
-stop_pid "${ROOT_DIR}/runtime/app-server.pid" "cheng-app server"
-stop_pid "${ROOT_DIR}/runtime/ui-server.pid" "cheng-ui server"
-stop_pid "${ROOT_DIR}/runtime/cheng-api.pid" "cheng-api backend"
+stop_pid "${ROOT_DIR}/runtime/app-server.pid" "cheng-app server" || true
+stop_pid "${ROOT_DIR}/runtime/ui-server.pid" "cheng-ui server" || true
+stop_pid "${ROOT_DIR}/runtime/cheng-api.pid" "cheng-api backend" || true
 
 # 2. Stop Qdrant if running locally
-stop_pid "${ROOT_DIR}/runtime/qdrant.pid" "Qdrant"
+stop_pid "${ROOT_DIR}/runtime/qdrant.pid" "Qdrant" || true
 
 # 3. Stop Local Databases in managed-process mode
 if [[ "$DB_INSTALL_MODE" == "managed-process" ]]; then
@@ -134,6 +145,11 @@ if $WITH_INFRA && [[ "$DB_INSTALL_MODE" == "system-service" ]]; then
         ${SUDO} service valkey-server stop 2>/dev/null || true
     fi
     log "Infrastructure system services stopped"
+fi
+
+if (( STOP_FAILURES > 0 )); then
+    log "ERROR: ${STOP_FAILURES} service(s) could not be stopped."
+    exit 1
 fi
 
 log "All specified services stopped."
