@@ -87,8 +87,12 @@ read_version_file() {
 
 # Reads `version = "..."` from the [workspace.package] table only, so a crate or
 # dependency version elsewhere in the manifest can never be picked up by mistake.
+# Returns 0 and prints the version when the manifest exists; returns 2 and
+# prints nothing when chengflow/Cargo.toml is absent (e.g. deploy-only checkout).
 read_cargo_workspace_version() {
-    [[ -f "$CARGO_TOML" ]] || fail "Cargo manifest not found: ${CARGO_TOML}"
+    if [[ ! -f "$CARGO_TOML" ]]; then
+        return 2
+    fi
     local value
     value="$(awk '
         /^[[:space:]]*\[/ { in_section = ($0 ~ /^[[:space:]]*\[workspace\.package\][[:space:]]*$/) }
@@ -106,18 +110,28 @@ read_cargo_workspace_version() {
 }
 
 FILE_VERSION="$(read_version_file)"
-CARGO_VERSION="$(read_cargo_workspace_version)"
+CARGO_VERSION=""
+CARGO_AVAILABLE="false"
+if CARGO_VERSION="$(read_cargo_workspace_version)"; then
+    CARGO_AVAILABLE="true"
+elif [[ $? -ne 2 ]]; then
+    fail "failed to read chengflow/Cargo.toml workspace version"
+fi
 
 is_stable_semver "$FILE_VERSION" \
     || fail "VERSION is not a strict stable SemVer (MAJOR.MINOR.PATCH): '${FILE_VERSION}'"
-is_stable_semver "$CARGO_VERSION" \
-    || fail "chengflow/Cargo.toml [workspace.package].version is not a strict stable SemVer: '${CARGO_VERSION}'"
 
 log "VERSION                        : ${FILE_VERSION}"
-log "chengflow workspace version    : ${CARGO_VERSION}"
 
-[[ "$FILE_VERSION" == "$CARGO_VERSION" ]] \
-    || fail "version mismatch: VERSION=${FILE_VERSION} but chengflow/Cargo.toml=${CARGO_VERSION}"
+if [[ "$CARGO_AVAILABLE" == "true" ]]; then
+    is_stable_semver "$CARGO_VERSION" \
+        || fail "chengflow/Cargo.toml [workspace.package].version is not a strict stable SemVer: '${CARGO_VERSION}'"
+    log "chengflow workspace version    : ${CARGO_VERSION}"
+    [[ "$FILE_VERSION" == "$CARGO_VERSION" ]] \
+        || fail "version mismatch: VERSION=${FILE_VERSION} but chengflow/Cargo.toml=${CARGO_VERSION}"
+else
+    log "chengflow workspace version    : (skipped — chengflow/ not in this checkout)"
+fi
 
 if [[ -n "$TAG_ARG" ]]; then
     tag_version="$(strip_v "$TAG_ARG")"
