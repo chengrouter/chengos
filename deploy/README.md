@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[安装部署 / Installation](#6-部署步骤与快捷命令-quick-start--commands) · [核心特性 / Features](#2-系统核心特性-key-features) · [工具目录 / Tools](#3-工作流工具箱一览-workflow-tools-directory) · [English](#english)
+[安装部署 / Installation](#6-部署步骤与快捷命令-quick-start--commands) · [核心特性 / Features](#2-系统核心特性-key-features) · [工具目录 / Tools](#3-工作流工具箱一览-workflow-tools-directory) · [文档 / Docs](https://chenghub.org/docs) · [English](#english)
 
 </div>
 
@@ -317,7 +317,7 @@ ChengOS 当前为**免费使用**授权，但**不开源**。
 
 Visual AI Data Processing & Agentic Workflow Engine
 
-[Installation](#6-deployment-steps--commands) · [Features](#2-key-system-features) · [Tools Directory](#3-workflow-tools-directory)
+[Installation](#6-deployment-steps--commands) · [Features](#2-key-system-features) · [Tools Directory](#3-workflow-tools-directory) · [Docs](https://chenghub.org/docs)
 
 </div>
 
