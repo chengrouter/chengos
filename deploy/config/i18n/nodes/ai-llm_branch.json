@@ -12,6 +12,8 @@
   "nodes.ai.llm_branch.inputs.payload_source.title": "载荷来源",
   "nodes.ai.llm_branch.inputs.response.description": "LLM 响应文本(JSON 格式)",
   "nodes.ai.llm_branch.inputs.response.title": "回复",
+  "nodes.ai.llm_branch.inputs.route_shortcut.description": "由 ShortcutService 注入的路由快捷指令载荷(来自执行元数据)。其 `value` 对象会在字段匹配前合并进路由载荷。",
+  "nodes.ai.llm_branch.inputs.route_shortcut.title": "路由快捷指令",
   "nodes.ai.llm_branch.inputs.strict_mode.description": "JSON 解析失败时报错(false 则走兜底端口)",
   "nodes.ai.llm_branch.inputs.strict_mode.title": "严格模式",
   "nodes.ai.llm_branch.name": "LLM 字段路由",

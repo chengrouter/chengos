@@ -23,6 +23,8 @@ RELEASE_WORKFLOW.md
 # Ignore Local Configs & Variables
 .env
 .chengos_lang
+# Holds a ChengHub bearer token in plaintext — must never be committed.
+.mcp.json
 
 # Ignore per-installation release state written by chengos.sh.
 # NOTE: this must never cover release metadata that is meant to be published —

@@ -10,6 +10,8 @@
   "nodes.tools.code_shell.inputs.input.title": "输入",
   "nodes.tools.code_shell.inputs.memory_mb.description": "内存限制(MB).通过 Bubblewrap 下的 prlimit 强制执行.默认 128MB.",
   "nodes.tools.code_shell.inputs.memory_mb.title": "内存限制(MB)",
+  "nodes.tools.code_shell.inputs.request_read_paths.description": "申请访问沙箱之外的宿主机绝对路径,仅只读(例如 /home/me/project)。每条路径都需要人工批准本次执行;获批路径以只读方式挂载。仅在脚本必须读取沙箱看不到的文件时使用。",
+  "nodes.tools.code_shell.inputs.request_read_paths.title": "申请只读路径",
   "nodes.tools.code_shell.inputs.script.description": "[必填]Shell 脚本.示例:curl -s 'wttr.in/Tokyo?format=3'",
   "nodes.tools.code_shell.inputs.script.title": "脚本",
   "nodes.tools.code_shell.inputs.timeout_ms.description": "超时时间(毫秒).默认 5000ms,最大 300000ms.",

@@ -1,0 +1,1 @@
+import{j as a}from"./index-CU3scuPW.js";const s=async s=>(await a.get(`/workspaces/${s}/files`)).data,t=async s=>(await a.post(`/workspaces/${s.workspace_id}/files`,s)).data,e=async(s,t)=>(await a.put(`/files/${s}`,t)).data,i=async(s,t)=>{await a.post(`/files/${s}/move`,t)},c=async s=>{await a.delete(`/files/${s}`)};export{t as c,c as d,s as g,i as m,e as u};

@@ -113,7 +113,8 @@ if [[ -n "$ARCHIVE" ]]; then
     [[ -f "$ARCHIVE" ]] || fail "archive not found: ${ARCHIVE}"
     log "Verifying archive: ${ARCHIVE}"
 
-    # One listing; repeated `tar | grep -q` pipelines break under pipefail.
+    # One listing; reused for all structural checks below via bash builtin
+    # string matching to avoid SIGPIPE issues under pipefail.
     listing="$(tar -tzf "$ARCHIVE")" || fail "archive is not a readable gzip tarball: ${ARCHIVE}"
 
     # Every entry must live under a single `chengos/` top-level directory so
@@ -129,16 +130,21 @@ if [[ -n "$ARCHIVE" ]]; then
         esac
     done <<< "$listing"
 
+    # Use bash builtin string matching instead of `printf | grep` pipelines:
+    # under `set -o pipefail`, `grep -q` exiting early on match sends SIGPIPE
+    # to `printf`, making the pipeline return non-zero and causing false
+    # "missing entry" failures on large archives.
+    nl=$'\n' wrapped="${nl}${listing}${nl}"
     for required in "${REQUIRED_PATHS[@]}"; do
-        printf '%s\n' "$listing" | grep -qx "chengos/${required}" \
+        [[ "${wrapped}" == *"${nl}chengos/${required}${nl}"* ]] \
             || fail "required entry missing from archive: chengos/${required}"
     done
     for prefix in "${REQUIRED_DIR_PREFIXES[@]}"; do
-        printf '%s\n' "$listing" | grep -q "^chengos/${prefix}" \
+        [[ "${wrapped}" == *"${nl}chengos/${prefix}"* ]] \
             || fail "required directory missing from archive: chengos/${prefix}"
     done
     for forbidden in "${FORBIDDEN_PATHS[@]}"; do
-        if printf '%s\n' "$listing" | grep -qx "chengos/${forbidden}"; then
+        if [[ "${wrapped}" == *"${nl}chengos/${forbidden}${nl}"* ]]; then
             fail "archive contains instance-owned content that must never be packaged: chengos/${forbidden}"
         fi
     done
