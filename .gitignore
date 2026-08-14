@@ -6,6 +6,7 @@ chengapp/
 chenghub/
 skill-package-spec/
 skill-registry/
+chengflow-sdk/
 
 # Ignore Build & Staging Directories
 dist/
@@ -16,6 +17,7 @@ deploy/bin/chengctl
 # Ignore Project Meta & IDE Files
 .agents/
 .claude/
+.devin/
 .codex
 CLAUDE.md
 RELEASE_WORKFLOW.md
