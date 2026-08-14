@@ -44,6 +44,17 @@ Every release section must declare its rollback compatibility so operators and
 
 - Migration policy: reversible
 
+## [0.1.1] - 2026-08-14
+
+### Release notes
+
+<!-- Maintainer: describe the user-facing changes, required migration
+     steps, and any rollback limitation before publishing. -->
+
+### Notes
+
+- Migration policy: reversible
+
 ## [0.1.0]
 
 ### Added
