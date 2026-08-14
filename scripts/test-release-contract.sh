@@ -106,7 +106,15 @@ done
 
 if command -v shellcheck >/dev/null 2>&1; then
     # Style findings must not gate a release; only genuine errors do.
-    if shellcheck --severity=error --exclude=SC1090,SC1091 "${RELEASE_SCRIPTS[@]}" 2>/dev/null; then
+    # Filter to scripts that actually exist in this checkout (e.g. chengflow/
+    # is not pushed to the deploy-only GitHub repo).
+    shellcheck_scripts=()
+    for script in "${RELEASE_SCRIPTS[@]}"; do
+        [[ -f "$script" ]] && shellcheck_scripts+=("$script")
+    done
+    if [[ ${#shellcheck_scripts[@]} -eq 0 ]]; then
+        skip "shellcheck: no release scripts present"
+    elif shellcheck --severity=error --exclude=SC1090,SC1091 "${shellcheck_scripts[@]}" 2>/dev/null; then
         ok "shellcheck (error severity) clean"
     else
         bad "shellcheck reported errors in release-critical scripts"
