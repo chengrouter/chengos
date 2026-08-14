@@ -22,7 +22,7 @@ Build, publish, and deploy intelligent workflows across web, mobile, messaging, 
 <br>
 <br>
 
-[Website](https://chengos.dev/) · [Live Demo](#live-demo) · [Overview](#overview) · [Screenshots](#screenshots) · [Quick start](#quick-start) · [中文介绍](#中文介绍)
+[Website](https://chengos.dev/) · [Live Demo](#live-demo) · [Overview](#overview) · [Screenshots](#screenshots) · [Quick start](#quick-start) · [Docs](https://chenghub.org/docs) · [中文介绍](#中文介绍)
 
 </div>
 
@@ -277,7 +277,7 @@ For business inquiries or enterprise consultation, contact [hello@chengrouter.co
 
 **可视化 AI 数据处理与智能体工作流平台**
 
-[在线体验](#在线体验) · [产品概览](#产品概览) · [系统架构](#系统架构) · [快速开始](#快速开始) · [返回英文](#chengos)
+[在线体验](#在线体验) · [产品概览](#产品概览) · [系统架构](#系统架构) · [快速开始](#快速开始) · [文档](https://chenghub.org/docs) · [返回英文](#chengos)
 
 </div>
 
