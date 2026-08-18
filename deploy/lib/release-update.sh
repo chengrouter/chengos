@@ -450,6 +450,65 @@ rel_install_package_state() {
     return 0
 }
 
+# Low-disk variant of rel_install_package_state.
+#
+# Instead of cp→staged, mv→retired, mv→staged→target (which needs space for
+# the staged copy alongside the live target), this version retires the old
+# directory first and then copies the new one directly into place.  This
+# eliminates the simultaneous staged+target copy, halving per-directory peak
+# usage at the cost of a slightly longer window in which the directory is
+# absent (cp instead of mv).
+rel_install_package_state_lowdisk() {
+    local bundle_root="${1:?bundle root required}"
+    local root_dir="${2:?root dir required}"
+    local shared_dir="${3:?shared dir required}"
+    local hybrid_dir="${4:?hybrid dir required}"
+    local installed_modules="${5:-api,ui,app}"
+
+    local item target retired
+    for item in "${REL_PACKAGE_DIRS[@]}"; do
+        [[ -d "${bundle_root}/${item}" ]] || continue
+        case "$item" in
+            ui|app)
+                [[ ",${installed_modules}," == *",${item},"* ]] || continue
+                ;;
+        esac
+
+        target="${shared_dir}/${item}"
+        retired="${shared_dir}/.${item}.retired.$$"
+
+        rm -rf "$retired"
+        if [[ -e "$target" ]]; then
+            mv "$target" "$retired" || { rel_error "failed to retire ${item}"; return 1; }
+        fi
+        if ! cp -a "${bundle_root}/${item}" "$target"; then
+            rel_error "failed to install ${item}"
+            [[ -e "$retired" ]] && { rm -rf "$target"; mv "$retired" "$target"; }
+            return 1
+        fi
+        rm -rf "$retired"
+    done
+
+    for item in "${REL_PACKAGE_FILES[@]}"; do
+        [[ -f "${bundle_root}/${item}" ]] || continue
+        cp -a "${bundle_root}/${item}" "${shared_dir}/${item}" || return 1
+    done
+
+    for item in "${REL_HYBRID_SCRIPTS[@]}"; do
+        [[ -f "${bundle_root}/hybrid/${item}" ]] || continue
+        cp -a "${bundle_root}/hybrid/${item}" "${hybrid_dir}/${item}" || return 1
+        chmod +x "${hybrid_dir}/${item}" 2>/dev/null || true
+    done
+
+    if [[ -f "${bundle_root}/chengos.sh" ]]; then
+        cp -a "${bundle_root}/chengos.sh" "${root_dir}/chengos.sh" || return 1
+        chmod +x "${root_dir}/chengos.sh" 2>/dev/null || true
+    fi
+
+    chmod +x "${shared_dir}/bin/"* 2>/dev/null || true
+    return 0
+}
+
 # Restores package-owned content from a backup directory produced by
 # rel_backup_package_state. Instance-owned content is never touched.
 rel_restore_package_state() {

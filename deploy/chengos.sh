@@ -43,6 +43,40 @@ else
     SUDO="sudo"
 fi
 
+# ── Local Tarball Detection ───────────────────────────────────────────────────
+# Checks for a pre-existing release tarball before attempting a download.
+# Returns the path on stdout if found, returns non-zero otherwise.
+# Defined early so it is available in the bootstrap block below.
+find_local_tarball() {
+    local candidates=()
+    local versioned
+
+    # 1) Explicit override via env var
+    if [[ -n "${CHENGOS_LOCAL_TARBALL:-}" && -f "$CHENGOS_LOCAL_TARBALL" ]]; then
+        candidates+=("$CHENGOS_LOCAL_TARBALL")
+    fi
+
+    # 2) Versioned release asset name (newest first), then the transitional
+    #    unversioned alias, in ROOT_DIR
+    while IFS= read -r versioned; do
+        [[ -n "$versioned" ]] && candidates+=("$versioned")
+    done < <(ls -1 "${ROOT_DIR}"/chengos-full-linux-amd64-v*.tar.gz 2>/dev/null | sort -V -r)
+    candidates+=("${ROOT_DIR}/chengos-full-linux-amd64.tar.gz")
+    # 3) Generic name in ROOT_DIR
+    candidates+=("${ROOT_DIR}/chengos.tar.gz")
+    # 4) Current working directory
+    candidates+=("chengos-full-linux-amd64.tar.gz")
+    candidates+=("chengos.tar.gz")
+
+    for f in "${candidates[@]}"; do
+        if [[ -f "$f" && -s "$f" ]]; then
+            printf '%s\n' "$f"
+            return 0
+        fi
+    done
+    return 1
+}
+
 # ── Dual Mode Detection (Bootstrap vs Local) ──────────────────────────────────
 # If the script is run standalone without the deployment folders around,
 # it acts as a Bootstrapper to download the release from GitHub.
@@ -65,8 +99,12 @@ if [[ ! -f "start.sh" && ! -d "hybrid" && ! -d "deploy" ]]; then
     else
         echo "No local package found. Downloading the latest ChengOS release package..."
         REPO_URL="https://github.com/chengrouter/chengos"
-        TARBALL_URL="${REPO_URL}/releases/latest/download/chengos-full-linux-amd64.tar.gz"
         RELEASE_TAG="$(curl -fsSLI -o /dev/null -w '%{url_effective}' "${REPO_URL}/releases/latest" 2>/dev/null | sed 's#.*/tag/##' || true)"
+        if [[ -n "$RELEASE_TAG" ]]; then
+            TARBALL_URL="${REPO_URL}/releases/download/${RELEASE_TAG}/chengos-full-linux-amd64-${RELEASE_TAG}.tar.gz"
+        else
+            TARBALL_URL="${REPO_URL}/releases/latest/download/chengos-full-linux-amd64.tar.gz"
+        fi
 
         if ! curl -sSfL "$TARBALL_URL" -o chengos.tar.gz; then
             echo "ERROR: Failed to download release from $TARBALL_URL."
@@ -98,6 +136,7 @@ DOCKER_VERSION_FILE="${ROOT_DIR}/.chengos_docker_version"
 : "${FORCE_UPDATE:=false}"
 : "${UPDATE_TARGET_VERSION:=}"
 : "${UPDATE_KIND:=auto}"
+: "${LOW_DISK_UPDATE:=false}"
 UPDATE_BRANCH="${CHENGOS_UPDATE_BRANCH:-main}"
 RAW_BASE_URL="${CHENGOS_RAW_BASE_URL:-https://raw.githubusercontent.com/chengrouter/chengos/${UPDATE_BRANCH}}"
 DEFAULT_LANG="zh"
@@ -237,7 +276,8 @@ if [[ "$LANG_VAL" == "zh" ]]; then
     t[update_type_package]="  2) 仅更新包 (release tar.gz 或 Docker 镜像; 包含 cheng CLI 二进制)"
     t[update_type_both]="  3) 先更新脚本再更新包 (推荐; 包含 cheng CLI 二进制)"
     t[update_type_force]="  4) 强制更新包 (跳过版本检查, 强制下载并替换所有目录)"
-    t[update_type_prompt]="选择 [1-4] (默认 3): "
+    t[update_type_low]="  5) 低磁盘模式更新 (逐步操作: 解压→清理旧备份→备份→替换, 适合磁盘空间紧张时使用)"
+    t[update_type_prompt]="选择 [1-5] (默认 3): "
     t[cli_install_title]="单独安装 CLI (cheng)"
     t[cli_install_local]="  1) 本机安装 (与 cheng-api 同机; 连接 127.0.0.1)"
     t[cli_install_remote]="  2) 其他终端/机器安装 (连接远程 ChengOS 服务器)"
@@ -321,7 +361,8 @@ else
     t[update_type_package]="  2) Package update only (release tar.gz or Docker images; includes cheng CLI binary)"
     t[update_type_both]="  3) Script update, then package update (recommended; includes cheng CLI binary)"
     t[update_type_force]="  4) Force package update (skip version check; download and replace all directories)"
-    t[update_type_prompt]="Choose [1-4] (Default 3): "
+    t[update_type_low]="  5) Low-disk mode update (sequential: extract→prune old backups→backup→replace; for tight disk space)"
+    t[update_type_prompt]="Choose [1-5] (Default 3): "
     t[cli_install_title]="Install CLI (cheng) Only"
     t[cli_install_local]="  1) On this machine (co-located with cheng-api; connects to 127.0.0.1)"
     t[cli_install_remote]="  2) On any other terminal/machine (connects to a remote ChengOS server)"
@@ -351,39 +392,6 @@ else
     t[reset_password_mismatch]="The passwords do not match."
     t[reset_failed]="Credential reset failed."
 fi
-
-# ── Local Tarball Detection ───────────────────────────────────────────────────
-# Checks for a pre-existing release tarball before attempting a download.
-# Returns the path on stdout if found, returns non-zero otherwise.
-find_local_tarball() {
-    local candidates=()
-    local versioned
-
-    # 1) Explicit override via env var
-    if [[ -n "${CHENGOS_LOCAL_TARBALL:-}" && -f "$CHENGOS_LOCAL_TARBALL" ]]; then
-        candidates+=("$CHENGOS_LOCAL_TARBALL")
-    fi
-
-    # 2) Versioned release asset name (newest first), then the transitional
-    #    unversioned alias, in ROOT_DIR
-    while IFS= read -r versioned; do
-        [[ -n "$versioned" ]] && candidates+=("$versioned")
-    done < <(ls -1 "${ROOT_DIR}"/chengos-full-linux-amd64-v*.tar.gz 2>/dev/null | sort -V -r)
-    candidates+=("${ROOT_DIR}/chengos-full-linux-amd64.tar.gz")
-    # 3) Generic name in ROOT_DIR
-    candidates+=("${ROOT_DIR}/chengos.tar.gz")
-    # 4) Current working directory
-    candidates+=("chengos-full-linux-amd64.tar.gz")
-    candidates+=("chengos.tar.gz")
-
-    for f in "${candidates[@]}"; do
-        if [[ -f "$f" && -s "$f" ]]; then
-            printf '%s\n' "$f"
-            return 0
-        fi
-    done
-    return 1
-}
 
 # ── Utility Helpers ──────────────────────────────────────────────────────────
 
@@ -873,7 +881,13 @@ install_cli_binary_only() {
     else
         echo "No local package found. Downloading the latest ChengOS release package..."
         local repo_url="https://github.com/chengrouter/chengos"
-        local tarball_url="${repo_url}/releases/latest/download/chengos-full-linux-amd64.tar.gz"
+        local release_tag="$(curl -fsSLI -o /dev/null -w '%{url_effective}' "${repo_url}/releases/latest" 2>/dev/null | sed 's#.*/tag/##' || true)"
+        local tarball_url
+        if [[ -n "$release_tag" ]]; then
+            tarball_url="${repo_url}/releases/download/${release_tag}/chengos-full-linux-amd64-${release_tag}.tar.gz"
+        else
+            tarball_url="${repo_url}/releases/latest/download/chengos-full-linux-amd64.tar.gz"
+        fi
         tarball="/tmp/chengos_cli_download_$$.tar.gz"
         downloaded="true"
         if ! curl -sSfL "$tarball_url" -o "$tarball"; then
@@ -1801,11 +1815,15 @@ update_native_install() {
 
     # Refuse to stage a package the filesystem cannot hold. The extracted tree
     # is larger than the archive; four times the compressed size is a cheap,
-    # deliberately conservative bound.
+    # deliberately conservative bound.  In low-disk mode we use 2× because the
+    # archive is deleted immediately after extraction and old backups are
+    # pruned to 1 before the new backup is created.
     local archive_bytes
     archive_bytes="$(wc -c < "$archive_path" | tr -d '[:space:]')"
-    rel_check_free_space "$stage_dir" "$(( archive_bytes * 4 ))" || return 1
-    rel_check_free_space "$shared_dir" "$(( archive_bytes * 4 ))" || return 1
+    local space_multiplier=4
+    [[ "$LOW_DISK_UPDATE" == "true" ]] && space_multiplier=2
+    rel_check_free_space "$stage_dir" "$(( archive_bytes * space_multiplier ))" || return 1
+    rel_check_free_space "$shared_dir" "$(( archive_bytes * space_multiplier ))" || return 1
 
     if ! bundle_root="$(rel_extract_and_verify "$archive_path" "${stage_dir}/extract" "$target_version" "$RELEASE_VERIFIER")"; then
         echo "ERROR: the downloaded package failed verification; the installation was not modified." >&2
@@ -1813,7 +1831,21 @@ update_native_install() {
     fi
     echo "Package verified: ChengOS ${target_version}"
 
+    # Low-disk mode: delete the archive immediately after successful extraction
+    # to free ~65 MB before the backup step.
+    if [[ "$LOW_DISK_UPDATE" == "true" && "$local_tarball_found" != "$archive_path" ]]; then
+        echo "[low-disk] Removing downloaded archive to free space..."
+        rm -f "$archive_path"
+    fi
+
     # ── Everything below mutates the installation ────────────────────────────
+    # Low-disk mode: prune old backups to keep only 1 before creating the new
+    # backup, freeing up to (N-1)×200 MB.
+    if [[ "$LOW_DISK_UPDATE" == "true" ]]; then
+        echo "[low-disk] Pruning old backups (keep=1)..."
+        rel_prune_backups "$ROOT_DIR" 1
+    fi
+
     echo "Backing up the current package-owned state..."
     local backup_dir
     if ! backup_dir="$(rel_backup_package_state "$ROOT_DIR" "$shared_dir" "$hybrid_dir" "${local_version:-unknown}")"; then
@@ -1851,9 +1883,24 @@ update_native_install() {
         return 1
     }
 
-    if ! rel_install_package_state "$bundle_root" "$ROOT_DIR" "$shared_dir" "$hybrid_dir" "$recorded_modules"; then
-        restore_previous_release "failed to install package-owned files for ${target_version}"
-        return 1
+    if [[ "$LOW_DISK_UPDATE" == "true" ]]; then
+        echo "[low-disk] Installing package files (low-disk mode: retire-then-copy)..."
+        if ! rel_install_package_state_lowdisk "$bundle_root" "$ROOT_DIR" "$shared_dir" "$hybrid_dir" "$recorded_modules"; then
+            restore_previous_release "failed to install package-owned files for ${target_version}"
+            return 1
+        fi
+    else
+        if ! rel_install_package_state "$bundle_root" "$ROOT_DIR" "$shared_dir" "$hybrid_dir" "$recorded_modules"; then
+            restore_previous_release "failed to install package-owned files for ${target_version}"
+            return 1
+        fi
+    fi
+
+    # Low-disk mode: free the staging directory now that files are installed,
+    # before the health check, to maximise available space during restart.
+    if [[ "$LOW_DISK_UPDATE" == "true" ]]; then
+        echo "[low-disk] Cleaning staging directory..."
+        rm -rf "${stage_dir}/extract"
     fi
 
     if [[ -f "${shared_dir}/bin/cheng" ]]; then
@@ -1885,7 +1932,11 @@ update_native_install() {
     # The version record is written only now: a system whose update failed
     # health verification never claims to be on the new version.
     rel_write_installed_version "$VERSION_FILE" "$target_version"
-    rel_prune_backups "$ROOT_DIR" "$CHENGOS_BACKUP_KEEP"
+    if [[ "$LOW_DISK_UPDATE" == "true" ]]; then
+        rel_prune_backups "$ROOT_DIR" 1
+    else
+        rel_prune_backups "$ROOT_DIR" "$CHENGOS_BACKUP_KEEP"
+    fi
 
     echo "Native package update completed: ${local_version:-unknown} -> ${target_version}"
 }
@@ -2154,6 +2205,10 @@ if [[ $# -gt 0 ]]; then
                 FORCE_UPDATE="true"
                 shift
                 ;;
+            --low)
+                LOW_DISK_UPDATE="true"
+                shift
+                ;;
             --to)
                 # Explicit exact release for update/rollback. Reinstall and
                 # downgrade are deliberate acts, never the default direction.
@@ -2273,7 +2328,12 @@ if [[ $# -gt 0 ]]; then
                     else
                         echo "No local package found. Downloading the latest pre-compiled release package from GitHub..."
                         REPO_URL="https://github.com/chengrouter/chengos"
-                        TARBALL_URL="${REPO_URL}/releases/latest/download/chengos-full-linux-amd64.tar.gz"
+                        RELEASE_TAG="$(curl -fsSLI -o /dev/null -w '%{url_effective}' "${REPO_URL}/releases/latest" 2>/dev/null | sed 's#.*/tag/##' || true)"
+                        if [[ -n "$RELEASE_TAG" ]]; then
+                            TARBALL_URL="${REPO_URL}/releases/download/${RELEASE_TAG}/chengos-full-linux-amd64-${RELEASE_TAG}.tar.gz"
+                        else
+                            TARBALL_URL="${REPO_URL}/releases/latest/download/chengos-full-linux-amd64.tar.gz"
+                        fi
                         TEMP_TAR="/tmp/chengos_download_$$.tar.gz"
                         if ! curl -sSfL "$TARBALL_URL" -o "$TEMP_TAR"; then
                             echo "ERROR: Failed to download release from $TARBALL_URL."
@@ -2612,11 +2672,13 @@ while true; do
             echo "${t[update_type_package]}"
             echo "${t[update_type_both]}"
             echo "${t[update_type_force]}"
+            echo "${t[update_type_low]}"
             read -p "${t[update_type_prompt]}" update_choice < /dev/tty
             update_flag=""
             [[ "$update_choice" == "1" ]] && update_flag="--scripts-only"
             [[ "$update_choice" == "2" ]] && update_flag="--package-only"
             [[ "$update_choice" == "4" ]] && update_flag="--package-only --force"
+            [[ "$update_choice" == "5" ]] && update_flag="--low"
             echo ""
             if [[ -n "$update_flag" ]]; then
                 bash "$0" update --mode "$install_mode" $update_flag
