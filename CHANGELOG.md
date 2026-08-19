@@ -44,6 +44,35 @@ Every release section must declare its rollback compatibility so operators and
 
 - Migration policy: reversible
 
+## [0.1.1] - 2026-08-19
+
+### Release notes
+
+<!-- Maintainer: describe the user-facing changes, required migration
+     steps, and any rollback limitation before publishing. -->
+
+### Added
+
+- feat: release.sh tags all source repos with unified version
+
+### Fixed
+
+- fix: restore deleted config images and update deploy scripts
+
+### Other
+
+- readmd.md Update
+- V0.1.0
+- 修复 CI: shellcheck 过滤不存在的脚本，避免 chengflow/build.sh 缺失时报错
+- 回退版本到 0.1.0
+- 回退版本到 0.1.0
+- CI 修复：chengflow 不在仓库时跳过 Cargo 版本检查，精简 release.yml 为纯验证
+- V0.1.0
+
+### Notes
+
+- Migration policy: reversible
+
 ## [0.1.0]
 
 ### Added
