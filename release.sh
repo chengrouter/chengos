@@ -10,7 +10,8 @@
 #   4. refuse a target that already exists locally or on the remote
 #   5. write VERSION, the Cargo workspace version, and a CHANGELOG section
 #   6. run the release contract gates
-#   7. commit `release: vX.Y.Z`, tag `vX.Y.Z` annotated, push branch then tag
+#   7. tag all source repositories (chengflow, chengflow-ui, chengapp, chengflow-sdk)
+#   8. commit `release: vX.Y.Z`, tag `vX.Y.Z` annotated, push branch then tag
 #
 # The script never force-pushes and never moves an existing tag. Re-running it
 # for an already released version fails before any write.
@@ -373,7 +374,51 @@ else
     fail "release contract gates not found: ${CONTRACT_TEST} (use --skip-checks only for a rehearsal)"
 fi
 
-# ── 7. Commit, tag, push ──────────────────────────────────────────────────────
+# ── 7. Tag source repositories ─────────────────────────────────────────────────
+# All source repos that live alongside the meta repo and have their own git
+# history get the same release tag so every component is traceable to one
+# version.
+SOURCE_REPOS=(chengflow chengflow-ui chengapp chengflow-sdk)
+
+tag_source_repos() {
+    local repo_dir repo_name repo_remote
+    local tagged=()
+
+    for repo_name in "${SOURCE_REPOS[@]}"; do
+        repo_dir="${REPO_ROOT}/${repo_name}"
+        if [[ ! -d "${repo_dir}/.git" ]]; then
+            continue
+        fi
+
+        # Refuse if the tag already exists locally or on the remote.
+        if git -C "$repo_dir" rev-parse --verify --quiet "refs/tags/${target_tag}" >/dev/null 2>&1; then
+            fail "tag ${target_tag} already exists in ${repo_name}"
+        fi
+
+        repo_remote="$(git -C "$repo_dir" remote get-url origin 2>/dev/null && echo origin || true)"
+        if [[ -n "$repo_remote" ]]; then
+            if git -C "$repo_dir" ls-remote --exit-code --tags origin "refs/tags/${target_tag}" >/dev/null 2>&1; then
+                fail "tag ${target_tag} already exists on remote of ${repo_name}"
+            fi
+        fi
+
+        if action "git -C ${repo_name} tag -a ${target_tag} -m 'ChengOS ${target_version}'"; then
+            git -C "$repo_dir" tag -a "$target_tag" -m "ChengOS ${target_version}"
+            tagged+=("$repo_name")
+        fi
+    done
+
+    # Push tags after all are created locally.
+    for repo_name in "${tagged[@]}"; do
+        repo_dir="${REPO_ROOT}/${repo_name}"
+        if action "git -C ${repo_name} push origin refs/tags/${target_tag}"; then
+            git -C "$repo_dir" push origin "refs/tags/${target_tag}" \
+                || fail "push of tag ${target_tag} failed for ${repo_name}"
+        fi
+    done
+}
+
+# ── 8. Commit, tag, push (meta repo) ───────────────────────────────────────────
 echo ""
 info "Git actions"
 commit_message="release: ${target_tag}"
@@ -412,9 +457,14 @@ if action "git push ${REMOTE} refs/tags/${target_tag}"; then
         || fail "push of tag ${target_tag} failed; delete the local tag and retry after fixing the cause"
 fi
 
+# Tag all source repositories with the same release version.
+echo ""
+info "Tagging source repositories"
+tag_source_repos
+
 echo ""
 if [[ "$DRY_RUN" == "true" ]]; then
-    info "Dry run complete — the repository was not modified."
+    info "Dry run complete — no repository was modified."
 else
-    info "Released ${target_tag}. CI now builds, verifies, and publishes the artifacts."
+    info "Released ${target_tag}. Build with: ./chengflow/build.sh --hybrid"
 fi
