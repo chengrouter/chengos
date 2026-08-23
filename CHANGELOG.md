@@ -44,6 +44,26 @@ Every release section must declare its rollback compatibility so operators and
 
 - Migration policy: reversible
 
+## [0.1.2] - 2026-08-23
+
+### Release notes
+
+<!-- Maintainer: describe the user-facing changes, required migration
+     steps, and any rollback limitation before publishing. -->
+
+### Fixed
+
+- fix: restore deleted config images
+
+### Other
+
+-  v0.1.2 is a patch release spanning two days of development across **chengflow** (backend), **chengflow-ui** (frontend), and **chengapp** (desktop/mobile app). This release focuses on **message compression & port schema validation**, **approval whitelist persistence fixes**, **think/tool-call rendering fixes**, **execution archive trace excerpts**, **ChengApp Android build support**, and the **web translation browser extension**.
+-  v 0.1.1 版本更新
+
+### Notes
+
+- Migration policy: reversible
+
 ## [0.1.1] - 2026-08-19
 
 ### Release notes
