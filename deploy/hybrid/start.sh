@@ -71,6 +71,53 @@ API_LOG_FILE="${CHENG_API_LOG_FILE:-${ROOT_DIR}/logs/cheng-api.log}"
 UI_LOG_FILE="${CHENG_UI_LOG_FILE:-${ROOT_DIR}/logs/ui-server.log}"
 APP_LOG_FILE="${CHENG_APP_LOG_FILE:-${ROOT_DIR}/logs/app-server.log}"
 
+# Launch a long-lived service fully detached from this shell.
+#
+# Second layer of protection against the "server dies when the launching
+# terminal / ssh session closes" failure: setsid puts the child in a brand new
+# session with no controlling terminal, so the kernel has nobody to deliver
+# SIGHUP to on terminal teardown. (The first layer lives in the servers
+# themselves, which ignore SIGHUP.) nohup and </dev/null cover hosts that have
+# no setsid.
+#
+# Usage: start_detached <pid_file> <log_file> <command> [args...]
+# Prints the PID of the started service.
+#
+# The child publishes its own PID rather than the caller using $!, because
+# setsid forks whenever the process it is asked to run would already be a
+# process-group leader (i.e. whenever job control is on) — in that case $!
+# names the short-lived setsid parent, not the service. `exec` keeps the PID
+# written by the wrapper valid for the service itself.
+start_detached() {
+    local pid_file="$1" log_file="$2"
+    shift 2
+
+    local launcher=()
+    if command -v setsid >/dev/null 2>&1; then
+        launcher=(setsid)
+    fi
+
+    rm -f "$pid_file"
+    ${launcher[@]+"${launcher[@]}"} nohup \
+        bash -c 'echo $$ > "$1"; shift; exec "$@"' _ "$pid_file" "$@" \
+        >> "$log_file" 2>&1 < /dev/null &
+    local spawn_pid=$!
+
+    # Wait (max ~5s) for the child to publish its PID; fall back to $! if the
+    # exec failed outright, so the caller still gets something killable.
+    local waited=0
+    while [[ ! -s "$pid_file" ]]; do
+        if (( waited >= 50 )); then
+            echo "$spawn_pid" > "$pid_file"
+            break
+        fi
+        sleep 0.1
+        waited=$(( waited + 1 ))
+    done
+
+    cat "$pid_file"
+}
+
 resolve_process_log_file() {
     local value="$1"
     local default_file="$2"
@@ -452,9 +499,8 @@ if has_module "api"; then
                 ;;
         esac
 
-        nohup "$BINARY" "${api_log_args[@]}" >> "$api_output_log" 2>&1 &
-        api_pid=$!
-        echo "$api_pid" > "$api_pid_file"
+        api_pid="$(start_detached "$api_pid_file" "$api_output_log" \
+            "$BINARY" "${api_log_args[@]}")"
         log "cheng-api started (PID ${api_pid}), logging to ${api_output_log}"
         
         # Wait for /health
@@ -530,10 +576,9 @@ if has_module "ui"; then
         
         ui_output_log="$(resolve_process_log_file "$UI_LOG_FILE" "${ROOT_DIR}/logs/ui-server.log")"
         mkdir -p "$(dirname "$ui_output_log")"
-        UI_PORT="$UI_PORT" BACKEND_URL="http://127.0.0.1:${PORT}" \
-        nohup node "${ROOT_DIR}/bin/ui-server.js" >> "$ui_output_log" 2>&1 &
-        ui_pid=$!
-        echo "$ui_pid" > "$ui_pid_file"
+        ui_pid="$(start_detached "$ui_pid_file" "$ui_output_log" \
+            env UI_PORT="$UI_PORT" BACKEND_URL="http://127.0.0.1:${PORT}" \
+            node "${ROOT_DIR}/bin/ui-server.js")"
         log "cheng-ui server started (PID ${ui_pid}), listening on port ${UI_PORT}, logging to ${ui_output_log}"
     fi
 fi
@@ -557,10 +602,9 @@ if has_module "app"; then
         
         app_output_log="$(resolve_process_log_file "$APP_LOG_FILE" "${ROOT_DIR}/logs/app-server.log")"
         mkdir -p "$(dirname "$app_output_log")"
-        APP_PORT="$APP_PORT" BACKEND_URL="http://127.0.0.1:${PORT}" \
-        nohup node "${ROOT_DIR}/bin/app-server.js" >> "$app_output_log" 2>&1 &
-        app_pid=$!
-        echo "$app_pid" > "$app_pid_file"
+        app_pid="$(start_detached "$app_pid_file" "$app_output_log" \
+            env APP_PORT="$APP_PORT" BACKEND_URL="http://127.0.0.1:${PORT}" \
+            node "${ROOT_DIR}/bin/app-server.js")"
         log "cheng-app server started (PID ${app_pid}), listening on port ${APP_PORT}, logging to ${app_output_log}"
     fi
 fi
