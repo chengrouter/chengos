@@ -246,6 +246,38 @@ cheng
 ```
 即刻开启终端实时对话与工作流执行。
 
+#### 让后台 agent 常驻（定时任务的前提）
+
+定时任务指向的是「某台机器上的某个目录」。如果那台机器上的 `cheng back`
+没在跑，任务不会失败，而是**每次都静默跳过** —— 这是排查这类问题时最容易
+漏掉的一条。把它交给操作系统托管：
+
+```bash
+# Linux (systemd user unit) / macOS (launchd)
+deploy/hybrid/install-cheng-back.sh --root /home/me/works --root /data/pages:ro
+
+deploy/hybrid/install-cheng-back.sh --status      # 查看状态
+deploy/hybrid/install-cheng-back.sh --uninstall   # 卸载
+```
+
+脚本做两件不能省的事：
+
+1. **先确认凭证能在无人值守下解锁**（`auth_storage` 落到 `host-bound` 或
+   `encrypted-file`），再写 unit。服务在任何人登录之前就启动，需要交互解锁的
+   凭证会让 agent「在跑但没登录」——机器看起来被服务着，实际每次都跳过。
+2. **服务的根目录列表写进 CLI 配置的 `back_roots`，不写进 unit 命令行**。
+   改目录只需要编辑 `~/.config/cheng/config.json`，不用重装服务。
+
+Linux 上还会尝试 `loginctl enable-linger`，让 agent 在用户登出后继续存活；
+没有权限时脚本会提示需要执行的 sudo 命令，而不是静默跳过。
+
+> **多副本部署的已知限制**：workspace bridge 的注册表是 **API 进程内** 的
+> `HashMap`，没有跨副本扇出。多个 API 副本时，触发定时任务的副本未必持有目标
+> 机器的 WebSocket 连接，此时任务会判定目标不可达并**持续跳过**（行为是安全
+> 的，但功能不可用）。因此：**定时任务驱动客户端工作区的能力目前要求单 API
+> 副本部署**。多副本需要先实现共享注册表 + 跨节点请求转发
+> （见 `chengflow/docs/scheduled-client-workspace-tasks-phase2-development-plan.md` P2-2）。
+
 ---
 
 ## 7. 默认端口与服务分配 (Default Ports)

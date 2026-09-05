@@ -93,6 +93,7 @@ if [[ ! -f "start.sh" && ! -d "hybrid" && ! -d "deploy" ]]; then
     cd "$INSTALL_DIR"
     
     echo "Looking for local release package..."
+    RELEASE_TAG=""
     if TARBALL_PATH="$(find_local_tarball)"; then
         echo "Found local release package: ${TARBALL_PATH}"
         cp "$TARBALL_PATH" chengos.tar.gz
@@ -2138,9 +2139,49 @@ reset_login_credentials() {
     fi
 }
 
+# Local administration: the admission gate and platform administrators.
+#
+# This wrapper exists because the operator should not have to reconstruct
+# DATABASE_URL by hand -- it is already in the installation's .env, which this
+# script knows how to find. Arguments are forwarded verbatim; run
+# `./chengos.sh admin --help` for the command list.
+#
+# Note this is the *only* way back when a deployment has no platform
+# administrator: the REST admin API needs an administrator's token to appoint
+# one, so it cannot appoint the first.
+run_admin_cli() {
+    local install_mode shared_dir docker_dir
+    install_mode="$(detect_install_mode)"
+    shared_dir="$(resolve_shared_dir)"
+    docker_dir="$(resolve_docker_dir)"
+
+    if [[ "$install_mode" == "docker" ]]; then
+        ensure_docker_compose
+        (cd "$docker_dir" && docker compose --env-file ../.env run --rm -T api admin "$@")
+    else
+        if [[ ! -x "${shared_dir}/bin/cheng-api" ]]; then
+            echo "cheng-api binary not found: ${shared_dir}/bin/cheng-api" >&2
+            return 1
+        fi
+        if [[ -f "${shared_dir}/.env" ]]; then
+            # shellcheck disable=SC1090
+            set -a; source "${shared_dir}/.env"; set +a
+        fi
+        (cd "$shared_dir" && "${shared_dir}/bin/cheng-api" admin "$@")
+    fi
+}
+
 if [[ $# -gt 0 ]]; then
     CMD="$1"
     shift
+
+    # `admin` forwards its own arguments to the binary. It is handled before the
+    # option parser below, which understands install-style flags only and would
+    # reject `--user`, `--email`, and friends.
+    if [[ "$CMD" == "admin" ]]; then
+        run_admin_cli "$@"
+        exit $?
+    fi
     
     MODE=""
     WITH_MODULES="api,ui,app,pg,redis,qdrant"

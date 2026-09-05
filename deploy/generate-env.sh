@@ -215,6 +215,12 @@ if [[ -d "${SCRIPT_DIR}/workflow-templates" ]]; then
     replace_env_line "TEMPLATE_WORKFLOWS_DIR" "${SCRIPT_DIR}/workflow-templates"
 fi
 
+# Point the API at this file so the deployment settings panel can edit it.
+# Native deployments read the host path directly; Docker overrides this with
+# the in-container mount path in docker-compose.yml, because compose's
+# `env_file` injects the variables without exposing the file itself.
+replace_env_line "CHENGOS_ENV_FILE" "${ENV_FILE}"
+
 [[ -n "$CORS_ORIGIN" ]] && replace_env_line "CORS_ALLOWED_ORIGINS" "${CORS_ORIGIN}"
 [[ -n "$PUBLIC_UI_URL" ]] && replace_env_line "PUBLIC_UI_URL" "${PUBLIC_UI_URL}"
 [[ -n "$PUBLIC_APP_URL" ]] && replace_env_line "PUBLIC_APP_URL" "${PUBLIC_APP_URL}"

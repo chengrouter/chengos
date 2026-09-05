@@ -91,7 +91,12 @@ services:
       NODE_SKILLS_DIR: /app/node_skills
       CHENG_GLOBAL_CONFIG_DIR: /app/config
       TEMPLATE_WORKFLOWS_DIR: /app/workflow-templates
+      # The deployment settings panel edits this file. `env_file` above only
+      # injects the variables, so the file itself is bind-mounted below.
+      # Saved changes apply on the next `docker compose up -d`.
+      CHENGOS_ENV_FILE: /app/.env
     volumes:
+      - ../.env:/app/.env
       - ../config:/app/config
       - ../skills:/app/skills
       - ../logs:/app/logs
