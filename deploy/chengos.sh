@@ -418,6 +418,37 @@ resolve_shared_dir() {
     fi
 }
 
+# Package the browser extension into the UI's downloads directory.
+#
+# Must run AFTER the UI build output is copied: that copy does `rm -rf .../ui`,
+# so anything written here beforehand is destroyed on every update.
+#
+# The artifact is generated at install/upgrade time rather than committed. A
+# binary per release would grow the git repository linearly and forever, and the
+# zip is fully reproducible from the extension source.
+install_downloads() {
+    local shared_dir="$1"
+    local src_root="$2"
+    local packager="${src_root}/scripts/package-extension.sh"
+    local downloads_dir="${shared_dir}/ui/downloads"
+
+    [[ -d "${shared_dir}/ui" ]] || return 0
+    if [[ ! -x "$packager" ]]; then
+        echo "Note: ${packager} not found; skipping extension packaging."
+        return 0
+    fi
+
+    mkdir -p "$downloads_dir"
+    if ! bash "$packager" "$downloads_dir"; then
+        # A failed package must not abort an otherwise good install, but it must
+        # be visible: ui-server answers a missing download with 404, so the
+        # symptom would otherwise be a dead link nobody notices.
+        echo "Warning: extension packaging failed; /downloads will return 404." >&2
+        return 0
+    fi
+    echo "Packaged browser extension into ${downloads_dir}"
+}
+
 resolve_docker_dir() {
     if [[ -f "${ROOT_DIR}/docker-compose.yml" && -f "${ROOT_DIR}/generate-env.sh" ]]; then
         printf '%s\n' "$ROOT_DIR"
@@ -1659,6 +1690,7 @@ rebuild_native_from_git_checkout() {
         echo "Copying UI build output..."
         rm -rf "${shared_dir:?}/ui"
         cp -a "${git_root}/chengflow-ui/dist" "${shared_dir}/ui"
+        install_downloads "$shared_dir" "$git_root"
     fi
     if [[ ",$recorded_modules," == *",app,"* && -d "${git_root}/chengflow-app/dist-app" ]]; then
         echo "Copying App build output..."
@@ -2340,6 +2372,7 @@ if [[ $# -gt 0 ]]; then
                     echo "Copying UI build output..."
                     rm -rf "${shared_dir:?}/ui"
                     cp -a "${ROOT_DIR}/chengflow-ui/dist" "${shared_dir}/ui"
+                    install_downloads "$shared_dir" "$ROOT_DIR"
                 fi
                 if [[ "$enable_app" == "true" && -d "${ROOT_DIR}/chengflow-app/dist-app" ]]; then
                     echo "Copying App build output..."

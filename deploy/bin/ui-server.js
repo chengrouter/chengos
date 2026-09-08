@@ -4,7 +4,9 @@ const path = require('path');
 
 const PORT = process.env.UI_PORT || 8080;
 const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:3000';
-const UI_DIR = path.resolve(__dirname, '../ui');
+// Overridable so the server can be pointed at a build output other than the
+// bundled one — and so tests can run it against a fixture directory.
+const UI_DIR = path.resolve(process.env.UI_DIR || path.join(__dirname, '../ui'));
 
 // Keep the process alive when an individual request handler throws — without
 // these, a single bad WebSocket upgrade or a client disconnecting mid-pipe
@@ -45,7 +47,15 @@ const MIME_TYPES = {
   '.gif': 'image/gif',
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon',
+  '.zip': 'application/zip',
+  '.gz': 'application/gzip',
+  '.sig': 'application/pgp-signature',
+  '.txt': 'text/plain; charset=utf-8',
 };
+
+// Paths served as real downloads rather than as application routes. See the
+// DOWNLOADS branch below for why this needs its own handling.
+const DOWNLOAD_PREFIX = '/downloads/';
 
 const backendParsed = new URL(BACKEND_URL);
 const BACKEND_PORT = backendParsed.port || (backendParsed.protocol === 'https:' ? 443 : 80);
@@ -139,6 +149,52 @@ const server = http.createServer((req, res) => {
   if (filePath !== UI_DIR && !filePath.startsWith(UI_DIR + path.sep)) {
     res.writeHead(403, { 'Content-Type': 'text/plain' });
     res.end('Forbidden');
+    return;
+  }
+
+  // Downloads must never fall through to the SPA.
+  //
+  // The static handler below answers a missing file with 200 + index.html, which
+  // is right for an app route and badly wrong for a download: a user who clicks
+  // "download the extension" when the release forgot to build it receives an HTML
+  // page saved as cheng-translate.zip, and the server reports success. The
+  // failure is invisible to both sides — a "does it download?" check passes.
+  if (urlPath.startsWith(DOWNLOAD_PREFIX)) {
+    fs.stat(filePath, (err, stats) => {
+      if (err || !stats.isFile()) {
+        res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: 'Not found', path: urlPath }));
+        return;
+      }
+
+      // Look the type up rather than hardcoding application/zip: this directory
+      // also carries checksums and signatures, and will carry other archive
+      // formats.
+      const ext = path.extname(filePath);
+      const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+
+      // filePath derives from decodeURIComponent(req.url), so the basename is
+      // attacker-controlled. An unescaped quote or CRLF here is a response-header
+      // injection, so allow only characters that can appear in a release artifact.
+      const safeName = path.basename(filePath).replace(/[^A-Za-z0-9._-]/g, '_');
+
+      res.writeHead(200, {
+        'Content-Type': contentType,
+        'Content-Length': stats.size,
+        'Content-Disposition': `attachment; filename="${safeName}"`,
+        // Release artifacts are replaced in place on upgrade, so they must not be
+        // cached with the immutable policy used for hashed assets.
+        'Cache-Control': 'public, max-age=300',
+      });
+
+      const stream = fs.createReadStream(filePath);
+      stream.on('error', (streamErr) => {
+        console.error('Download read error:', filePath, streamErr.message);
+        res.destroy();
+      });
+      res.on('close', () => stream.destroy());
+      stream.pipe(res);
+    });
     return;
   }
 

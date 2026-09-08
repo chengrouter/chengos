@@ -63,3 +63,7 @@ deploy/distributed/.env
 **/logs/*.out
 **/logs/*.err
 nohup.out
+
+# Release artifacts are generated at install/upgrade time, never committed:
+# a binary per release grows the repository linearly and forever.
+deploy/ui/downloads/

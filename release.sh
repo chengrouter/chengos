@@ -27,6 +27,9 @@
 #   --remote NAME    Git remote to validate and push to (default: origin).
 #   --branch NAME    Release branch that must be checked out (default: main).
 #   --notes TEXT     Seed the generated changelog section with a release note.
+#   --publish-sdk    ALSO publish chengflow-sdk to its PUBLIC mirror. Opt-in on
+#                    purpose: pushing source to a public remote must never be a
+#                    side effect of an internal version bump.
 #   --irreversible   Declare the release's migration policy as irreversible, so
 #                    automatic rollback is refused for it.
 #   -h, --help       Show this help.
@@ -44,6 +47,7 @@ CONTRACT_TEST="${REPO_ROOT}/scripts/test-release-contract.sh"
 BUMP=""
 SET_VERSION=""
 DRY_RUN="false"
+PUBLISH_SDK="false"
 SKIP_CHECKS="false"
 REMOTE="origin"
 RELEASE_BRANCH="main"
@@ -51,7 +55,9 @@ RELEASE_NOTES=""
 MIGRATION_POLICY="reversible"
 
 usage() {
-    sed -n '2,32p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+    # Print the whole leading comment block rather than a hardcoded line range,
+    # so adding an option cannot silently truncate the help text.
+    sed -n '2,/^[^#]/p' "${BASH_SOURCE[0]}" | sed '/^[^#]/d' | sed 's/^# \{0,1\}//'
 }
 
 fail() {
@@ -89,6 +95,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --dry-run)
             DRY_RUN="true"
+            shift
+            ;;
+        --publish-sdk)
+            PUBLISH_SDK="true"
             shift
             ;;
         --skip-checks)
@@ -380,6 +390,27 @@ fi
 # version.
 SOURCE_REPOS=(chengflow chengflow-ui chengapp chengflow-sdk)
 
+# Build the browser extension archive for this release.
+#
+# The artifact is not committed: a binary per release grows the repository
+# linearly and forever, and the zip is reproducible from source. It is produced
+# here so it can be attached to the release, and again at install time by
+# deploy/chengos.sh for self-hosted deployments.
+package_extension() {
+    local packager="${REPO_ROOT}/scripts/package-extension.sh"
+    local out_dir="${REPO_ROOT}/deploy/ui/downloads"
+
+    if [[ ! -x "$packager" ]]; then
+        info "scripts/package-extension.sh not found; skipping extension packaging"
+        return 0
+    fi
+
+    if action "package browser extension into deploy/ui/downloads/"; then
+        bash "$packager" "$out_dir" \
+            || fail "extension packaging failed; fix it before releasing (a missing artifact makes /downloads return 404)"
+    fi
+}
+
 tag_source_repos() {
     local repo_dir repo_name repo_remote
     local tagged=()
@@ -457,10 +488,33 @@ if action "git push ${REMOTE} refs/tags/${target_tag}"; then
         || fail "push of tag ${target_tag} failed; delete the local tag and retry after fixing the cause"
 fi
 
+# Package release artifacts before tagging: a failure here should abort the
+# release while it is still cheap to retry, not after tags have been pushed.
+echo ""
+info "Packaging release artifacts"
+package_extension
+
 # Tag all source repositories with the same release version.
 echo ""
 info "Tagging source repositories"
 tag_source_repos
+
+# Publish the SDK to its public mirror. Runs after tagging so the public snapshot
+# corresponds to a tagged internal commit. Never runs unless --publish-sdk was
+# passed: a public push is not something an internal release should do quietly.
+if [[ "$PUBLISH_SDK" == "true" ]]; then
+    echo ""
+    info "Publishing chengflow-sdk to its public mirror"
+    sync_args=()
+    [[ "$DRY_RUN" == "true" ]] && sync_args+=(--dry-run)
+    if [[ ! -x "${REPO_ROOT}/chengflow-sdk/scripts/sync-public.sh" ]]; then
+        fail "chengflow-sdk/scripts/sync-public.sh is missing or not executable"
+    fi
+    if action "chengflow-sdk/scripts/sync-public.sh ${sync_args[*]:-}"; then
+        ( cd "${REPO_ROOT}/chengflow-sdk" && bash scripts/sync-public.sh "${sync_args[@]:-}" ) \
+            || fail "public SDK sync failed; the internal release is already tagged, so fix the cause and re-run: cd chengflow-sdk && bash scripts/sync-public.sh"
+    fi
+fi
 
 echo ""
 if [[ "$DRY_RUN" == "true" ]]; then
