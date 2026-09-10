@@ -1,0 +1,122 @@
+name: ChengFlow Desktop
+
+# Packaging is expensive (a full Rust build of the engine per platform), so it
+# runs on demand and on tags rather than on every push.
+on:
+  workflow_dispatch:
+    inputs:
+      allow_no_postgres:
+        description: "Build without bundled PostgreSQL (development bundle only)"
+        type: boolean
+        default: true
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  check:
+    name: Check and test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # macOS is deliberately absent: it is out of scope until there is a
+        # signing identity and a notarization step to go with it.
+        os: [ubuntu-22.04, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      # Tauri links webkit2gtk on Linux, which is why `src-tauri` is its own
+      # Cargo workspace: the main workspace must stay buildable without it.
+      - name: Install Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf \
+            libssl-dev libpq-dev pkg-config
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: chengflow-ui/src-tauri
+
+      - name: Test the desktop shell
+        working-directory: chengflow-ui/src-tauri
+        run: cargo test
+
+      - name: Test the embedded server configuration
+        working-directory: chengflow
+        # Only the library-ized startup path — the rest of the workspace is
+        # covered by the main CI job and needs a database.
+        run: cargo test -p cheng-api --lib embedded:: runtime_capabilities::
+
+  bundle:
+    name: Bundle (${{ matrix.os }})
+    needs: check
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            artifact: linux
+          - os: windows-latest
+            artifact: windows
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf \
+            libssl-dev libpq-dev pkg-config
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: chengflow-ui/src-tauri
+
+      # PostgreSQL and ffmpeg are downloaded and checksum-verified by the
+      # script itself; there is nothing to configure. The cache below is a
+      # speed-up, never a correctness dependency — a corrupt or missing cache
+      # entry is re-downloaded and re-verified.
+      - name: Cache staged dependencies
+        uses: actions/cache@v4
+        with:
+          path: chengflow-ui/src-tauri/.deps-cache
+          key: desktop-deps-${{ runner.os }}-${{ hashFiles('chengflow-ui/scripts/fetch-desktop-deps.py') }}
+
+      - name: Stage bundled dependencies
+        working-directory: chengflow-ui
+        run: python3 scripts/fetch-desktop-deps.py
+
+      # Runs against the binaries that are about to be packaged: initialize a
+      # cluster, start it, create the database, connect, stop. A bundle whose
+      # PostgreSQL cannot start is worth catching here rather than in a user's
+      # first launch.
+      - name: Verify the bundled PostgreSQL actually runs
+        working-directory: chengflow-ui/src-tauri
+        run: cargo test -- --ignored --nocapture full_postgres_lifecycle
+
+      - name: Build the bundle
+        working-directory: chengflow-ui
+        shell: bash
+        run: ./scripts/build-desktop.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chengflow-desktop-${{ matrix.artifact }}
+          path: |
+            chengflow-ui/src-tauri/target/release/bundle/deb/*.deb
+            chengflow-ui/src-tauri/target/release/bundle/rpm/*.rpm
+            chengflow-ui/src-tauri/target/release/bundle/msi/*.msi
+          if-no-files-found: warn
