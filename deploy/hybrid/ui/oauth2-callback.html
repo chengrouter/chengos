@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OAuth2 Callback</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
+          sans-serif;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: #0f172a;
+        color: #e2e8f0;
+      }
+      .card {
+        width: min(520px, calc(100vw - 32px));
+        border-radius: 16px;
+        background: rgba(15, 23, 42, 0.96);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+        padding: 28px;
+      }
+      .title {
+        margin: 0 0 10px;
+        font-size: 20px;
+        font-weight: 700;
+      }
+      .desc {
+        margin: 0;
+        line-height: 1.6;
+        color: #94a3b8;
+      }
+      .status {
+        margin-top: 18px;
+        padding: 12px 14px;
+        border-radius: 12px;
+        background: rgba(30, 41, 59, 0.9);
+        color: #cbd5e1;
+        word-break: break-word;
+      }
+      .status.success {
+        background: rgba(6, 78, 59, 0.35);
+        color: #a7f3d0;
+      }
+      .status.error {
+        background: rgba(127, 29, 29, 0.35);
+        color: #fecaca;
+      }
+      .hint {
+        margin-top: 14px;
+        font-size: 12px;
+        color: #94a3b8;
+      }
+      code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+          monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1 class="title">Completing OAuth2 authorization…</h1>
+      <p class="desc">
+        Please wait while ChengOS exchanges the authorization code and stores your tokens.
+      </p>
+      <div id="status" class="status">Waiting for authorization response…</div>
+      <div class="hint">You can close this window after the process finishes.</div>
+    </div>
+
+    <script>
+      (async () => {
+        const statusEl = document.getElementById('status');
+        const params = new URLSearchParams(window.location.search);
+        const code = params.get('code');
+        const state = params.get('state');
+        const error = params.get('error');
+        const errorDescription = params.get('error_description');
+
+        const notifyOpener = (payload) => {
+          try {
+            if (window.opener && !window.opener.closed) {
+              window.opener.postMessage(
+                {
+                  type: 'ChengOS-oauth2-callback',
+                  ...payload,
+                },
+                window.location.origin,
+              );
+            }
+          } catch (err) {
+            console.warn('Failed to notify opener:', err);
+          }
+        };
+
+        const closeSoon = () => {
+          setTimeout(() => {
+            try {
+              window.close();
+            } catch (err) {
+              console.warn('Failed to close window:', err);
+            }
+          }, 1200);
+        };
+
+        if (error) {
+          const message = errorDescription
+            ? `${error}: ${errorDescription}`
+            : `Authorization failed: ${error}`;
+          statusEl.className = 'status error';
+          statusEl.textContent = message;
+          notifyOpener({ ok: false, error, message, errorDescription });
+          closeSoon();
+          return;
+        }
+
+        if (!code || !state) {
+          const message = 'Missing OAuth2 code or state in callback URL.';
+          statusEl.className = 'status error';
+          statusEl.textContent = message;
+          notifyOpener({ ok: false, message });
+          return;
+        }
+
+        try {
+          statusEl.textContent = 'Exchanging authorization code…';
+          const headers = { 'Content-Type': 'application/json' };
+          const token = localStorage.getItem('cheng_token');
+          if (token) {
+            headers.Authorization = `Bearer ${token}`;
+          }
+
+          const response = await fetch(
+            `/api/v1/credentials/oauth2/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`,
+            {
+              method: 'GET',
+              headers,
+            },
+          );
+
+          const json = await response.json();
+          if (!response.ok) {
+            const message = json?.message || json?.error?.message || 'OAuth2 callback failed.';
+            statusEl.className = 'status error';
+            statusEl.textContent = message;
+            notifyOpener({ ok: false, message, response: json });
+            return;
+          }
+
+          const data = json?.data || {};
+          const message = data.message || 'OAuth2 authorization completed successfully.';
+          statusEl.className = 'status success';
+          statusEl.textContent = message;
+          notifyOpener({ ok: true, ...data, message });
+          closeSoon();
+        } catch (err) {
+          const message = err instanceof Error ? err.message : 'OAuth2 callback failed.';
+          statusEl.className = 'status error';
+          statusEl.textContent = message;
+          notifyOpener({ ok: false, message });
+        }
+      })();
+    </script>
+  </body>
+</html>

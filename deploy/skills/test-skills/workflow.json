@@ -1,0 +1,593 @@
+{
+  "workflowId": "fead748f-1f62-4d4e-a36f-1dcc10d21b4a",
+  "name": "test-skills",
+  "description": "",
+  "state": "draft",
+  "nodeCount": 4,
+  "edgeCount": 3,
+  "createdAt": "2026-07-19T02:51:41.449631675+00:00",
+  "updatedAt": "2026-07-19T02:52:19.705503871+00:00",
+  "version": 1,
+  "isFavorite": false,
+  "isTemplate": false,
+  "isDraft": true,
+  "tags": [
+    "traditional"
+  ],
+  "visibility": "private",
+  "definition": {
+    "nodes": [
+      {
+        "nodeId": "3d74104e-6159-4eef-9f81-eaa6eef1b4ad",
+        "nodeType": "chat/input",
+        "name": "对话输入",
+        "position": {
+          "x": 267,
+          "y": 301
+        },
+        "config": {},
+        "inputs": [
+          {
+            "description": "Raw input payload (JSON format)",
+            "name": "raw_input",
+            "required": true,
+            "type": "string",
+            "x-i18n-key": "nodes.chat.input.inputs.raw_input"
+          },
+          {
+            "default": null,
+            "description": "Optional rich user message from upstream nodes",
+            "name": "user_message_rich",
+            "required": false,
+            "type": "object",
+            "x-i18n-key": "nodes.chat.input.inputs.user_message_rich"
+          },
+          {
+            "default": null,
+            "description": "Optional AgentContext restored before this workflow execution",
+            "name": "context",
+            "required": false,
+            "type": "agent_context",
+            "x-i18n-key": "nodes.chat.input.inputs.context"
+          },
+          {
+            "default": null,
+            "description": "Conversation ID (optional), generated at entry and passed through to all downstream nodes",
+            "name": "conversation_id",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.chat.input.inputs.conversation_id"
+          },
+          {
+            "default": null,
+            "description": "Workspace ID (optional), passed to chat/memory for per-workspace chat isolation",
+            "name": "workspace_id",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.chat.input.inputs.workspace_id"
+          },
+          {
+            "default": null,
+            "description": "Document ID (optional), injected by document page and passed through ambient context to downstream nodes",
+            "name": "document_id",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.chat.input.inputs.document_id"
+          },
+          {
+            "default": false,
+            "description": "Enable streaming send",
+            "name": "stream_mode",
+            "required": false,
+            "type": "boolean",
+            "x-i18n-key": "nodes.chat.input.inputs.stream_mode"
+          },
+          {
+            "default": false,
+            "description": "Enable OCR for images",
+            "name": "enable_ocr",
+            "required": false,
+            "type": "boolean",
+            "x-i18n-key": "nodes.chat.input.inputs.enable_ocr"
+          },
+          {
+            "default": "per_file",
+            "description": "Multi-input merge strategy",
+            "name": "merge_strategy",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.chat.input.inputs.merge_strategy"
+          },
+          {
+            "default": 50,
+            "description": "Maximum file size (MB)",
+            "format": "uint64",
+            "maximum": 500,
+            "minimum": 1,
+            "name": "max_file_size_mb",
+            "required": false,
+            "type": "integer",
+            "x-i18n-key": "nodes.chat.input.inputs.max_file_size_mb"
+          },
+          {
+            "default": null,
+            "description": "Model override (format: credential_id::model_name)",
+            "name": "model_override",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.chat.input.inputs.model_override"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "AgentContext wrapper, connectable directly to agent/llm context port",
+            "name": "context",
+            "type": "agent_context"
+          },
+          {
+            "description": "User message text",
+            "name": "user_message",
+            "type": "string"
+          },
+          {
+            "description": "Structured user message with multimodal parts",
+            "name": "user_message_rich",
+            "type": "object"
+          },
+          {
+            "description": "Conversation ID (passed through to downstream nodes)",
+            "name": "conversation_id",
+            "type": "string"
+          },
+          {
+            "description": "Workspace ID (passed through to chat/memory for per-workspace isolation)",
+            "name": "workspace_id",
+            "type": "string"
+          },
+          {
+            "description": "Document ID (passed through ambient context to downstream document nodes)",
+            "name": "document_id",
+            "type": "string"
+          },
+          {
+            "description": "Processing statistics",
+            "name": "stats",
+            "type": "object"
+          },
+          {
+            "description": "UI event",
+            "name": "ui_event",
+            "type": "object"
+          },
+          {
+            "description": "Model override (format: credential_id::model_name)",
+            "name": "model_override",
+            "type": "string"
+          },
+          {
+            "description": "Attachments JSON array, connectable directly to io/file_upload.files_json",
+            "name": "attachments_json",
+            "type": "string"
+          }
+        ]
+      },
+      {
+        "nodeId": "65b67a52-380e-4f5a-b4ba-3aae41911b01",
+        "nodeType": "ai/llm",
+        "name": "AI 聊天",
+        "position": {
+          "x": 517,
+          "y": 288
+        },
+        "config": {},
+        "inputs": [
+          {
+            "default": null,
+            "description": "AgentContext (optional, carries conversation history)",
+            "name": "context",
+            "required": false,
+            "type": "agent_context",
+            "x-i18n-key": "nodes.ai.llm.inputs.context"
+          },
+          {
+            "description": "LLM configuration (JSON string or object)",
+            "name": "llm_config",
+            "required": true,
+            "type": "object",
+            "x-i18n-key": "nodes.ai.llm.inputs.llm_config"
+          },
+          {
+            "default": "",
+            "description": "Instruction prompt (optional)",
+            "name": "instruction_prompt",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.ai.llm.inputs.instruction_prompt"
+          },
+          {
+            "default": "",
+            "description": "User message (can be empty if context.history already contains user messages)",
+            "name": "user_message",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.ai.llm.inputs.user_message"
+          },
+          {
+            "default": null,
+            "description": "Structured user message with multimodal parts",
+            "name": "user_message_rich",
+            "required": false,
+            "type": "object",
+            "x-i18n-key": "nodes.ai.llm.inputs.user_message_rich"
+          },
+          {
+            "default": null,
+            "description": "Base64 image payload or data URL, connectable from io/file_upload.image_base64",
+            "name": "image_base64",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.ai.llm.inputs.image_base64"
+          },
+          {
+            "default": null,
+            "description": "Available tools list (dynamically add ports)",
+            "name": "tools",
+            "required": false,
+            "type": "array",
+            "x-i18n-key": "nodes.ai.llm.inputs.tools"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "AgentContext output port (contains conversation history)",
+            "name": "context",
+            "type": "agent_context"
+          },
+          {
+            "description": "Generated text response",
+            "name": "response",
+            "type": "string"
+          },
+          {
+            "description": "Tokens used in prompt",
+            "format": {},
+            "name": "prompt_tokens",
+            "type": "integer"
+          },
+          {
+            "description": "Tokens used in completion",
+            "format": {},
+            "name": "completion_tokens",
+            "type": "integer"
+          },
+          {
+            "description": "Total tokens used",
+            "format": {},
+            "name": "total_tokens",
+            "type": "integer"
+          },
+          {
+            "description": "Finish reason",
+            "name": "finish_reason",
+            "type": "string"
+          },
+          {
+            "description": "Tool calls made by the LLM (for function calling)",
+            "name": "tool_calls",
+            "type": "array"
+          },
+          {
+            "description": "Tool execution results (when tools are connected and auto-executed)",
+            "name": "tool_results",
+            "type": "array"
+          },
+          {
+            "description": "LLM configuration used for this call (reusable by downstream nodes)",
+            "name": "llm_config",
+            "type": "object"
+          }
+        ]
+      },
+      {
+        "nodeId": "b692e4f6-3df6-4fbf-b33a-9b29683e7452",
+        "nodeType": "ai/llm_config",
+        "name": "LLM 配置",
+        "position": {
+          "x": 527,
+          "y": 165
+        },
+        "config": {},
+        "inputs": [
+          {
+            "description": "Select a connected LLM model",
+            "name": "model",
+            "required": true,
+            "type": "string",
+            "x-allow-custom": true,
+            "x-i18n-key": "nodes.ai.llm_config.inputs.model"
+          },
+          {
+            "default": null,
+            "description": "Model override (format: credential_id::model_name, takes priority over model)",
+            "name": "model_override",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.ai.llm_config.inputs.model_override"
+          },
+          {
+            "default": 0.699999988079071,
+            "description": "Controls randomness of generation, higher values are more random (0.0 - 2.0)",
+            "format": "float",
+            "maximum": 2,
+            "minimum": 0,
+            "name": "temperature",
+            "required": false,
+            "step": "0.1",
+            "type": "number",
+            "x-i18n-key": "nodes.ai.llm_config.inputs.temperature",
+            "x-step": "0.1"
+          },
+          {
+            "default": 5000,
+            "description": "Maximum number of tokens to generate (default 5000)",
+            "format": "uint32",
+            "minimum": 0,
+            "name": "max_tokens",
+            "required": false,
+            "type": "integer",
+            "x-i18n-key": "nodes.ai.llm_config.inputs.max_tokens"
+          },
+          {
+            "default": 1,
+            "description": "Nucleus sampling threshold (0.0 - 1.0)",
+            "format": "float",
+            "maximum": 1,
+            "minimum": 0,
+            "name": "top_p",
+            "required": false,
+            "step": "0.1",
+            "type": "number",
+            "x-i18n-key": "nodes.ai.llm_config.inputs.top_p",
+            "x-step": "0.1"
+          },
+          {
+            "default": 0,
+            "description": "Reduce likelihood of repeating the same line (-2.0 to 2.0)",
+            "format": "float",
+            "maximum": 2,
+            "minimum": -2,
+            "name": "frequency_penalty",
+            "required": false,
+            "step": "0.1",
+            "type": "number",
+            "x-i18n-key": "nodes.ai.llm_config.inputs.frequency_penalty",
+            "x-step": "0.1"
+          },
+          {
+            "default": 0,
+            "description": "Encourage the model to discuss new topics (-2.0 to 2.0)",
+            "format": "float",
+            "maximum": 2,
+            "minimum": -2,
+            "name": "presence_penalty",
+            "required": false,
+            "step": "0.1",
+            "type": "number",
+            "x-i18n-key": "nodes.ai.llm_config.inputs.presence_penalty",
+            "x-step": "0.1"
+          },
+          {
+            "default": true,
+            "description": "Enable real-time streaming of results",
+            "name": "stream",
+            "required": false,
+            "type": "boolean",
+            "x-i18n-key": "nodes.ai.llm_config.inputs.stream"
+          },
+          {
+            "default": 60,
+            "description": "API request timeout (1-600 seconds)",
+            "format": "uint32",
+            "maximum": 600,
+            "minimum": 1,
+            "name": "timeout_secs",
+            "required": false,
+            "type": "integer",
+            "x-i18n-key": "nodes.ai.llm_config.inputs.timeout_secs"
+          },
+          {
+            "default": false,
+            "description": "Inject response_format: json_object (for weaker/open-source models, reduces non-JSON text; no system-level validation)",
+            "name": "json_mode",
+            "required": false,
+            "type": "boolean",
+            "x-i18n-key": "nodes.ai.llm_config.inputs.json_mode"
+          },
+          {
+            "default": null,
+            "description": "Protocol template for custom OpenAI-compatible endpoints only (conservative | openai | deepseek | minimax | zhipu). Overrides the credential-level default; ignored for built-in providers.",
+            "name": "compatibility_profile",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.ai.llm_config.inputs.compatibility_profile"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "Complete LLM configuration",
+            "name": "llm_config",
+            "type": "object"
+          }
+        ]
+      },
+      {
+        "nodeId": "97eed57c-4803-4637-87d6-fdb7c78a6603",
+        "nodeType": "chat/output",
+        "name": "对话输出",
+        "position": {
+          "x": 762,
+          "y": 346
+        },
+        "config": {},
+        "inputs": [
+          {
+            "default": "",
+            "description": "Agent final reply text or AgentContext (auto extracts text)",
+            "name": "context",
+            "required": false,
+            "type": "agent_context",
+            "x-i18n-key": "nodes.chat.output.inputs.context"
+          },
+          {
+            "default": [],
+            "description": "Artifact reference(s) to render as media attachments",
+            "name": "artifacts",
+            "required": false,
+            "type": "object",
+            "x-i18n-key": "nodes.chat.output.inputs.artifacts"
+          },
+          {
+            "default": null,
+            "description": "Agent execution trace (thinking process)",
+            "name": "trace",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.chat.output.inputs.trace"
+          },
+          {
+            "control": "select",
+            "default": "system",
+            "description": "Display theme",
+            "enum": [
+              "light",
+              "dark",
+              "system"
+            ],
+            "name": "theme",
+            "options": [
+              {
+                "label": "light",
+                "value": "light"
+              },
+              {
+                "label": "dark",
+                "value": "dark"
+              },
+              {
+                "label": "system",
+                "value": "system"
+              }
+            ],
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.chat.output.inputs.theme"
+          },
+          {
+            "default": true,
+            "description": "Auto scroll to latest message",
+            "name": "autoscroll",
+            "required": false,
+            "type": "boolean",
+            "x-i18n-key": "nodes.chat.output.inputs.autoscroll"
+          },
+          {
+            "default": 1000,
+            "description": "Maximum messages to keep in memory",
+            "format": "uint",
+            "maximum": 10000,
+            "minimum": 10,
+            "name": "keep_messages",
+            "required": false,
+            "type": "integer",
+            "x-i18n-key": "nodes.chat.output.inputs.keep_messages"
+          },
+          {
+            "default": 100,
+            "description": "Enable virtualization when message count exceeds this value",
+            "format": "uint",
+            "maximum": 1000,
+            "minimum": 10,
+            "name": "virtualize_threshold",
+            "required": false,
+            "type": "integer",
+            "x-i18n-key": "nodes.chat.output.inputs.virtualize_threshold"
+          },
+          {
+            "default": "standard",
+            "description": "Message display format",
+            "name": "display_format",
+            "required": false,
+            "type": "string",
+            "x-i18n-key": "nodes.chat.output.inputs.display_format"
+          },
+          {
+            "default": true,
+            "description": "Show message timestamp",
+            "name": "show_timestamp",
+            "required": false,
+            "type": "boolean",
+            "x-i18n-key": "nodes.chat.output.inputs.show_timestamp"
+          }
+        ],
+        "outputs": [
+          {
+            "description": "Assistant final reply text content",
+            "name": "reply",
+            "type": "string"
+          },
+          {
+            "description": "Agent execution trace (thinking process)",
+            "name": "trace",
+            "type": "string"
+          },
+          {
+            "description": "UI events to send to frontend",
+            "name": "ui_events",
+            "type": "array"
+          },
+          {
+            "description": "Current total messages retained",
+            "format": {},
+            "name": "message_count",
+            "type": "integer"
+          },
+          {
+            "description": "Whether virtualization rendering is enabled",
+            "name": "virtualized",
+            "type": "boolean"
+          },
+          {
+            "description": "Processing statistics",
+            "name": "stats",
+            "type": "object"
+          }
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "edgeId": "691e9760-462e-4e63-b37e-4c571c32f118",
+        "sourceNode": "65b67a52-380e-4f5a-b4ba-3aae41911b01",
+        "sourcePort": "context",
+        "targetNode": "97eed57c-4803-4637-87d6-fdb7c78a6603",
+        "targetPort": "context"
+      },
+      {
+        "edgeId": "b3c703df-03a5-45dd-9819-a1c8174cd0a2",
+        "sourceNode": "3d74104e-6159-4eef-9f81-eaa6eef1b4ad",
+        "sourcePort": "user_message",
+        "targetNode": "65b67a52-380e-4f5a-b4ba-3aae41911b01",
+        "targetPort": "user_message"
+      },
+      {
+        "edgeId": "31d00b91-2b9a-4244-83a7-9d2a38664147",
+        "sourceNode": "b692e4f6-3df6-4fbf-b33a-9b29683e7452",
+        "sourcePort": "llm_config",
+        "targetNode": "65b67a52-380e-4f5a-b4ba-3aae41911b01",
+        "targetPort": "llm_config"
+      }
+    ],
+    "notes": [],
+    "containers": []
+  }
+}
