@@ -67,3 +67,10 @@ nohup.out
 # Release artifacts are generated at install/upgrade time, never committed:
 # a binary per release grows the repository linearly and forever.
 deploy/ui/downloads/
+
+# Desktop build staging and archives: git bundles of the source repositories, a
+# full mirror of deploy/, and the MSI/deb/rpm trees the builder VM produces.
+# Tens of megabytes, reproducible from a commit plus the pinned toolchain, and
+# this repository is the public mirror.
+# See chengflow-ui/scripts/make-source-bundles.sh.
+output/
