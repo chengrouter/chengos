@@ -95,6 +95,10 @@ services:
       # injects the variables, so the file itself is bind-mounted below.
       # Saved changes apply on the next `docker compose up -d`.
       CHENGOS_ENV_FILE: /app/.env
+      # The container always listens on 3000. `env_file` also injects PORT from
+      # .env, which is the *host* port for native installs, so pin it here;
+      # the host side is published through API_PORT below.
+      PORT: "3000"
     volumes:
       - ../.env:/app/.env
       - ../config:/app/config
@@ -106,7 +110,7 @@ services:
       - ../workspace:/app/workspace
       - ../workflow-templates:/app/workflow-templates:ro
     ports:
-      - "127.0.0.1:${API_PORT:-3000}:3000"
+      - "127.0.0.1:${API_PORT:-19225}:3000"
     command: ["--log-file", "/app/logs/cheng-api.log"]
     depends_on:
       postgres:

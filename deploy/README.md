@@ -69,7 +69,7 @@ ChengOS 内置了完整的 `skill-importer` 自动化导入流水线，支持将
 - **工作流与 AI 深度整合**: 配合 `document-ops_hub` 和 `table-apply_record_ops` 等节点，Agent 可直接在工作流中读取、格式化、批量修改或生成本地 Word 与 Excel 数据。
 
 ### 🖥️ CLI 终端（本地运行与跨设备 URL 远程连接）
-- **本地直连模式**: 与 `cheng-api` 同机部署时，CLI 自动连接 `http://127.0.0.1:3000`，免配快速上手。
+- **本地直连模式**: 与 `cheng-api` 同机部署时，CLI 自动连接 `http://127.0.0.1:19225`，免配快速上手。
 - **跨设备 URL 远程运行**: CLI 可安装在任何开发机、笔记本或远程服务器上，只需配置远程 ChengOS 服务器的 URL (例如 `https://your-server.example.com`)，即可跨设备远程调度服务端的 Workflow 与 Agent。
 - **沉浸式终端对话体验**: 类似 Claude Code / Codex 等先进终端工具，支持命令行实时流式对话、自动工具调用展示与上下文保持。
 
@@ -236,7 +236,7 @@ ChengOS 提供了功能完善的一键部署与运维脚本 `chengos.sh`，支�
 ./chengos.sh cli
 
 # 模式选择：
-#  1) 本机安装 — 自动连接 http://127.0.0.1:3000
+#  1) 本机安装 — 自动连接 http://127.0.0.1:19225
 #  2) 远程终端安装 — 输入远程 ChengOS 服务器地址 (如 https://your-server.example.com)
 ```
 
@@ -284,7 +284,7 @@ Linux 上还会尝试 `loginctl enable-linger`，让 agent 在用户登出后继
 
 | 服务名称 | 默认端口 | 环境变量配置项 | 说明 |
 |---|---|---|---|
-| **API Backend (cheng-api)** | `3000` | `PORT=3000` | 后端核心 API 与 WebSocket 端口 |
+| **API Backend (cheng-api)** | `19225` | `PORT=19225` | 后端核心 API 与 WebSocket 端口 |
 | **Main UI (cheng-ui)** | `8080` | `UI_PORT=8080` | Web 可视化编排与管理控制台 |
 | **Chat App (cheng-app)** | `5055` | `APP_PORT=5055` | 聊天应用客户端与移动端 H5 界面 |
 | **PostgreSQL** | `5432` | `POSTGRES_PORT=5432` | 主关系型数据库 |
@@ -319,7 +319,7 @@ Channel polling/stream、OAuth token refresh、代码索引、文件 watcher 和
 
 网络层仍应只公开反向代理的 `443`：Docker Compose 已将 API、PostgreSQL、
 Valkey 和 Qdrant 的宿主机端口绑定到 `127.0.0.1`；原生部署应通过防火墙阻止
-公网访问 `3000/5432/6379/6333/6334`。不要在 Docker API 容器内把
+公网访问 `19225/5432/6379/6333/6334`。不要在 Docker API 容器内把
 `BIND_ADDRESS` 改成 `127.0.0.1`，否则 UI 容器无法连接 API。
 
 ---
@@ -416,7 +416,7 @@ Built-in `skill-importer` pipeline converts external capability specifications i
 - **AI & Workflow Integration**: Paired with `document-ops_hub` and `table-apply_record_ops` nodes, Agents read, format, and update Word and Excel data programmatically.
 
 ### 🖥️ CLI Terminal (Local & Cross-Device Remote Execution)
-- **Local Mode**: Auto-connects to co-located `http://127.0.0.1:3000`.
+- **Local Mode**: Auto-connects to co-located `http://127.0.0.1:19225`.
 - **Remote Cross-Device Mode**: Configure a remote ChengOS server URL (e.g. `https://your-server.example.com`) to trigger workflows and Agents from any machine.
 - **Claude Code / Codex Terminal Experience**: Streamed responses, tool execution display, and interactive session history directly in your terminal.
 
@@ -581,7 +581,7 @@ To install `cheng` CLI on a local or remote machine connecting to a ChengOS serv
 ./chengos.sh cli
 
 # Select mode:
-#  1) Local machine — auto-connects to http://127.0.0.1:3000
+#  1) Local machine — auto-connects to http://127.0.0.1:19225
 #  2) Remote machine — enter remote ChengOS server URL (e.g. https://your-server.example.com)
 ```
 
@@ -596,7 +596,7 @@ cheng
 
 | Service | Default Port | Env Var | Description |
 |---|---|---|---|
-| **API Backend (cheng-api)** | `3000` | `PORT=3000` | Core API & WebSocket server |
+| **API Backend (cheng-api)** | `19225` | `PORT=19225` | Core API & WebSocket server |
 | **Main UI (cheng-ui)** | `8080` | `UI_PORT=8080` | Web visual editor & admin console |
 | **Chat App (cheng-app)** | `5055` | `APP_PORT=5055` | Chat app widget & mobile H5 interface |
 | **PostgreSQL** | `5432` | `POSTGRES_PORT=5432` | Primary relational database |
@@ -620,7 +620,7 @@ maintenance or data reset, then re-enable it afterward.
 
 At the network layer, expose only reverse-proxy port `443`. Docker Compose
 already binds backend and datastore host ports to `127.0.0.1`; for native
-deployments, block public access to `3000/5432/6379/6333/6334` with the host
+deployments, block public access to `19225/5432/6379/6333/6334` with the host
 firewall. Do not bind the API to loopback *inside* its Docker container, because
 the UI container must reach it over the Compose network.
 

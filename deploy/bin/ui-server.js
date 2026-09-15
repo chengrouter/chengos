@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 const PORT = process.env.UI_PORT || 8080;
-const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:3000';
+const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:19225';
 // Overridable so the server can be pointed at a build output other than the
 // bundled one — and so tests can run it against a fixture directory.
 const UI_DIR = path.resolve(process.env.UI_DIR || path.join(__dirname, '../ui'));

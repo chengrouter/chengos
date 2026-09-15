@@ -131,8 +131,8 @@ On success:
 
 ```
 [chengos]   ChengOS is running!
-[chengos]   API: http://127.0.0.1:3000
-[chengos]   Health: http://127.0.0.1:3000/health
+[chengos]   API: http://127.0.0.1:19225
+[chengos]   Health: http://127.0.0.1:19225/health
 [chengos]   Logs: tail -f logs/cheng-api.log
 [chengos]   Stop: bash hybrid/stop.sh
 ```
@@ -329,8 +329,8 @@ All three infrastructure ports are bound to `127.0.0.1` only (not `0.0.0.0`), so
 Run:
 ```bash
 bash hybrid/status.sh
-curl http://127.0.0.1:3000/health
-curl http://127.0.0.1:3000/ready
+curl http://127.0.0.1:19225/health
+curl http://127.0.0.1:19225/ready
 bash hybrid/stop.sh
 bash hybrid/start.sh
 bash hybrid/stop.sh --with-infra

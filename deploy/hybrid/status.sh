@@ -9,7 +9,7 @@ ENV_FILE="${ROOT_DIR}/.env"
 
 log() { printf '[chengos] %s\n' "$*"; }
 
-PORT=3000
+PORT=19225
 UI_PORT=8080
 APP_PORT=5055
 ENABLE_REDIS=false

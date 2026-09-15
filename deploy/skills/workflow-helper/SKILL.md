@@ -16,7 +16,7 @@ Use this skill when the user asks about **how to build, wire, configure, or trou
 
 This skill queries the running ChengOS API for **live, up-to-date** node schemas and workflow templates.
 
-**Prerequisite**: The ChengOS server must be running. Default base URL: `http://localhost:3000`.
+**Prerequisite**: The ChengOS server must be running. Default base URL: `http://localhost:19225`.
 
 ### Response Structure
 
@@ -58,7 +58,7 @@ The detail object adds a `definition` field:
 ### Available Queries
 
 ```bash
-BASE=http://localhost:3000/api/v1
+BASE=http://localhost:19225/api/v1
 
 # List all node types (returns full schemas for all nodes)
 curl -s $BASE/nodes/types | jq '.data[] | {typeId, name, category, description}'

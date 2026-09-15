@@ -7,7 +7,7 @@
 > action: list_ports,      node_type: "ai/llm"   # 紧凑端口形状（名称/类型/是否必填）
 > ```
 > ```bash
-> curl -s http://localhost:3000/api/v1/nodes/schema/ai/llm | jq '.data.inputSchema.properties'
+> curl -s http://localhost:19225/api/v1/nodes/schema/ai/llm | jq '.data.inputSchema.properties'
 > ```
 >
 > **权威契约：** 端口策略与字段命名见 `docs/workflow-json-generation-guide.md`。

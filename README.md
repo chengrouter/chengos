@@ -203,7 +203,7 @@ Install only the `cheng` terminal client:
 ./chengos.sh cli
 ```
 
-Choose a local connection to `http://127.0.0.1:3000`, or enter the URL of a remote ChengOS server. Once configured, start the client from any terminal:
+Choose a local connection to `http://127.0.0.1:19225`, or enter the URL of a remote ChengOS server. Once configured, start the client from any terminal:
 
 ```bash
 cheng
@@ -249,7 +249,7 @@ deploy/
 
 | Service | Port | Environment variable | Purpose |
 |---|---:|---|---|
-| API backend (`cheng-api`) | `3000` | `PORT=3000` | REST and WebSocket API |
+| API backend (`cheng-api`) | `19225` | `PORT=19225` | REST and WebSocket API |
 | Main UI (`cheng-ui`) | `8080` | `UI_PORT=8080` | Visual editor and administration |
 | Chat app (`cheng-app`) | `5055` | `APP_PORT=5055` | Published applications and mobile H5 UI |
 | PostgreSQL | `5432` | `POSTGRES_PORT=5432` | Relational database |
@@ -419,7 +419,7 @@ CHENGOS_VERSION=0.1.0
 ./chengos.sh cli
 ```
 
-安装时可选择连接本机的 `http://127.0.0.1:3000`，也可填写远程 ChengOS 服务地址。配置完成后，在任意终端启动：
+安装时可选择连接本机的 `http://127.0.0.1:19225`，也可填写远程 ChengOS 服务地址。配置完成后，在任意终端启动：
 
 ```bash
 cheng
@@ -465,7 +465,7 @@ deploy/
 
 | 服务 | 默认端口 | 环境变量 | 用途 |
 |---|---:|---|---|
-| API 后端（`cheng-api`） | `3000` | `PORT=3000` | REST 与 WebSocket API |
+| API 后端（`cheng-api`） | `19225` | `PORT=19225` | REST 与 WebSocket API |
 | 主界面（`cheng-ui`） | `8080` | `UI_PORT=8080` | 可视化编辑器与管理后台 |
 | 聊天应用（`cheng-app`） | `5055` | `APP_PORT=5055` | 发布应用与移动端 H5 界面 |
 | PostgreSQL | `5432` | `POSTGRES_PORT=5432` | 关系型数据库 |

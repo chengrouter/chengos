@@ -235,6 +235,6 @@ if [[ "$DETACHED" == true ]]; then
   log "Started."
   log "UI : http://localhost:8080"
   log "App: http://localhost:5055"
-  log "API: http://localhost:3000"
+  log "API: http://localhost:19225"
   log "Logs: docker compose ${compose_files[*]} --env-file .env logs -f"
 fi

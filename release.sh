@@ -40,6 +40,8 @@ cd "$REPO_ROOT"
 
 VERSION_FILE="${REPO_ROOT}/VERSION"
 CARGO_TOML="${REPO_ROOT}/chengflow/Cargo.toml"
+CHENGAPP_CARGO_TOML="${REPO_ROOT}/chengapp/Cargo.toml"
+CHENGAPP_TAURI_CARGO_TOML="${REPO_ROOT}/chengapp/src-tauri/Cargo.toml"
 CHANGELOG="${REPO_ROOT}/CHANGELOG.md"
 CONSISTENCY_CHECK="${REPO_ROOT}/scripts/check-release-consistency.sh"
 CONTRACT_TEST="${REPO_ROOT}/scripts/test-release-contract.sh"
@@ -248,7 +250,7 @@ printf '  target version  : %s\n' "$target_version"
 printf '  target tag      : %s\n' "$target_tag"
 printf '  branch / remote : %s -> %s\n' "$RELEASE_BRANCH" "$REMOTE"
 printf '  migration policy: %s\n' "$MIGRATION_POLICY"
-printf '  files to change : VERSION, chengflow/Cargo.toml, CHANGELOG.md\n'
+printf '  files to change : VERSION, chengflow/Cargo.toml, chengapp/Cargo.toml, chengapp/src-tauri/Cargo.toml, CHANGELOG.md\n'
 echo ""
 
 # ── 5. Write release metadata ─────────────────────────────────────────────────
@@ -276,6 +278,44 @@ write_cargo_version() {
             END { if (!done) exit 3 }
         ' "$CARGO_TOML" > "$tmp" || { rm -f "$tmp"; fail "failed to rewrite [workspace.package].version"; }
         mv "$tmp" "$CARGO_TOML"
+    fi
+
+    # chengapp workspace — same [workspace.package].version pattern
+    if action "write ${CHENGAPP_CARGO_TOML} [workspace.package].version <- ${target_version}"; then
+        local tmp
+        tmp="$(mktemp)"
+        awk -v new_version="$target_version" '
+            /^[[:space:]]*\[/ { in_section = ($0 ~ /^[[:space:]]*\[workspace\.package\][[:space:]]*$/) }
+            {
+                if (in_section && !done && $0 ~ /^[[:space:]]*version[[:space:]]*=/) {
+                    print "version = \"" new_version "\""
+                    done = 1
+                    next
+                }
+                print
+            }
+            END { if (!done) exit 3 }
+        ' "$CHENGAPP_CARGO_TOML" > "$tmp" || { rm -f "$tmp"; fail "failed to rewrite chengapp [workspace.package].version"; }
+        mv "$tmp" "$CHENGAPP_CARGO_TOML"
+    fi
+
+    # chengapp/src-tauri — standalone [package] version (not workspace.package)
+    if action "write ${CHENGAPP_TAURI_CARGO_TOML} [package].version <- ${target_version}"; then
+        local tmp
+        tmp="$(mktemp)"
+        awk -v new_version="$target_version" '
+            /^[[:space:]]*\[/ { in_section = ($0 ~ /^[[:space:]]*\[package\][[:space:]]*$/) }
+            {
+                if (in_section && !done && $0 ~ /^[[:space:]]*version[[:space:]]*=/) {
+                    print "version = \"" new_version "\""
+                    done = 1
+                    next
+                }
+                print
+            }
+            END { if (!done) exit 3 }
+        ' "$CHENGAPP_TAURI_CARGO_TOML" > "$tmp" || { rm -f "$tmp"; fail "failed to rewrite chengapp/src-tauri [package].version"; }
+        mv "$tmp" "$CHENGAPP_TAURI_CARGO_TOML"
     fi
 }
 
@@ -454,13 +494,14 @@ echo ""
 info "Git actions"
 commit_message="release: ${target_tag}"
 
-if action "git add VERSION chengflow/Cargo.toml CHANGELOG.md"; then
+if action "git add VERSION chengflow/Cargo.toml chengapp/Cargo.toml chengapp/src-tauri/Cargo.toml CHANGELOG.md"; then
     git add VERSION CHANGELOG.md
     if [[ "$CHENGFLOW_IS_SEPARATE_REPO" == "true" ]]; then
         git -C "${REPO_ROOT}/chengflow" add Cargo.toml
     else
         git add chengflow/Cargo.toml
     fi
+    git add chengapp/Cargo.toml chengapp/src-tauri/Cargo.toml
 fi
 
 if action "git commit -m '${commit_message}'"; then

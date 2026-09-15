@@ -80,8 +80,8 @@ On success:
 
 ```
 [chengos]   ChengOS is running!
-[chengos]   API: http://127.0.0.1:3000
-[chengos]   Health: http://127.0.0.1:3000/health
+[chengos]   API: http://127.0.0.1:19225
+[chengos]   Health: http://127.0.0.1:19225/health
 [chengos]   Logs: tail -f logs/cheng-api.log
 [chengos]   Stop: bash stop.sh
 ```

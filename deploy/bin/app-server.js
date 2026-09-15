@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 const PORT = process.env.APP_PORT || 5055;
-const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:3000';
+const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:19225';
 const APP_DIR = path.join(__dirname, '../app');
 
 const MIME_TYPES = {

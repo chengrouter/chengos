@@ -182,7 +182,7 @@ require_release_lib() {
 resolve_health_url() {
     local shared_dir port
     shared_dir="$(resolve_shared_dir)"
-    port="3000"
+    port="19225"
     if [[ -f "${shared_dir}/.env" ]]; then
         local configured
         configured="$(sed -n 's/^API_PORT=\(.*\)$/\1/p' "${shared_dir}/.env" | tail -n1 | tr -d '[:space:]')"
@@ -1065,7 +1065,7 @@ install_cli_standalone() {
 
     if [[ -z "$server_url" ]]; then
         if [[ "$mode" == "local" ]]; then
-            server_url="http://127.0.0.1:3000"
+            server_url="http://127.0.0.1:19225"
         else
             read -p "Enter the ChengOS server URL (e.g. https://your-server.example.com): " server_url < /dev/tty
         fi
@@ -2774,7 +2774,7 @@ while true; do
             server_url_input=""
             if [[ "$cli_target" == "local" ]]; then
                 shared_dir="$(resolve_shared_dir)"
-                default_api_port="3000"
+                default_api_port="19225"
                 if [[ -f "${shared_dir}/.env" ]]; then
                     # shellcheck disable=SC1090
                     set -a; source "${shared_dir}/.env"; set +a

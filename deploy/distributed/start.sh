@@ -112,7 +112,7 @@ require_env REDIS_URL
 require_hex64 CREDENTIAL_MASTER_KEY_1
 require_hex64 JWT_SECRET
 
-PORT="${PORT:-3000}"
+PORT="${PORT:-19225}"
 
 # ── Binary ───────────────────────────────────────────────────────────────────
 

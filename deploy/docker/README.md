@@ -134,7 +134,7 @@ Open:
 ```text
 UI:  http://localhost:8080
 App: http://localhost:5055
-API: http://localhost:3000
+API: http://localhost:19225
 ```
 
 The host ports are bound to `127.0.0.1` by default. That is good for local

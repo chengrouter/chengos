@@ -52,7 +52,7 @@
 本文**不再内置节点一览表**：节点会随版本增删、改名、换分类，硬编码的表会很快误导人。
 
 ```bash
-BASE=http://localhost:3000/api/v1
+BASE=http://localhost:19225/api/v1
 
 # 列出所有节点类型及完整 schema
 curl -s $BASE/nodes/types | jq '.data[] | {typeId, name, category, description}'

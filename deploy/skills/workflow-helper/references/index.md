@@ -13,7 +13,7 @@ refactored. Always discover them live.
 Use the running API or the `tools/workflow_inspect` node:
 
 ```bash
-BASE=http://localhost:3000/api/v1
+BASE=http://localhost:19225/api/v1
 
 # All node types with full input/output schema
 curl -s $BASE/nodes/types | jq '.data[] | {typeId, name, category, description}'

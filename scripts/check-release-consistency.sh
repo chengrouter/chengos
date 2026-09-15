@@ -20,6 +20,8 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION_FILE="${REPO_ROOT}/VERSION"
 CARGO_TOML="${REPO_ROOT}/chengflow/Cargo.toml"
+CHENGAPP_CARGO_TOML="${REPO_ROOT}/chengapp/Cargo.toml"
+CHENGAPP_TAURI_CARGO_TOML="${REPO_ROOT}/chengapp/src-tauri/Cargo.toml"
 
 TAG_ARG=""
 EXPECT_ARG=""
@@ -109,6 +111,48 @@ read_cargo_workspace_version() {
     printf '%s' "$value"
 }
 
+# Reads `version = "..."` from the [workspace.package] table of chengapp/Cargo.toml.
+read_chengapp_workspace_version() {
+    if [[ ! -f "$CHENGAPP_CARGO_TOML" ]]; then
+        return 2
+    fi
+    local value
+    value="$(awk '
+        /^[[:space:]]*\[/ { in_section = ($0 ~ /^[[:space:]]*\[workspace\.package\][[:space:]]*$/) }
+        in_section && /^[[:space:]]*version[[:space:]]*=/ {
+            line = $0
+            sub(/^[^=]*=[[:space:]]*/, "", line)
+            gsub(/["\x27]/, "", line)
+            sub(/[[:space:]]*(#.*)?$/, "", line)
+            print line
+            exit
+        }
+    ' "$CHENGAPP_CARGO_TOML")"
+    [[ -n "$value" ]] || fail "[workspace.package].version not found in ${CHENGAPP_CARGO_TOML}"
+    printf '%s' "$value"
+}
+
+# Reads `version = "..."` from the [package] table of chengapp/src-tauri/Cargo.toml.
+read_chengapp_tauri_version() {
+    if [[ ! -f "$CHENGAPP_TAURI_CARGO_TOML" ]]; then
+        return 2
+    fi
+    local value
+    value="$(awk '
+        /^[[:space:]]*\[/ { in_section = ($0 ~ /^[[:space:]]*\[package\][[:space:]]*$/) }
+        in_section && /^[[:space:]]*version[[:space:]]*=/ {
+            line = $0
+            sub(/^[^=]*=[[:space:]]*/, "", line)
+            gsub(/["\x27]/, "", line)
+            sub(/[[:space:]]*(#.*)?$/, "", line)
+            print line
+            exit
+        }
+    ' "$CHENGAPP_TAURI_CARGO_TOML")"
+    [[ -n "$value" ]] || fail "[package].version not found in ${CHENGAPP_TAURI_CARGO_TOML}"
+    printf '%s' "$value"
+}
+
 FILE_VERSION="$(read_version_file)"
 CARGO_VERSION=""
 CARGO_AVAILABLE="false"
@@ -131,6 +175,44 @@ if [[ "$CARGO_AVAILABLE" == "true" ]]; then
         || fail "version mismatch: VERSION=${FILE_VERSION} but chengflow/Cargo.toml=${CARGO_VERSION}"
 else
     log "chengflow workspace version    : (skipped — chengflow/ not in this checkout)"
+fi
+
+# chengapp workspace version
+CHENGAPP_VERSION=""
+CHENGAPP_AVAILABLE="false"
+if CHENGAPP_VERSION="$(read_chengapp_workspace_version)"; then
+    CHENGAPP_AVAILABLE="true"
+elif [[ $? -ne 2 ]]; then
+    fail "failed to read chengapp/Cargo.toml workspace version"
+fi
+
+if [[ "$CHENGAPP_AVAILABLE" == "true" ]]; then
+    is_stable_semver "$CHENGAPP_VERSION" \
+        || fail "chengapp/Cargo.toml [workspace.package].version is not a strict stable SemVer: '${CHENGAPP_VERSION}'"
+    log "chengapp workspace version     : ${CHENGAPP_VERSION}"
+    [[ "$FILE_VERSION" == "$CHENGAPP_VERSION" ]] \
+        || fail "version mismatch: VERSION=${FILE_VERSION} but chengapp/Cargo.toml=${CHENGAPP_VERSION}"
+else
+    log "chengapp workspace version     : (skipped — chengapp/ not in this checkout)"
+fi
+
+# chengapp/src-tauri standalone package version
+CHENGAPP_TAURI_VERSION=""
+CHENGAPP_TAURI_AVAILABLE="false"
+if CHENGAPP_TAURI_VERSION="$(read_chengapp_tauri_version)"; then
+    CHENGAPP_TAURI_AVAILABLE="true"
+elif [[ $? -ne 2 ]]; then
+    fail "failed to read chengapp/src-tauri/Cargo.toml package version"
+fi
+
+if [[ "$CHENGAPP_TAURI_AVAILABLE" == "true" ]]; then
+    is_stable_semver "$CHENGAPP_TAURI_VERSION" \
+        || fail "chengapp/src-tauri/Cargo.toml [package].version is not a strict stable SemVer: '${CHENGAPP_TAURI_VERSION}'"
+    log "chengapp/src-tauri version     : ${CHENGAPP_TAURI_VERSION}"
+    [[ "$FILE_VERSION" == "$CHENGAPP_TAURI_VERSION" ]] \
+        || fail "version mismatch: VERSION=${FILE_VERSION} but chengapp/src-tauri/Cargo.toml=${CHENGAPP_TAURI_VERSION}"
+else
+    log "chengapp/src-tauri version     : (skipped — chengapp/src-tauri/ not in this checkout)"
 fi
 
 if [[ -n "$TAG_ARG" ]]; then

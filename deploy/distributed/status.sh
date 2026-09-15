@@ -12,7 +12,7 @@ LOG_FILE="${ROOT_DIR}/logs/cheng-api.log"
 log() { printf '[chengos] %s\n' "$*"; }
 
 # Load PORT from .env if available
-PORT=3000
+PORT=19225
 if [[ -f "$ENV_FILE" ]]; then
     # shellcheck disable=SC1090
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
