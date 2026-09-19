@@ -14,6 +14,11 @@ dist.bak/
 deploy/bin/cheng-api
 deploy/bin/chengctl
 
+# Internal planning, deployment and handoff documents. This repository is the
+# public mirror; these are working notes, and some carry live infrastructure
+# detail (hostnames, tokens). Kept locally, never committed.
+docs/
+
 # Ignore Project Meta & IDE Files
 .agents/
 .claude/
