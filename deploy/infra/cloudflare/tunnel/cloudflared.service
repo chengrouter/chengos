@@ -1,0 +1,59 @@
+# Cloudflare Tunnel for ChengOS.
+#
+# Install to /etc/systemd/system/cloudflared.service.
+#
+# Nothing connects INTO this process: cloudflared dials out to Cloudflare and
+# the tunnel carries requests back. That is the whole point of this deployment —
+# the origin has no inbound listener on the public internet at all, so there is
+# no port to scan, no firewall rule to get right, and no origin certificate to
+# obtain or renew.
+
+[Unit]
+Description=Cloudflare Tunnel for ChengOS
+Documentation=https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+User=cloudflared
+Group=cloudflared
+ExecStart=/usr/local/bin/cloudflared --no-autoupdate --config /etc/cloudflared/config.yml tunnel run
+Restart=on-failure
+RestartSec=5s
+# The tunnel may take a while to come up on a cold or lossy link, and systemd
+# killing it mid-handshake only makes that worse.
+TimeoutStartSec=0
+
+# Sandboxing. cloudflared needs outbound network, its config, and nothing else.
+# It binds no privileged port, so it needs no capabilities at all.
+NoNewPrivileges=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectHostname=true
+ProtectClock=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+# Logs go to the journal, so the unit needs no writable path anywhere.
+# If you add `logfile:` to config.yml, add its directory to ReadWritePaths.
+
+# MemoryDenyWriteExecute is deliberately left off. cloudflared is a Go binary
+# and generally tolerates it, but a failure here looks like a tunnel that will
+# not start rather than an obvious permission error. Turn it on once you have
+# confirmed the tunnel is healthy, not before.
+# MemoryDenyWriteExecute=true
+
+[Install]
+WantedBy=multi-user.target
