@@ -525,7 +525,9 @@ default_embedding_models = ["text-embedding-004", "embedding-001"]
 native_tool_calling = true
 streaming_tool_calling = false
 system_message = "native"
-input_modalities = ["text"]
+# The native adapter sends `data:image/...;base64,...` inputs as Gemini
+# `inlineData`; URLs require an explicit Gemini Files API upload first.
+input_modalities = ["text", "image"]
 # Gemini 1.5/2.0 long-context family: 1M+ tokens. Declare ~1M input so AgentLimits
 # derives a large history budget (learned backoff handles any real overflow).
 context_window = 1048576
@@ -558,7 +560,7 @@ supports_chat = true
 supports_embedding = false
 supports_reranker = false
 fetch_models_enabled = true
-default_chat_models = ["deepseek-chat", "deepseek-reasoner"]
+default_chat_models = ["deepseek-flash", "deepseek-v4-pro", "deepseek-chat", "deepseek-reasoner"]
 
 # max_output_tokens 接管原 LlmService::normalize_chat_request 中的
 # DeepSeek 8192 上限硬编码（Phase 3 迁移后由统一请求管线执行钳制）。
@@ -576,6 +578,27 @@ max_input_tokens = 65536
 protocol_family = "open_ai_chat_completions"
 tool_call_recovery = "strict_json"
 
+# DeepSeek-V4.1-Flash (`deepseek-flash`) accepts OpenAI-compatible
+# `image_url` content parts. Older chat/reasoner models remain text-only.
+[[providers.deepseek.model_overrides]]
+pattern = "deepseek-flash"
+
+[providers.deepseek.model_overrides.capabilities]
+input_modalities = ["text", "image"]
+
+# These retired aliases are temporarily routed by DeepSeek to V4.1 Flash.
+[[providers.deepseek.model_overrides]]
+pattern = "deepseek-v4-flash"
+
+[providers.deepseek.model_overrides.capabilities]
+input_modalities = ["text", "image"]
+
+[[providers.deepseek.model_overrides]]
+pattern = "deepseek-v4-flash-vision-exp"
+
+[providers.deepseek.model_overrides.capabilities]
+input_modalities = ["text", "image"]
+
 [providers.minimax]
 name = "MiniMax"
 type = "builtin"
@@ -584,7 +607,7 @@ supports_chat = true
 supports_embedding = false
 supports_reranker = false
 fetch_models_enabled = true
-default_chat_models = ["MiniMax-M2.7", "MiniMax-M2.7-highspeed", "MiniMax-M2.5", "MiniMax-M2.5-highspeed", "MiniMax-M2.1", "MiniMax-M2.1-highspeed", "MiniMax-M2"]
+default_chat_models = ["MiniMax-M3", "MiniMax-M2.7", "MiniMax-M2.7-highspeed", "MiniMax-M2.5", "MiniMax-M2.5-highspeed", "MiniMax-M2.1", "MiniMax-M2.1-highspeed", "MiniMax-M2"]
 
 # MiniMax: system 角色由统一管线合并进 user；temperature 仅接受 (0, 1]；
 # 工具调用偶发以 XML/文本形式返回，由响应管线按白名单恢复。
@@ -610,6 +633,15 @@ protocol_family = "open_ai_chat_completions"
 tool_call_recovery = "minimax_xml_and_strict_json"
 force_non_streaming_with_tools = false
 tolerate_stream_tail_after_output = true
+
+# MiniMax-M3 is the only MiniMax chat model currently accepting OpenAI-style
+# `image_url` content parts. The provider adapter keeps the M2.x family
+# text-only and serializes image-bearing M3 messages as a content array.
+[[providers.minimax.model_overrides]]
+pattern = "MiniMax-M3"
+
+[providers.minimax.model_overrides.capabilities]
+input_modalities = ["text", "image"]
 
 # 视频生成模型：异步 submit/poll/retrieve 流程，由 MiniMaxMediaProvider 适配。
 [[providers.minimax.model_overrides]]

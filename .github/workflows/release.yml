@@ -35,3 +35,29 @@ jobs:
 
       - name: Updater smoke tests
         run: bash deploy/tests/update-smoke.sh
+
+      # The marketing site links straight at `releases/latest/download/<asset>`,
+      # so a release published without one of those assets turns a download
+      # button on the site into a 404 -- silently, and for everyone, until
+      # somebody clicks it. Failing the release instead is the cheaper failure.
+      #
+      # The manifest is the site's, and the site lives in another repository, so
+      # this needs MARKETING_MANIFEST pointing at a checkout of it. When that is
+      # not configured the step says so and passes: a gate that cannot see what
+      # it is gating must not pretend to have checked. When it IS configured and
+      # the file is missing, that is a broken gate and the release stops.
+      - name: Verify release assets match the marketing site
+        env:
+          MARKETING_MANIFEST: ${{ vars.MARKETING_MANIFEST }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          if [ -z "${MARKETING_MANIFEST}" ]; then
+            echo "MARKETING_MANIFEST is not set; the marketing download gate did not run."
+            exit 0
+          fi
+          if [ ! -f "${MARKETING_MANIFEST}" ]; then
+            echo "MARKETING_MANIFEST is set to '${MARKETING_MANIFEST}' but no such file exists." >&2
+            exit 1
+          fi
+          node scripts/verify-marketing-release-assets.mjs \
+            --tag "${GITHUB_REF_NAME}" --manifest "${MARKETING_MANIFEST}"
