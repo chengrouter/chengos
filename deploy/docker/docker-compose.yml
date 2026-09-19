@@ -99,6 +99,13 @@ services:
       # .env, which is the *host* port for native installs, so pin it here;
       # the host side is published through API_PORT below.
       PORT: "3000"
+      # Same reason, and it matters more: .env now defaults BIND_ADDRESS to
+      # 127.0.0.1 so a native install does not expose the API to the internet.
+      # Inside a container that would make the API unreachable from the ui and
+      # app containers, which dial it over the Docker network as http://api:3000.
+      # The published port is already bound to the host's loopback below, so
+      # listening on all container interfaces exposes nothing.
+      BIND_ADDRESS: "0.0.0.0"
     volumes:
       - ../.env:/app/.env
       - ../config:/app/config
