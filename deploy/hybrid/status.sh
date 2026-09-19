@@ -107,18 +107,34 @@ else
     log "  API Health (/health) : NOT RESPONDING (${HEALTH_URL})"
 fi
 
+# Probe the address the server was actually told to listen on.
+#
+# UI_BIND / APP_BIND exist so a deployment can keep the frontends off the public
+# internet, and a private or VPN address is a normal value for them. Probing a
+# hardcoded 127.0.0.1 would then report a perfectly healthy server as down.
+# 0.0.0.0 and :: are wildcards rather than destinations, so dial loopback there.
+probe_host() {
+    case "${1:-}" in
+        ""|0.0.0.0|::|"[::]") printf '127.0.0.1' ;;
+        *:*)                  printf '[%s]' "$1" ;;
+        *)                    printf '%s' "$1" ;;
+    esac
+}
+
 # Check UI server port
-if curl -sf --max-time 3 "http://127.0.0.1:${UI_PORT}/" >/dev/null 2>&1; then
+UI_PROBE="$(probe_host "${UI_BIND:-}")"
+if curl -sf --max-time 3 "http://${UI_PROBE}:${UI_PORT}/" >/dev/null 2>&1; then
     log "  UI Server (${UI_PORT})    : RESPONDING"
 else
-    log "  UI Server (${UI_PORT})    : NOT RESPONDING"
+    log "  UI Server (${UI_PORT})    : NOT RESPONDING (${UI_PROBE})"
 fi
 
 # Check App server port
-if curl -sf --max-time 3 "http://127.0.0.1:${APP_PORT}/" >/dev/null 2>&1; then
+APP_PROBE="$(probe_host "${APP_BIND:-}")"
+if curl -sf --max-time 3 "http://${APP_PROBE}:${APP_PORT}/" >/dev/null 2>&1; then
     log "  App Server (${APP_PORT})   : RESPONDING"
 else
-    log "  App Server (${APP_PORT})   : NOT RESPONDING"
+    log "  App Server (${APP_PORT})   : NOT RESPONDING (${APP_PROBE})"
 fi
 
 HR

@@ -189,6 +189,11 @@ ChengOS 提供了功能完善的一键部署与运维脚本 `chengos.sh`，支�
 
 ## 6. 部署步骤与快捷命令 (Quick Start & Commands)
 
+> **公网部署请先读 [`docs/public-deployment-hardening.md`](docs/public-deployment-hardening.md)。**
+> 默认配置适合本机与内网；把服务放到公网上需要额外收紧监听地址、CORS 与边缘防护，
+> 那份文档给出 Cloudflare Tunnel 与反向代理两条路线的完整步骤、验证清单和排查表。
+
+
 ### 🚀 A. 二进制原生部署 (Hybrid Mode - 推荐轻量体验)
 
 在宿主机上直接运行编译好的 API 二进制程序和网页静态资源，无需 Docker 即可获得极佳性能。
