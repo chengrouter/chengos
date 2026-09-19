@@ -42,12 +42,101 @@ function isBlockedPath(urlPath) {
 const PRIVATE_PEER =
   /^(?:127\.|10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.|::1$|::ffff:127\.|::ffff:10\.|::ffff:192\.168\.|fc|fd)/i;
 
+/** Strip the IPv4-mapped IPv6 prefix a dual-stack listener reports. */
+function normalizeIp(ip) {
+  const s = String(ip || '').trim();
+  const mapped = /^::ffff:((?:\d{1,3}\.){3}\d{1,3})$/i.exec(s);
+  return mapped ? mapped[1] : s;
+}
+
+/** An address as a BigInt, or null when it is not one. IPv4 and IPv6. */
+function ipToBigInt(ip) {
+  const addr = normalizeIp(ip);
+  if (addr.includes('.')) {
+    const parts = addr.split('.');
+    if (parts.length !== 4) return null;
+    let n = 0n;
+    for (const part of parts) {
+      const byte = Number(part);
+      if (!Number.isInteger(byte) || byte < 0 || byte > 255) return null;
+      n = (n << 8n) | BigInt(byte);
+    }
+    return n;
+  }
+  if (!addr.includes(':')) return null;
+  // Expand the :: shorthand into the full eight groups.
+  const [head, tail] = addr.split('::');
+  const headGroups = head ? head.split(':') : [];
+  const tailGroups = tail !== undefined && tail ? tail.split(':') : [];
+  if (addr.includes('::')) {
+    const fill = 8 - headGroups.length - tailGroups.length;
+    if (fill < 0) return null;
+    headGroups.push(...Array(fill).fill('0'), ...tailGroups);
+  }
+  if (headGroups.length !== 8) return null;
+  let n = 0n;
+  for (const group of headGroups) {
+    if (!/^[0-9a-f]{1,4}$/i.test(group)) return null;
+    n = (n << 16n) | BigInt(parseInt(group, 16));
+  }
+  return n;
+}
+
+/**
+ * Parse TRUSTED_PROXY_IPS into matchers.
+ *
+ * Accepts bare addresses and CIDR blocks, comma or space separated:
+ *   TRUSTED_PROXY_IPS=45.77.1.2,2001:db8::/32,10.8.0.0/24
+ *
+ * An entry that does not parse is dropped with a warning rather than silently
+ * widening or narrowing trust — a typo here decides whether a caller may
+ * choose its own rate-limit bucket.
+ */
+function parseTrustedProxies(spec, warn = console.warn) {
+  const out = [];
+  for (const raw of String(spec || '').split(/[\s,]+/)) {
+    const entry = raw.trim();
+    if (!entry) continue;
+    const [addr, bitsRaw] = entry.split('/');
+    const base = ipToBigInt(addr);
+    if (base === null) {
+      warn(`[SECURITY] TRUSTED_PROXY_IPS: ignoring unparseable entry "${entry}"`);
+      continue;
+    }
+    const width = normalizeIp(addr).includes('.') ? 32 : 128;
+    const bits = bitsRaw === undefined ? width : Number(bitsRaw);
+    if (!Number.isInteger(bits) || bits < 0 || bits > width) {
+      warn(`[SECURITY] TRUSTED_PROXY_IPS: ignoring bad prefix length in "${entry}"`);
+      continue;
+    }
+    const mask = bits === 0 ? 0n : (~0n << BigInt(width - bits)) & ((1n << BigInt(width)) - 1n);
+    out.push({ width, mask, network: base & mask, text: entry });
+  }
+  return out;
+}
+
+function isTrustedPeer(peer, trustedProxies = []) {
+  if (PRIVATE_PEER.test(peer)) return true;
+  if (!trustedProxies.length) return false;
+  const addr = ipToBigInt(peer);
+  if (addr === null) return false;
+  const width = normalizeIp(peer).includes('.') ? 32 : 128;
+  return trustedProxies.some((r) => r.width === width && (addr & r.mask) === r.network);
+}
+
 /**
  * The address to attribute a request to.
  *
  * A forwarding header is only evidence when the peer that sent it is one we
- * put there. Behind a reverse proxy the peer is loopback or a private address;
- * a request straight off the internet is neither, and its headers are ignored.
+ * put there. Loopback and RFC1918 peers are trusted implicitly, because that is
+ * what a same-host or same-network reverse proxy looks like. A request straight
+ * off the internet is neither, and its headers are ignored.
+ *
+ * A reverse proxy on a SEPARATE machine reaches this server from a public
+ * address, which is not implicitly trusted — without listing it in
+ * TRUSTED_PROXY_IPS every visitor would be attributed to the proxy and collapse
+ * into a single rate-limit bucket. That failure is silent, which is why the
+ * servers log the effective trust set at startup.
  *
  * With TRUST_CLOUDFLARE=true the proxy is expected to pass CF-Connecting-IP
  * through — nginx forwards unknown request headers to its upstream unchanged,
@@ -57,9 +146,9 @@ const PRIVATE_PEER =
  * the one written by the nearest trusted hop and the only one a remote caller
  * cannot choose. This matches cheng-api's own client_key().
  */
-function clientIp(req, { trustCloudflare = false } = {}) {
+function clientIp(req, { trustCloudflare = false, trustedProxies = [] } = {}) {
   const peer = req.socket.remoteAddress || '';
-  if (!PRIVATE_PEER.test(peer)) return peer;
+  if (!isTrustedPeer(peer, trustedProxies)) return normalizeIp(peer);
 
   if (trustCloudflare) {
     const cf = String(req.headers['cf-connecting-ip'] || '').trim();
@@ -70,7 +159,7 @@ function clientIp(req, { trustCloudflare = false } = {}) {
     const last = xff.split(',').pop().trim();
     if (last) return last;
   }
-  return peer;
+  return normalizeIp(peer);
 }
 
 /**
@@ -289,6 +378,9 @@ function resolveWithinRoot(root, urlPath) {
 module.exports = {
   isBlockedPath,
   clientIp,
+  parseTrustedProxies,
+  isTrustedPeer,
+  normalizeIp,
   proxyHeaders,
   makeNonce,
   securityHeaders,

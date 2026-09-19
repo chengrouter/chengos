@@ -13,6 +13,22 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:19225';
 const TRUST_CLOUDFLARE = /^(1|true|yes|on)$/i.test(process.env.TRUST_CLOUDFLARE || '');
 const CONNECT_SRC = H.connectSrcFromEnv();
 
+// Which interface to accept connections on. The default keeps every address,
+// which is what this server has always done; set it to 127.0.0.1 when a proxy
+// on this same host is the only thing that should reach it, or to a private /
+// VPN address when the proxy lives on another machine.
+//
+// This is NOT access control: it selects a local interface, and an address
+// belonging to some other host fails to bind at all (EADDRNOTAVAIL). Deciding
+// who may connect is the firewall's job.
+const BIND = process.env.UI_BIND || '0.0.0.0';
+
+// Reverse proxies that may report a visitor's real address. Loopback and
+// RFC1918 peers are trusted implicitly; a proxy on a separate machine arrives
+// from a public address and has to be named here, or every visitor is
+// attributed to it and shares one rate-limit bucket.
+const TRUSTED_PROXIES = H.parseTrustedProxies(process.env.TRUSTED_PROXY_IPS);
+
 // Native installs have no nginx in front, so the outer wall is here.
 const authLimiter = new H.RateLimiter({ limit: 20, windowMs: 60000 });
 // Overridable so the server can be pointed at a build output other than the
@@ -166,7 +182,7 @@ function sendShell(req, res) {
 
 const server = http.createServer((req, res) => {
   const urlPath = req.url.split('?')[0];
-  const ip = H.clientIp(req, { trustCloudflare: TRUST_CLOUDFLARE });
+  const ip = H.clientIp(req, { trustCloudflare: TRUST_CLOUDFLARE, trustedProxies: TRUSTED_PROXIES });
 
   // Match proxy rules: /api, /features, /mcp, /ready, /health
   if (
@@ -386,7 +402,7 @@ server.on('upgrade', (req, socket, head) => {
     method: req.method,
     // Same forwarding rules as the HTTP path: the backend attributes a
     // WebSocket to an address the client cannot forge.
-    headers: H.proxyHeaders(req, H.clientIp(req, { trustCloudflare: TRUST_CLOUDFLARE }), backendParsed.host),
+    headers: H.proxyHeaders(req, H.clientIp(req, { trustCloudflare: TRUST_CLOUDFLARE, trustedProxies: TRUSTED_PROXIES }), backendParsed.host),
     // Upgraded sockets must not go through the keep-alive pool.
     agent: false,
   };
@@ -453,7 +469,27 @@ server.on('upgrade', (req, socket, head) => {
   proxyReq.end();
 });
 
-server.listen(PORT, () => {
-  console.log(`UI Server running at http://localhost:${PORT}`);
+// Say out loud what the process will actually trust. The dangerous outcome of
+// a proxy misconfiguration is not a crash: it is every visitor silently sharing
+// one rate-limit bucket, which looks like nothing at all until a login is being
+// brute-forced through the proxy.
+function logTrustPosture() {
+  const proxies = TRUSTED_PROXIES.map((p) => p.text).join(', ');
+  console.log(
+    `Trusted proxies: loopback + RFC1918${proxies ? ` + ${proxies}` : ''}` +
+      `${TRUST_CLOUDFLARE ? ' + Cloudflare (CF-Connecting-IP)' : ''}`
+  );
+  if (BIND !== '127.0.0.1' && BIND !== '::1' && !proxies) {
+    console.warn(
+      `[SECURITY] Listening on ${BIND} with no TRUSTED_PROXY_IPS. If a reverse proxy ` +
+        'on another host fronts this server, set TRUSTED_PROXY_IPS to its address or ' +
+        'every visitor will be attributed to that proxy and share one rate-limit bucket.'
+    );
+  }
+}
+
+server.listen(PORT, BIND, () => {
+  console.log(`UI Server listening on ${BIND}:${PORT}`);
   console.log(`Proxying API & WebSocket to ${BACKEND_URL}`);
+  logTrustPosture();
 });

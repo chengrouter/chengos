@@ -578,6 +578,10 @@ if has_module "ui"; then
         mkdir -p "$(dirname "$ui_output_log")"
         ui_pid="$(start_detached "$ui_pid_file" "$ui_output_log" \
             env UI_PORT="$UI_PORT" BACKEND_URL="http://127.0.0.1:${PORT}" \
+            UI_BIND="${UI_BIND:-0.0.0.0}" \
+            TRUSTED_PROXY_IPS="${TRUSTED_PROXY_IPS:-}" \
+            TRUST_CLOUDFLARE="${TRUST_CLOUDFLARE:-false}" \
+            CSP_CONNECT_SRC_EXTRA="${CSP_CONNECT_SRC_EXTRA:-}" \
             node "${ROOT_DIR}/bin/ui-server.js")"
         log "cheng-ui server started (PID ${ui_pid}), listening on port ${UI_PORT}, logging to ${ui_output_log}"
     fi
@@ -604,6 +608,10 @@ if has_module "app"; then
         mkdir -p "$(dirname "$app_output_log")"
         app_pid="$(start_detached "$app_pid_file" "$app_output_log" \
             env APP_PORT="$APP_PORT" BACKEND_URL="http://127.0.0.1:${PORT}" \
+            APP_BIND="${APP_BIND:-0.0.0.0}" \
+            TRUSTED_PROXY_IPS="${TRUSTED_PROXY_IPS:-}" \
+            TRUST_CLOUDFLARE="${TRUST_CLOUDFLARE:-false}" \
+            CSP_CONNECT_SRC_EXTRA="${CSP_CONNECT_SRC_EXTRA:-}" \
             node "${ROOT_DIR}/bin/app-server.js")"
         log "cheng-app server started (PID ${app_pid}), listening on port ${APP_PORT}, logging to ${app_output_log}"
     fi
