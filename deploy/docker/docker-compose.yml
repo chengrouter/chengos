@@ -134,6 +134,8 @@ services:
       API_BASE_URL: ${UI_API_BASE_URL:-/api/v1}
       WS_URL: ${UI_WS_URL:-/ws}
       BACKEND_UPSTREAM: http://api:3000
+      TRUST_CLOUDFLARE: ${TRUST_CLOUDFLARE:-false}
+      CSP_CONNECT_SRC_EXTRA: ${CSP_CONNECT_SRC_EXTRA:-}
     ports:
       - "127.0.0.1:${UI_PORT:-8080}:80"
     depends_on:
@@ -151,6 +153,8 @@ services:
       BACKEND_WS_URL: http://api:3000
       CHANNEL_ID: ${APP_CHANNEL_ID:-weather-app}
       BOUND_WORKFLOW_ID: ${APP_BOUND_WORKFLOW_ID:-}
+      TRUST_CLOUDFLARE: ${TRUST_CLOUDFLARE:-false}
+      CSP_CONNECT_SRC_EXTRA: ${CSP_CONNECT_SRC_EXTRA:-}
     ports:
       - "127.0.0.1:${APP_PORT:-5055}:5055"
     depends_on:

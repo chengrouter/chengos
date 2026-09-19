@@ -2,8 +2,19 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
+const H = require('./lib/http-hardening');
+
 const PORT = process.env.UI_PORT || 8080;
 const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:19225';
+
+// Mirrors the Docker deployment's TRUST_CLOUDFLARE switch. Off by default:
+// trusting the wrong party lets a caller forge its own address and mint an
+// unlimited number of rate-limit buckets.
+const TRUST_CLOUDFLARE = /^(1|true|yes|on)$/i.test(process.env.TRUST_CLOUDFLARE || '');
+const CONNECT_SRC = H.connectSrcFromEnv();
+
+// Native installs have no nginx in front, so the outer wall is here.
+const authLimiter = new H.RateLimiter({ limit: 20, windowMs: 60000 });
 // Overridable so the server can be pointed at a build output other than the
 // bundled one — and so tests can run it against a fixture directory.
 const UI_DIR = path.resolve(process.env.UI_DIR || path.join(__dirname, '../ui'));
@@ -83,8 +94,79 @@ setInterval(() => {
 
 let wsConnections = 0;
 
+// index.html is re-read when it changes on disk, so an in-place upgrade does
+// not require a restart to pick up a rebuilt shell (and its nonce placeholder).
+let shellCache = null;
+function shell() {
+  const shellPath = path.join(UI_DIR, 'index.html');
+  let mtime = 0;
+  try {
+    mtime = fs.statSync(shellPath).mtimeMs;
+  } catch {
+    return null;
+  }
+  if (!shellCache || shellCache.mtime !== mtime) {
+    const loaded = H.loadShell(shellPath, fs);
+    shellCache = { mtime, loaded };
+    if (loaded.allowInlineScript) {
+      console.warn(
+        '[SECURITY] index.html has an inline <script> but no __CSP_NONCE__ placeholder. ' +
+          "Falling back to script-src 'unsafe-inline'. Rebuild the frontend to remove it."
+      );
+    }
+  }
+  return shellCache.loaded;
+}
+
+function isHttps(req) {
+  return String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() === 'https';
+}
+
+function headersFor(req, extra, nonceOpts) {
+  return {
+    ...H.securityHeaders({
+      https: isHttps(req),
+      connectSrc: CONNECT_SRC,
+      webfonts: true,
+      ...nonceOpts,
+    }),
+    ...extra,
+  };
+}
+
+function notFound(req, res) {
+  if (res.destroyed || res.writableEnded) return;
+  res.writeHead(404, headersFor(req, { 'Content-Type': 'text/plain; charset=utf-8' }));
+  res.end('Not Found');
+}
+
+// Serve the SPA shell with a fresh CSP nonce. The body differs per response, so
+// it must never be cached: a stored copy would pair an old nonce with a new
+// header and the inline script would be blocked.
+function sendShell(req, res) {
+  const loaded = shell();
+  if (!loaded) return notFound(req, res);
+  const nonce = loaded.hasPlaceholder ? H.makeNonce() : null;
+  const body = loaded.render(nonce);
+  if (res.destroyed || res.writableEnded) return;
+  res.writeHead(
+    200,
+    headersFor(
+      req,
+      {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'no-store',
+        'Content-Length': Buffer.byteLength(body),
+      },
+      { nonce, allowInlineScript: loaded.allowInlineScript }
+    )
+  );
+  res.end(body);
+}
+
 const server = http.createServer((req, res) => {
   const urlPath = req.url.split('?')[0];
+  const ip = H.clientIp(req, { trustCloudflare: TRUST_CLOUDFLARE });
 
   // Match proxy rules: /api, /features, /mcp, /ready, /health
   if (
@@ -94,12 +176,27 @@ const server = http.createServer((req, res) => {
     urlPath === '/ready' ||
     urlPath === '/health'
   ) {
+    if (H.isAuthPath(urlPath)) {
+      const retryAfter = authLimiter.check(ip);
+      if (retryAfter) {
+        res.writeHead(429, headersFor(req, {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Retry-After': String(retryAfter),
+        }));
+        res.end(JSON.stringify({ error: 'Too many attempts', retry_after: retryAfter }));
+        return;
+      }
+    }
+
     const options = {
       hostname: backendParsed.hostname,
       port: BACKEND_PORT,
       path: req.url,
       method: req.method,
-      headers: { ...req.headers, host: backendParsed.host },
+      // Not the client's headers verbatim: X-Real-IP is overwritten and
+      // X-Forwarded-For appended, so the backend's per-IP login throttle keys
+      // on an address the caller cannot choose.
+      headers: H.proxyHeaders(req, ip, backendParsed.host),
       agent: proxyAgent,
     };
 
@@ -142,14 +239,21 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // Serve static files
-  let filePath = path.join(UI_DIR, decodeURIComponent(urlPath));
-
-  // Refuse anything that escapes the UI directory (raw or encoded "..").
-  if (filePath !== UI_DIR && !filePath.startsWith(UI_DIR + path.sep)) {
-    res.writeHead(403, { 'Content-Type': 'text/plain' });
+  // Traversal is checked first, and it must stay first: a `..` segment also
+  // matches the dot-segment rule in the blocklist below, so the other order
+  // would answer an escape attempt with a 404 and hide it among the noise.
+  let filePath = H.resolveWithinRoot(UI_DIR, urlPath);
+  if (filePath === null) {
+    res.writeHead(403, headersFor(req, { 'Content-Type': 'text/plain; charset=utf-8' }));
     res.end('Forbidden');
     return;
+  }
+
+  // Secret and CMS probes are answered before any fallback can turn them into
+  // a 200. This is the whole reason a scan of this host used to report every
+  // .env path as "found": the shell was served for all of them.
+  if (H.isBlockedPath(urlPath)) {
+    return notFound(req, res);
   }
 
   // Downloads must never fall through to the SPA.
@@ -162,7 +266,7 @@ const server = http.createServer((req, res) => {
   if (urlPath.startsWith(DOWNLOAD_PREFIX)) {
     fs.stat(filePath, (err, stats) => {
       if (err || !stats.isFile()) {
-        res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.writeHead(404, headersFor(req, { 'Content-Type': 'application/json; charset=utf-8' }));
         res.end(JSON.stringify({ error: 'Not found', path: urlPath }));
         return;
       }
@@ -178,14 +282,14 @@ const server = http.createServer((req, res) => {
       // injection, so allow only characters that can appear in a release artifact.
       const safeName = path.basename(filePath).replace(/[^A-Za-z0-9._-]/g, '_');
 
-      res.writeHead(200, {
+      res.writeHead(200, headersFor(req, {
         'Content-Type': contentType,
         'Content-Length': stats.size,
         'Content-Disposition': `attachment; filename="${safeName}"`,
         // Release artifacts are replaced in place on upgrade, so they must not be
         // cached with the immutable policy used for hashed assets.
         'Cache-Control': 'public, max-age=300',
-      });
+      }));
 
       const stream = fs.createReadStream(filePath);
       stream.on('error', (streamErr) => {
@@ -198,29 +302,40 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  const indexPath = path.join(UI_DIR, 'index.html');
-
-  // SPA routing: a path with no file extension is an app route, not an asset.
-  if (!path.extname(filePath)) {
-    filePath = indexPath;
+  // The site root is always the shell, whatever the client asked for: it is
+  // not a scanner signal, and health checks (hybrid/status.sh) probe it with
+  // curl, which sends Accept: */*.
+  if (urlPath === '/' || urlPath === '/index.html') {
+    return sendShell(req, res);
   }
 
-  fs.stat(filePath, (err, stats) => {
-    const target = err || !stats.isFile() ? indexPath : filePath;
-    const isFallback = target === indexPath && target !== filePath;
+  // Past the root, a browser navigating to a client-side route sends
+  // Accept: text/html while a wordlist scanner asks for */*. That distinction is what keeps the shell
+  // from being handed out as a 200 for every path that does not exist.
+  const wantsHtml = String(req.headers.accept || '').toLowerCase().includes('text/html');
 
-    const contentType = isFallback
-      ? 'text/html; charset=utf-8'
-      : MIME_TYPES[path.extname(target)] || 'application/octet-stream';
+  fs.stat(filePath, (err, stats) => {
+    if (err || !stats.isFile()) {
+      // Only an extensionless path can be an app route; anything that looks
+      // like an asset is simply missing, and saying 200 about it hides real
+      // broken links as well as rewarding scans.
+      if (wantsHtml && !path.extname(filePath)) return sendShell(req, res);
+      return notFound(req, res);
+    }
 
     if (res.destroyed || res.writableEnded) return;
 
-    res.writeHead(200, {
+    if (filePath === path.join(UI_DIR, 'index.html')) return sendShell(req, res);
+
+    const target = filePath;
+    const contentType = MIME_TYPES[path.extname(target)] || 'application/octet-stream';
+
+    res.writeHead(200, headersFor(req, {
       'Content-Type': contentType,
       'Cache-Control': target.includes(`${path.sep}assets${path.sep}`)
         ? 'public, max-age=31536000, immutable'
         : 'no-cache',
-    });
+    }));
 
     const stream = fs.createReadStream(target);
     stream.on('error', (streamErr) => {
@@ -269,7 +384,9 @@ server.on('upgrade', (req, socket, head) => {
     port: BACKEND_PORT,
     path: req.url,
     method: req.method,
-    headers: { ...req.headers, host: backendParsed.host },
+    // Same forwarding rules as the HTTP path: the backend attributes a
+    // WebSocket to an address the client cannot forge.
+    headers: H.proxyHeaders(req, H.clientIp(req, { trustCloudflare: TRUST_CLOUDFLARE }), backendParsed.host),
     // Upgraded sockets must not go through the keep-alive pool.
     agent: false,
   };

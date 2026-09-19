@@ -126,9 +126,88 @@ test("directory traversal through /downloads/ is refused", async () => {
 });
 
 test("SPA routing still works for application paths", async () => {
-  const res = await fetch(`${BASE}/channels/abc-123`);
+  // A browser navigation always carries Accept: text/html, and that is what
+  // now separates an app route from a wordlist probe. Node's fetch() defaults
+  // to */*, so the header has to be explicit here.
+  const res = await fetch(`${BASE}/channels/abc-123`, {
+    headers: { accept: "text/html,application/xhtml+xml" },
+  });
 
   assert.equal(res.status, 200);
   assert.match(res.headers.get("content-type"), /text\/html/);
   assert.ok((await res.text()).includes("<title>app</title>"));
+});
+
+test("the site root is served to any client, not just browsers", async () => {
+  // hybrid/status.sh probes "/" with curl, which sends Accept: */*. The root
+  // must never depend on the Accept heuristic or the health check goes red.
+  const res = await fetch(BASE);
+
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get("content-type"), /text\/html/);
+});
+
+test("secret and CMS probes are refused instead of answered with the shell", async () => {
+  // The behaviour this replaces is what made an access-log scan of a live
+  // deployment report every one of these as HTTP 200: the SPA fallback handed
+  // out index.html for each, so a wordlist run looked entirely successful.
+  const probes = [
+    "/backend/api/.env",
+    "/stage/.env",
+    "/config/credentials.json",
+    "/config/env.php",
+    "/docker-compose.prod.yml",
+    "/k8s/secrets.yaml",
+    "/.terraform/terraform.tfstate",
+    "/.git/config",
+    "/wp-login.php",
+    "/assets/index.js.map",
+  ];
+
+  for (const probe of probes) {
+    const res = await fetch(`${BASE}${probe}`);
+    assert.equal(res.status, 404, `${probe} returned ${res.status}; expected 404`);
+    const body = await res.text();
+    assert.ok(!body.includes("<title>app</title>"), `${probe} leaked the SPA shell`);
+  }
+});
+
+test("an extensionless probe is refused when the client is not a browser", async () => {
+  // Wordlists are full of extensionless paths (/admin, /actuator, /phpmyadmin).
+  // They are indistinguishable from app routes by shape, so the Accept header
+  // is what separates them.
+  const res = await fetch(`${BASE}/phpmyadmin`);
+  assert.equal(res.status, 404);
+});
+
+test("a missing asset is a 404, not a 200 carrying the SPA shell", async () => {
+  // Answering 200 for a missing asset hides real broken links just as much as
+  // it rewards a scan.
+  const res = await fetch(`${BASE}/assets/does-not-exist.js`, {
+    headers: { accept: "text/html" },
+  });
+  assert.equal(res.status, 404);
+});
+
+test("security headers are present on every response", async () => {
+  const res = await fetch(BASE, { headers: { accept: "text/html" } });
+
+  assert.equal(res.headers.get("x-content-type-options"), "nosniff");
+  assert.equal(res.headers.get("x-frame-options"), "SAMEORIGIN");
+  assert.match(res.headers.get("content-security-policy"), /default-src 'self'/);
+  assert.match(res.headers.get("content-security-policy"), /object-src 'none'/);
+  // connect-src must not fall back to a blanket https:, which would leave an
+  // injected script free to post whatever it read to any host.
+  assert.match(res.headers.get("content-security-policy"), /connect-src 'self'/);
+  // No TLS in front of this test server, so HSTS must be absent: asserting it
+  // over plain http strands a LAN deployment on a scheme it cannot serve.
+  assert.equal(res.headers.get("strict-transport-security"), null);
+});
+
+test("HSTS appears only once a proxy reports TLS", async () => {
+  const res = await fetch(BASE, {
+    headers: { accept: "text/html", "x-forwarded-proto": "https" },
+  });
+
+  assert.match(res.headers.get("strict-transport-security"), /max-age=31536000/);
 });

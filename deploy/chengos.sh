@@ -2227,6 +2227,7 @@ if [[ $# -gt 0 ]]; then
     UPDATE_TARGET_VERSION=""
     SERVER_URL=""
     CLI_TARGET="local"
+    CLOUDFLARE_ACTION="status"
     
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -2287,6 +2288,15 @@ if [[ $# -gt 0 ]]; then
                 # downgrade are deliberate acts, never the default direction.
                 UPDATE_TARGET_VERSION="$2"
                 shift 2
+                ;;
+            on|off|status)
+                # Bare sub-action, accepted only where a command defines one.
+                if [[ "$CMD" != "cloudflare" ]]; then
+                    echo "Unknown option: $1"
+                    exit 1
+                fi
+                CLOUDFLARE_ACTION="$1"
+                shift
                 ;;
             *)
                 echo "Unknown option: $1"
@@ -2597,6 +2607,59 @@ if [[ $# -gt 0 ]]; then
         reset-credentials|reset-admin)
             reset_login_credentials
             ;;
+        cloudflare)
+            # Flip the frontends between "a proxy I run" and "Cloudflare" as the
+            # party allowed to report a visitor's real IP. Both frontends read
+            # TRUST_CLOUDFLARE from the Compose environment, so this is a single
+            # value in .env plus a restart.
+            shared_dir="$(resolve_shared_dir)"
+            env_file="${shared_dir}/.env"
+            if [[ ! -f "$env_file" ]]; then
+                echo "No ${env_file} yet — run an install first." >&2
+                exit 1
+            fi
+            case "${CLOUDFLARE_ACTION:-status}" in
+                on)
+                    write_env_value "$env_file" TRUST_CLOUDFLARE true
+                    echo "TRUST_CLOUDFLARE=true written to ${env_file}"
+                    echo
+                    echo "This only takes effect once the frontends restart:"
+                    echo "    ./chengos.sh restart"
+                    echo
+                    echo "It is also only HALF the change. Until both of these are true,"
+                    echo "the origin still answers scans directly and real client IPs stay"
+                    echo "unrecoverable:"
+                    echo "  1. The DNS records are Proxied (orange cloud) in Cloudflare."
+                    echo "  2. The host firewall rejects everything but Cloudflare:"
+                    echo "         deploy/infra/cloudflare/origin-firewall.sh --apply"
+                    echo
+                    echo "Edge rules (WAF, Bot Fight Mode, HSTS) are a separate step:"
+                    echo "         deploy/infra/cloudflare/apply-zone-settings.sh --zone <domain>"
+                    ;;
+                off)
+                    write_env_value "$env_file" TRUST_CLOUDFLARE false
+                    echo "TRUST_CLOUDFLARE=false written to ${env_file}"
+                    echo "Run ./chengos.sh restart to apply."
+                    echo
+                    echo "If the host firewall still allows only Cloudflare, open it back up"
+                    echo "or the site stays unreachable."
+                    ;;
+                status)
+                    current="$(read_env_value "$env_file" TRUST_CLOUDFLARE || echo false)"
+                    echo "TRUST_CLOUDFLARE=${current}"
+                    if [[ "$current" == "true" ]]; then
+                        echo "  Frontends read CF-Connecting-IP and trust Cloudflare's ranges."
+                    else
+                        echo "  Frontends read X-Forwarded-For and trust private peers only."
+                    fi
+                    ;;
+                *)
+                    echo "Usage: ./chengos.sh cloudflare [on|off|status]" >&2
+                    exit 1
+                    ;;
+            esac
+            ;;
+
             
         *)
             echo "Unknown command: $CMD"
