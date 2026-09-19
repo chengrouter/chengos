@@ -2607,6 +2607,23 @@ if [[ $# -gt 0 ]]; then
         reset-credentials|reset-admin)
             reset_login_credentials
             ;;
+        doctor)
+            # Read-only exposure report. Probes the running system rather than
+            # reading configuration back, because every failure mode in this
+            # area is quiet: nothing errors when the API is still on 0.0.0.0 or
+            # the rate limiter is keyed on the wrong address.
+            shared_dir="$(resolve_shared_dir)"
+            doctor_lib="$(dirname "${BASH_SOURCE[0]}")/lib/doctor.sh"
+            if [[ ! -f "$doctor_lib" ]]; then
+                echo "Missing ${doctor_lib}" >&2
+                exit 1
+            fi
+            # shellcheck source=lib/doctor.sh
+            source "$doctor_lib"
+            run_doctor "${shared_dir}/.env" "$MODE"
+            exit $?
+            ;;
+
         cloudflare)
             # Flip the frontends between "a proxy I run" and "Cloudflare" as the
             # party allowed to report a visitor's real IP. Both frontends read
