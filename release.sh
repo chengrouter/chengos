@@ -160,6 +160,17 @@ if [[ -d "${REPO_ROOT}/chengflow" ]]; then
     unset _meta_top _flow_top
 fi
 
+# chengapp/ is the same case: an independent repository the meta repo ignores.
+CHENGAPP_IS_SEPARATE_REPO="false"
+if [[ -d "${REPO_ROOT}/chengapp" ]]; then
+    _meta_top="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+    _app_top="$(git -C "${REPO_ROOT}/chengapp" rev-parse --show-toplevel 2>/dev/null || true)"
+    if [[ -n "$_app_top" && "$_app_top" != "$_meta_top" ]]; then
+        CHENGAPP_IS_SEPARATE_REPO="true"
+    fi
+    unset _meta_top _app_top
+fi
+
 # ── 2. Argument validation ────────────────────────────────────────────────────
 if [[ -n "$BUMP" && -n "$SET_VERSION" ]]; then
     fail "--bump and --set are mutually exclusive"
@@ -501,16 +512,25 @@ if action "git add VERSION chengflow/Cargo.toml chengapp/Cargo.toml chengapp/src
     else
         git add chengflow/Cargo.toml
     fi
-    git add chengapp/Cargo.toml chengapp/src-tauri/Cargo.toml
+    if [[ "$CHENGAPP_IS_SEPARATE_REPO" == "true" ]]; then
+        git -C "${REPO_ROOT}/chengapp" add Cargo.toml src-tauri/Cargo.toml
+    else
+        git add chengapp/Cargo.toml chengapp/src-tauri/Cargo.toml
+    fi
 fi
 
 if action "git commit -m '${commit_message}'"; then
-    # When chengflow/ is its own repository the meta repo cannot see its
-    # Cargo.toml, so the synchronized version is committed there separately.
-    # The tag still lives on the meta repo: it is the release identity.
+    # When chengflow/ or chengapp/ is its own repository the meta repo cannot
+    # see its Cargo.toml, so the synchronized version is committed there
+    # separately. The tag still lives on the meta repo: it is the release
+    # identity.
     if [[ "$CHENGFLOW_IS_SEPARATE_REPO" == "true" ]] \
         && ! git -C "${REPO_ROOT}/chengflow" diff --cached --quiet; then
         git -C "${REPO_ROOT}/chengflow" commit -m "$commit_message"
+    fi
+    if [[ "$CHENGAPP_IS_SEPARATE_REPO" == "true" ]] \
+        && ! git -C "${REPO_ROOT}/chengapp" diff --cached --quiet; then
+        git -C "${REPO_ROOT}/chengapp" commit -m "$commit_message"
     fi
     git commit -m "$commit_message"
 fi
