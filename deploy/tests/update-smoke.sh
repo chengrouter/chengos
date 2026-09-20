@@ -62,13 +62,16 @@ make_fixture_archive() {
     local version="$1" dest="$2"
     local bundle="${dest}/build/chengos"
 
-    mkdir -p "${bundle}/bin" "${bundle}/ui" "${bundle}/app" "${bundle}/config/i18n" \
+    mkdir -p "${bundle}/bin" "${bundle}/bin/lib" "${bundle}/ui" "${bundle}/app" "${bundle}/config/i18n" \
              "${bundle}/workflow-templates" "${bundle}/skills" "${bundle}/hybrid" \
              "${bundle}/lib" "${bundle}/infra" "${bundle}/node_skills"
 
     printf '%s\n' "$version" > "${bundle}/VERSION"
     printf '#!/bin/sh\necho "cheng-api %s"\n' "$version" > "${bundle}/bin/cheng-api"
     printf '#!/bin/sh\necho "cheng %s"\n' "$version" > "${bundle}/bin/cheng"
+    printf '// ui-server\n' > "${bundle}/bin/ui-server.js"
+    printf '// app-server\n' > "${bundle}/bin/app-server.js"
+    printf '// http-hardening\n' > "${bundle}/bin/lib/http-hardening.js"
     printf 'API_PORT=3000\n' > "${bundle}/.env.example"
     printf '#!/bin/sh\nexit 0\n' > "${bundle}/chengos.sh"
     printf '#!/bin/sh\nexit 0\n' > "${bundle}/generate-env.sh"
