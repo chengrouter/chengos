@@ -44,6 +44,46 @@ Every release section must declare its rollback compatibility so operators and
 
 - Migration policy: reversible
 
+## [0.2.0] - 2026-09-20
+
+### Release notes
+
+<!-- Maintainer: describe the user-facing changes, required migration
+     steps, and any rollback limitation before publishing. -->
+
+### Added
+
+- feat(deploy): add `chengos.sh doctor`; fix doc placement and scrub hostnames
+- feat(deploy): add a Cloudflare Tunnel path for the origin
+- feat(deploy): make the trusted proxy set and listen interface configurable
+- feat(deploy): cloud trial runtime config, release gates and migration checks
+
+### Changed
+
+- chore(release): require ui-server, app-server and http-hardening in the archive
+- docs(deploy): add a public-deployment hardening runbook
+- chore: stop tracking internal docs/ working documents
+- chore: ignore the desktop build staging directory
+- chore: desktop app plan and CI workflow (pre-existing)
+
+### Fixed
+
+- fix(release): commit the chengapp version bump in its own repository
+
+### Other
+
+- harden(deploy): stop exposing the API itself in native installs
+- harden(deploy): close the native servers' scan hole, wire the Cloudflare edge
+-  版本统一化/后端端口修改为19225
+-  构建桌面应用
+-  demo模式/chengflow-sdk-open-source-plan
+-  plan all ok
+-  agent-truncation-layer-consolidation-development-plan
+
+### Notes
+
+- Migration policy: reversible
+
 ## [0.1.2] - 2026-08-23
 
 ### Release notes
