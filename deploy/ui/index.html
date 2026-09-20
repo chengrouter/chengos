@@ -31,8 +31,12 @@
     <meta name="theme-color" content="#f5f4ed" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#141413" media="(prefers-color-scheme: dark)" />
     
-    <!-- Theme initialization script to prevent FOUC -->
-    <script>
+    <!-- Theme initialization script to prevent FOUC.
+         The nonce placeholder is rewritten per response by the production
+         nginx config (chengflow-ui/nginx/spa-shell.conf), which is what lets
+         the CSP there refuse inline scripts outright. Dev and any server that
+         does not rewrite it simply ship no CSP, and the attribute is inert. -->
+    <script nonce="__CSP_NONCE__">
       (function() {
         try {
           var THEME_STORAGE_KEY = 'ChengOS-theme';
@@ -116,23 +120,22 @@
         }
       }
     </style>
-    <script type="module" crossorigin src="/assets/js/index-XNUxroWl.js"></script>
+    <script type="module" crossorigin src="/assets/js/index-CGIfug2x.js"></script>
     <link rel="modulepreload" crossorigin href="/assets/js/react-vendor-__7b2ISL.js">
-    <link rel="modulepreload" crossorigin href="/assets/js/markdown-ChqeB2PF.js">
-    <link rel="modulepreload" crossorigin href="/assets/js/vendor-CqPhug5z.js">
-    <link rel="modulepreload" crossorigin href="/assets/js/tanstack-query-CiWWxHFZ.js">
-    <link rel="modulepreload" crossorigin href="/assets/js/tanstack-router-DrZeVa8M.js">
+    <link rel="modulepreload" crossorigin href="/assets/js/markdown-BKTezsXU.js">
+    <link rel="modulepreload" crossorigin href="/assets/js/vendor-DMrdUIIt.js">
+    <link rel="modulepreload" crossorigin href="/assets/js/tanstack-query-Cs5Dynqx.js">
+    <link rel="modulepreload" crossorigin href="/assets/js/tanstack-router-CJSa1kMv.js">
     <link rel="modulepreload" crossorigin href="/assets/js/app-shell-CNFookCR.js">
-    <link rel="modulepreload" crossorigin href="/assets/js/radix-ui-CCo6va09.js">
-    <link rel="modulepreload" crossorigin href="/assets/js/syntax-highlighter-CEsjOo1C.js">
-    <link rel="modulepreload" crossorigin href="/assets/js/state-CA_0HZv4.js">
-    <link rel="modulepreload" crossorigin href="/assets/js/icons-DhDQgNTQ.js">
+    <link rel="modulepreload" crossorigin href="/assets/js/radix-ui-DbodzUNB.js">
+    <link rel="modulepreload" crossorigin href="/assets/js/state-DAcxjCTC.js">
+    <link rel="modulepreload" crossorigin href="/assets/js/icons-BThlhGx4.js">
+    <link rel="modulepreload" crossorigin href="/assets/js/charts-CED4K2Qa.js">
+    <link rel="modulepreload" crossorigin href="/assets/js/reactflow-Ycz4NozO.js">
     <link rel="modulepreload" crossorigin href="/assets/js/utils-CPDJG0lR.js">
     <link rel="modulepreload" crossorigin href="/assets/js/toast-D-Kj3oHY.js">
-    <link rel="modulepreload" crossorigin href="/assets/js/charts-CED4K2Qa.js">
-    <link rel="modulepreload" crossorigin href="/assets/js/reactflow-c9WJnWs3.js">
     <link rel="stylesheet" crossorigin href="/assets/css/reactflow-C4TUBwev.css">
-    <link rel="stylesheet" crossorigin href="/assets/css/index-Ds_waY4v.css">
+    <link rel="stylesheet" crossorigin href="/assets/css/index-xxCw23--.css">
   </head>
   <body>
     <!-- React Root -->

@@ -48,8 +48,13 @@ Every release section must declare its rollback compatibility so operators and
 
 ### Release notes
 
-<!-- Maintainer: describe the user-facing changes, required migration
-     steps, and any rollback limitation before publishing. -->
+v0.2.0 is a packaging and deployment release. ChengOS now ships real installers
+instead of a source checkout: a desktop application with an embedded engine, an
+Android mobile app, and native `.deb` / `.rpm` packages for Linux (plus `.msi`
+on Windows). It also hardens the self-hosted deployment path (Cloudflare Tunnel
+origin, configurable trusted-proxy set and listen interface, `chengos.sh
+doctor`) and unifies every component under a single `0.2.0` version. The backend
+port is now `19225`. See `deploy/RELEASE_NOTES_v0.2.0.md` for the full notes.
 
 ### Added
 

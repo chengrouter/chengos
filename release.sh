@@ -42,6 +42,7 @@ VERSION_FILE="${REPO_ROOT}/VERSION"
 CARGO_TOML="${REPO_ROOT}/chengflow/Cargo.toml"
 CHENGAPP_CARGO_TOML="${REPO_ROOT}/chengapp/Cargo.toml"
 CHENGAPP_TAURI_CARGO_TOML="${REPO_ROOT}/chengapp/src-tauri/Cargo.toml"
+CHENGFLOW_UI_TAURI_CARGO_TOML="${REPO_ROOT}/chengflow-ui/src-tauri/Cargo.toml"
 CHANGELOG="${REPO_ROOT}/CHANGELOG.md"
 CONSISTENCY_CHECK="${REPO_ROOT}/scripts/check-release-consistency.sh"
 CONTRACT_TEST="${REPO_ROOT}/scripts/test-release-contract.sh"
@@ -171,6 +172,17 @@ if [[ -d "${REPO_ROOT}/chengapp" ]]; then
     unset _meta_top _app_top
 fi
 
+# chengflow-ui/ is the same case again: the desktop app is its own repository.
+CHENGFLOW_UI_IS_SEPARATE_REPO="false"
+if [[ -d "${REPO_ROOT}/chengflow-ui" ]]; then
+    _meta_top="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+    _ui_top="$(git -C "${REPO_ROOT}/chengflow-ui" rev-parse --show-toplevel 2>/dev/null || true)"
+    if [[ -n "$_ui_top" && "$_ui_top" != "$_meta_top" ]]; then
+        CHENGFLOW_UI_IS_SEPARATE_REPO="true"
+    fi
+    unset _meta_top _ui_top
+fi
+
 # ── 2. Argument validation ────────────────────────────────────────────────────
 if [[ -n "$BUMP" && -n "$SET_VERSION" ]]; then
     fail "--bump and --set are mutually exclusive"
@@ -261,7 +273,7 @@ printf '  target version  : %s\n' "$target_version"
 printf '  target tag      : %s\n' "$target_tag"
 printf '  branch / remote : %s -> %s\n' "$RELEASE_BRANCH" "$REMOTE"
 printf '  migration policy: %s\n' "$MIGRATION_POLICY"
-printf '  files to change : VERSION, chengflow/Cargo.toml, chengapp/Cargo.toml, chengapp/src-tauri/Cargo.toml, CHANGELOG.md\n'
+printf '  files to change : VERSION, chengflow/Cargo.toml, chengapp/Cargo.toml, chengapp/src-tauri/Cargo.toml, chengflow-ui/src-tauri/Cargo.toml, CHANGELOG.md\n'
 echo ""
 
 # ── 5. Write release metadata ─────────────────────────────────────────────────
@@ -327,6 +339,25 @@ write_cargo_version() {
             END { if (!done) exit 3 }
         ' "$CHENGAPP_TAURI_CARGO_TOML" > "$tmp" || { rm -f "$tmp"; fail "failed to rewrite chengapp/src-tauri [package].version"; }
         mv "$tmp" "$CHENGAPP_TAURI_CARGO_TOML"
+    fi
+
+    # chengflow-ui/src-tauri — standalone [package] version (the desktop app)
+    if action "write ${CHENGFLOW_UI_TAURI_CARGO_TOML} [package].version <- ${target_version}"; then
+        local tmp
+        tmp="$(mktemp)"
+        awk -v new_version="$target_version" '
+            /^[[:space:]]*\[/ { in_section = ($0 ~ /^[[:space:]]*\[package\][[:space:]]*$/) }
+            {
+                if (in_section && !done && $0 ~ /^[[:space:]]*version[[:space:]]*=/) {
+                    print "version = \"" new_version "\""
+                    done = 1
+                    next
+                }
+                print
+            }
+            END { if (!done) exit 3 }
+        ' "$CHENGFLOW_UI_TAURI_CARGO_TOML" > "$tmp" || { rm -f "$tmp"; fail "failed to rewrite chengflow-ui/src-tauri [package].version"; }
+        mv "$tmp" "$CHENGFLOW_UI_TAURI_CARGO_TOML"
     fi
 }
 
@@ -505,7 +536,7 @@ echo ""
 info "Git actions"
 commit_message="release: ${target_tag}"
 
-if action "git add VERSION chengflow/Cargo.toml chengapp/Cargo.toml chengapp/src-tauri/Cargo.toml CHANGELOG.md"; then
+if action "git add VERSION chengflow/Cargo.toml chengapp/Cargo.toml chengapp/src-tauri/Cargo.toml chengflow-ui/src-tauri/Cargo.toml CHANGELOG.md"; then
     git add VERSION CHANGELOG.md
     if [[ "$CHENGFLOW_IS_SEPARATE_REPO" == "true" ]]; then
         git -C "${REPO_ROOT}/chengflow" add Cargo.toml
@@ -516,6 +547,11 @@ if action "git add VERSION chengflow/Cargo.toml chengapp/Cargo.toml chengapp/src
         git -C "${REPO_ROOT}/chengapp" add Cargo.toml src-tauri/Cargo.toml
     else
         git add chengapp/Cargo.toml chengapp/src-tauri/Cargo.toml
+    fi
+    if [[ "$CHENGFLOW_UI_IS_SEPARATE_REPO" == "true" ]]; then
+        git -C "${REPO_ROOT}/chengflow-ui" add src-tauri/Cargo.toml
+    else
+        git add chengflow-ui/src-tauri/Cargo.toml
     fi
 fi
 
@@ -531,6 +567,10 @@ if action "git commit -m '${commit_message}'"; then
     if [[ "$CHENGAPP_IS_SEPARATE_REPO" == "true" ]] \
         && ! git -C "${REPO_ROOT}/chengapp" diff --cached --quiet; then
         git -C "${REPO_ROOT}/chengapp" commit -m "$commit_message"
+    fi
+    if [[ "$CHENGFLOW_UI_IS_SEPARATE_REPO" == "true" ]] \
+        && ! git -C "${REPO_ROOT}/chengflow-ui" diff --cached --quiet; then
+        git -C "${REPO_ROOT}/chengflow-ui" commit -m "$commit_message"
     fi
     git commit -m "$commit_message"
 fi
