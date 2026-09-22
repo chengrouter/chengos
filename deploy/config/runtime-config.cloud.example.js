@@ -54,4 +54,21 @@ window.__CHENGOS_RUNTIME_CONFIG__ = Object.assign({}, window.__CHENGOS_RUNTIME_C
   // Version-less on purpose: `releases/latest/download/...` keeps working
   // across releases, so shipping a new build needs no change here.
   desktopDownloadUrl: "https://chengos.dev/#download",
+
+  // --- Guided onboarding ------------------------------------------------------
+  // Shows the guided hub to signed-in users. Pair it with the backend's
+  // CHENG_GUIDED_ONBOARDING=true (and, for a guides-only deployment,
+  // CHENG_GUIDED_ONLY=true); the backend decides who is eligible.
+  guidedOnboarding: true,
+  // Completion-card destinations. Unset hides the button — fill these in once
+  // the official tutorials are published.
+  // tutorialBilibiliUrl: "https://www.bilibili.com/video/...",
+  // tutorialYoutubeUrl: "https://www.youtube.com/watch?v=...",
+  communityUrl: "https://hub.chengos.dev",
+
+  // --- Announcement center ----------------------------------------------------
+  // Public, versioned JSON on the static/CDN origin (same-origin path or an
+  // https URL). Unset disables the announcement center.
+  // announcementsUrl: "/announcements.json",
+  announcementsAudience: "hosted",
 });
