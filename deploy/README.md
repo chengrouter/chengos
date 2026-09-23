@@ -298,10 +298,11 @@ Linux 上还会尝试 `loginctl enable-linger`，让 agent 在用户登出后继
 
 ### 公共只读 Demo 模式
 
-公共 Demo 使用后端运行时开关 `CHENG_DEMO_MODE=true`。该模式采用
-fail-closed 白名单，只开放健康检查、登录/刷新/验证、工作区定位，以及工作流和
-节点定义查询。工作流保存/删除、执行 REST/WebSocket、注册、密码修改、凭证、
-文件、文档、Channel、MCP、Scheduler 等其他接口统一返回
+公共 Demo 使用后端运行时开关 `CHENG_DEMO_MODE=true`，并用
+`CHENG_DEMO_USER_EMAIL` 指定一个普通（非平台管理员）账号。访客无需登录：前端
+通过 `POST /api/v1/auth/demo` 直接以该账号进入，可以浏览工作流、画布、会话、
+文档等全部内容，但只能查看。所有写操作、执行 REST/WebSocket、登录/注册、
+密码修改，以及凭证、设置、成员、Channel、MCP、账户等敏感读取统一返回
 `403 DEMO_MODE_RESTRICTED`。
 
 首次部署必须先在普通模式下初始化，之后再切换：
@@ -310,10 +311,11 @@ fail-closed 白名单，只开放健康检查、登录/刷新/验证、工作区
 # deploy/.env
 CHENG_DEMO_MODE=false
 ./deploy/chengos.sh start
-# 通过受信任网络访问 UI，创建固定 Demo 用户及默认工作区
+# 通过受信任网络访问 UI，创建固定 Demo 用户及默认工作区，并准备演示内容
 ./deploy/chengos.sh stop
 
-# 将 deploy/.env 改为 CHENG_DEMO_MODE=true
+# 将 deploy/.env 改为 CHENG_DEMO_MODE=true，
+# 并设置 CHENG_DEMO_USER_EMAIL=<Demo 用户邮箱>
 ./deploy/chengos.sh start
 ```
 
@@ -610,16 +612,16 @@ cheng
 
 ### Public read-only demo mode
 
-Set `CHENG_DEMO_MODE=true` at runtime to enable the fail-closed public demo
-allowlist. Health checks, authentication, workspace discovery, workflow reads,
-and supporting node-definition reads remain available. Saves, deletes,
-execution REST/WebSockets, registration, password changes, credentials, files,
-documents, channels, MCP and scheduler APIs return
-`403 DEMO_MODE_RESTRICTED`.
+Set `CHENG_DEMO_MODE=true` at runtime to enable the fail-closed public demo,
+and point `CHENG_DEMO_USER_EMAIL` at an ordinary (non-admin) account. Visitors
+do not log in: the UI calls `POST /api/v1/auth/demo` and browses the whole app
+as that account, read-only. Every write, execution REST/WebSocket, login,
+registration and password change, and reads of credentials, settings, members,
+channels, MCP and account data return `403 DEMO_MODE_RESTRICTED`.
 
-Initialize the fixed demo user and workspace with demo mode disabled on a
-trusted network. Stop the service, set `CHENG_DEMO_MODE=true` in `deploy/.env`,
-and start it again. Demo mode also suppresses migrations and background
+Initialize the fixed demo user, workspace and demo content with demo mode
+disabled on a trusted network. Stop the service, set `CHENG_DEMO_MODE=true` and
+`CHENG_DEMO_USER_EMAIL` in `deploy/.env`, and start it again. Demo mode also suppresses migrations and background
 mutating/execution workers. Disable public access and demo mode before
 maintenance or data reset, then re-enable it afterward.
 
