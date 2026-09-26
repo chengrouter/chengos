@@ -52,6 +52,9 @@ check_process() {
 check_process "${ROOT_DIR}/runtime/cheng-api.pid" "cheng-api backend"
 check_process "${ROOT_DIR}/runtime/ui-server.pid" "cheng-ui server"
 check_process "${ROOT_DIR}/runtime/app-server.pid" "cheng-app server"
+case "${LAYA_ENABLED:-false}" in
+    true|1) check_process "${ROOT_DIR}/runtime/laya.pid" "laya serve" ;;
+esac
 if [[ "$ENABLE_QDRANT" == "true" ]]; then
     check_process "${ROOT_DIR}/runtime/qdrant.pid" "Qdrant Vector"
 fi

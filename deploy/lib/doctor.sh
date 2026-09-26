@@ -68,8 +68,26 @@ _doctor_ports() {
     ui_port="$(_d_env UI_PORT "$env_file")";   ui_port="${ui_port:-8080}"
     app_port="$(_d_env APP_PORT "$env_file")"; app_port="${app_port:-5055}"
 
+    local specs=("cheng-api:${api_port}:strict" "ui-server:${ui_port}:proxied" "app-server:${app_port}:proxied")
+
+    # Optional local decision model. Its default 8080 would collide with the
+    # UI, so ChengOS runs it on 1215; it is unauthenticated unless
+    # LAYA_API_KEY is set, so it must never face the internet.
+    local laya_enabled laya_port
+    laya_enabled="$(_d_env LAYA_ENABLED "$env_file")"
+    laya_port="$(_d_env LAYA_PORT "$env_file")"; laya_port="${laya_port:-1215}"
+    case "$laya_enabled" in
+        true|1)
+            if [[ "$laya_port" == "$api_port" || "$laya_port" == "$ui_port" || "$laya_port" == "$app_port" ]]; then
+                _d_fail "laya (${laya_port}) 与 ChengOS 端口冲突 / collides with a ChengOS port" \
+                    "把 LAYA_PORT 设为 1215 或其它空闲端口，并用同一端口启动 laya serve。"
+            fi
+            specs+=("laya:${laya_port}:local")
+            ;;
+    esac
+
     local name port listeners addr public
-    for spec in "cheng-api:${api_port}:strict" "ui-server:${ui_port}:proxied" "app-server:${app_port}:proxied"; do
+    for spec in "${specs[@]}"; do
         name="${spec%%:*}"; port="$(cut -d: -f2 <<<"$spec")"; local kind; kind="${spec##*:}"
         listeners="$(_d_listeners "$port")"
 
@@ -86,6 +104,16 @@ _doctor_ports() {
 
         if ! $public; then
             _d_pass "${name} (${port}) 只绑本机 / loopback only"
+        elif [[ "$kind" == "local" ]]; then
+            # A reachable Laya without a token answers anyone; with one it is
+            # still an extra surface that only cheng-api needs.
+            if [[ -z "$(_d_env LAYA_API_KEY "$env_file")" ]]; then
+                _d_fail "${name} (${port}) 绑在 $(tr '\n' ' ' <<<"$listeners")，且未设 LAYA_API_KEY" \
+                    "Laya 只应被 cheng-api 访问。用防火墙限制该端口，并设置 LAYA_API_KEY。"
+            else
+                _d_warn "${name} (${port}) 绑在 $(tr '\n' ' ' <<<"$listeners")" \
+                    "已设 LAYA_API_KEY；仍建议用防火墙只放行 cheng-api 所在地址。"
+            fi
         elif [[ "$kind" == "strict" ]]; then
             # The API is never meant to be addressed directly: reaching it
             # bypasses every scanner rule, rate limit and security header that

@@ -16,6 +16,7 @@ ChengOS 在一台机器上会监听三个端口，它们的**性质完全不同*
 | `cheng-api` | 19225 | **只有本机** | 前端自己代理它。一旦对公网开放，前端上的扫描拦截、限流、安全响应头全部可以被绕过——直接打 API 就行，登录接口就在上面 |
 | `ui-server` | 8080 | 反向代理 / cloudflared | 给人访问的界面 |
 | `app-server` | 5055 | 反向代理 / cloudflared | 渠道网关 |
+| `laya`（可选） | 1215 | **只有 cheng-api** | 本地决策模型 `laya serve`，`LAYA_ENABLED=true` 时才有。默认无鉴权（设 `LAYA_API_KEY` 开启）；不要用它自带的默认端口 8080，那是 `ui-server` 的端口 |
 
 前面还有一层 **80/443**，由 cloudflared 或反向代理占用。这一层是唯一应该面向公网的。
 

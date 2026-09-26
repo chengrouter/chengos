@@ -75,6 +75,7 @@ stop_pid() {
 stop_pid "${ROOT_DIR}/runtime/app-server.pid" "cheng-app server" || true
 stop_pid "${ROOT_DIR}/runtime/ui-server.pid" "cheng-ui server" || true
 stop_pid "${ROOT_DIR}/runtime/cheng-api.pid" "cheng-api backend" || true
+stop_pid "${ROOT_DIR}/runtime/laya.pid" "laya serve" || true
 
 # 2. Stop Qdrant if running locally
 stop_pid "${ROOT_DIR}/runtime/qdrant.pid" "Qdrant" || true

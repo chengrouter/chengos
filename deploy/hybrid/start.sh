@@ -446,6 +446,106 @@ setup_and_start_qdrant() {
     log "Qdrant is ready"
 }
 
+# Optional local Laya decision model (ggmlc `laya serve`), operator-managed.
+# Started here only when LAYA_ENABLED=true, LAYA_BIN names an operator-supplied
+# binary, and either LAYA_MODEL_PATH (one GGUF) or LAYA_MODELS_DIR (english +
+# multilingual GGUFs in one server) is set; otherwise an externally managed Laya
+# (or none) is assumed and cheng-api routes to LAYA_ENDPOINT / LAYA_PORT.
+# The port is 1215 by default — never 8080, which is UI_PORT's default.
+laya_check_digest() {
+    local file="$1" want="$2" label="$3"
+    [[ -z "$want" ]] && return 0
+    local actual
+    actual="$(sha256sum "$file" | cut -d' ' -f1)"
+    [[ "${actual,,}" == "${want,,}" ]] || \
+        fail "${label}: ${file} does not match its pinned sha256 (got ${actual})"
+}
+
+setup_and_start_laya() {
+    local laya_bin="${LAYA_BIN:-}" laya_model="${LAYA_MODEL_PATH:-}" laya_dir="${LAYA_MODELS_DIR:-}"
+    local laya_port="${LAYA_PORT:-1215}"
+    if [[ -z "$laya_bin" || ( -z "$laya_model" && -z "$laya_dir" ) ]]; then
+        log "LAYA_ENABLED=true without LAYA_BIN and LAYA_MODEL_PATH/LAYA_MODELS_DIR: expecting an externally managed laya serve at ${LAYA_ENDPOINT:-http://127.0.0.1:${laya_port}}"
+        return
+    fi
+    [[ -x "$laya_bin" ]] || fail "LAYA_BIN is not executable: ${laya_bin}"
+    local used
+    for used in "$PORT" "$UI_PORT" "$APP_PORT"; do
+        [[ "$laya_port" == "$used" ]] && \
+            fail "LAYA_PORT=${laya_port} collides with a ChengOS port; use 1215 or another free port"
+    done
+
+    local laya_pid_file="${ROOT_DIR}/runtime/laya.pid"
+    if [[ -f "$laya_pid_file" ]] && kill -0 "$(cat "$laya_pid_file")" 2>/dev/null; then
+        log "laya serve is already running (PID $(cat "$laya_pid_file"))"
+        return
+    fi
+    rm -f "$laya_pid_file"
+
+    # The server reports only family names, so a pinned digest is the only
+    # artifact identity calibration can rely on: refuse to serve anything else.
+    local model_args=()
+    if [[ -n "$laya_dir" ]]; then
+        [[ -d "$laya_dir" ]] || fail "LAYA_MODELS_DIR not found: ${laya_dir}"
+        local gguf family var
+        for gguf in "$laya_dir"/*.gguf; do
+            [[ -f "$gguf" ]] || continue
+            case "$(basename "$gguf")" in
+                *multilingual*) family=MULTILINGUAL ;;
+                *english*) family=ENGLISH ;;
+                *) continue ;;
+            esac
+            var="LAYA_ARTIFACT_SHA256_${family}"
+            laya_check_digest "$gguf" "${!var:-}" "$var"
+        done
+        model_args=(--models-dir "$laya_dir")
+    else
+        [[ -f "$laya_model" ]] || fail "LAYA_MODEL_PATH not found: ${laya_model}"
+        laya_check_digest "$laya_model" "${LAYA_ARTIFACT_SHA256:-}" "LAYA_ARTIFACT_SHA256"
+        model_args=("$laya_model")
+    fi
+
+    # laya serve has no --host option and listens on 0.0.0.0: without a token
+    # anyone who can reach the port can use it.
+    if [[ -z "${LAYA_API_KEY:-}" ]]; then
+        log "WARNING: laya serve listens on all interfaces and LAYA_API_KEY is empty;"
+        log "         firewall port ${laya_port} to this host, or set LAYA_API_KEY."
+    fi
+
+    # CUDA builds need the CUDA 12 runtime; LAYA_LD_LIBRARY_PATH points at it.
+    local laya_env=()
+    [[ -n "${LAYA_LD_LIBRARY_PATH:-}" ]] && laya_env+=("LD_LIBRARY_PATH=${LAYA_LD_LIBRARY_PATH}")
+
+    local laya_log="${ROOT_DIR}/logs/laya.log"
+    local laya_pid
+    log "Starting laya serve on port ${laya_port}..."
+    laya_pid="$(start_detached "$laya_pid_file" "$laya_log" \
+        env ${laya_env[@]+"${laya_env[@]}"} \
+        "$laya_bin" serve "${model_args[@]}" --port "$laya_port" --device "${LAYA_DEVICE:-auto}")"
+
+    # /health is liveness only; readiness is shown on the Decision Models page.
+    local deadline=$(( $(date +%s) + 90 ))
+    until curl -sf "http://127.0.0.1:${laya_port}/health" >/dev/null 2>&1; do
+        if ! kill -0 "$laya_pid" 2>/dev/null; then
+            rm -f "$laya_pid_file"
+            tail -n 20 "$laya_log" >&2
+            fail "laya serve exited during start. Check: ${laya_log}"
+        fi
+        [[ $(date +%s) -ge $deadline ]] && fail "laya serve /health timeout. Check: ${laya_log}"
+        sleep 1
+    done
+
+    # The first decision after start pays one-time GPU setup (measured
+    # 160-280 ms vs ~15 ms warm); spend it here, not on a user's first turn.
+    local auth=()
+    [[ -n "${LAYA_API_KEY:-}" ]] && auth=(-H "Authorization: Bearer ${LAYA_API_KEY}")
+    curl -sf --max-time 30 ${auth[@]+"${auth[@]}"} -H 'Content-Type: application/json' \
+        -d "{\"model\":\"${LAYA_DEFAULT_MODEL:-multilingual}\",\"state\":{\"request\":\"warm up\"},\"questions\":{\"route\":{\"type\":\"choice\",\"criteria\":{\"a\":\"First option.\",\"__fallback__\":\"Anything else.\"}}}}" \
+        "http://127.0.0.1:${laya_port}/v1/systemone" >/dev/null 2>&1 || \
+        log "WARNING: laya warm-up request failed (see ${laya_log}); continuing"
+    log "laya serve is live (PID ${laya_pid})"
+}
+
 # Run DB startup routines
 setup_and_start_postgres
 
@@ -456,6 +556,10 @@ fi
 if [[ "$ENABLE_QDRANT" == "true" ]]; then
     setup_and_start_qdrant
 fi
+
+case "${LAYA_ENABLED:-false}" in
+    true|1) setup_and_start_laya ;;
+esac
 
 # ── Start Applications ────────────────────────────────────────────────────────
 

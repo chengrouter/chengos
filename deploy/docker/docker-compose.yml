@@ -118,6 +118,10 @@ services:
       - ../workflow-templates:/app/workflow-templates:ro
     ports:
       - "127.0.0.1:${API_PORT:-19225}:3000"
+    # Lets an optional host-run `laya serve` be reached as
+    # http://host.docker.internal:1215 (LAYA_ENDPOINT); unused otherwise.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     command: ["--log-file", "/app/logs/cheng-api.log"]
     depends_on:
       postgres:
