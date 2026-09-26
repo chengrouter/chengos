@@ -14,6 +14,14 @@ dist.bak/
 deploy/bin/cheng-api
 deploy/bin/chengctl
 
+# Frontend build output. chengflow/build.sh syncs chengflow-ui/dist -> deploy/ui
+# and chengflow-app/dist-app -> deploy/app; the hashed filenames under assets/
+# change on every build and the superseded ones are never removed, so tracking
+# them grows the repository without bound. The directories are regenerated at
+# build time and are never committed.
+deploy/ui/assets/
+deploy/app/assets/
+
 # Internal planning, deployment and handoff documents. This repository is the
 # public mirror; these are working notes, and some carry live infrastructure
 # detail (hostnames, tokens). Kept locally, never committed.
@@ -68,6 +76,7 @@ deploy/distributed/.env
 **/logs/*.out
 **/logs/*.err
 nohup.out
+rungem.log
 
 # Release artifacts are generated at install/upgrade time, never committed:
 # a binary per release grows the repository linearly and forever.
