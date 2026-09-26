@@ -1,0 +1,341 @@
+{
+  "schemaVersion": 1,
+  "name": "decision_routing",
+  "description": "[Experimental] Semantic routing with ai/decision_branch: each request goes to the smallest capable agent (email, weather, or code), each with only its own tools and prompt; ordinary, ambiguous, multi-intent, or low-confidence requests go to the general agent. Privacy: with the Jev provider the routed user request is sent to TypeSafe (hosted) on every turn. Needs a Jev credential or the deployment's JEV_API_KEY, a model on LLM Config, and mail/web tool credentials.",
+  "tags": [
+    "ai_chat",
+    "experimental"
+  ],
+  "definition": {
+    "nodes": [
+      {
+        "nodeId": "b9927906-2594-55b1-9bab-67c4c3ff0e10",
+        "nodeType": "chat/input",
+        "name": "Chat Input",
+        "position": {
+          "x": 0,
+          "y": 300
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "28076814-f2a6-5f46-9ee6-fcb0cd774d40",
+        "nodeType": "ai/decision_branch",
+        "name": "Decision Branch",
+        "position": {
+          "x": 380,
+          "y": 300
+        },
+        "config": {
+          "provider": "jev",
+          "jev_model": "jev-1.13.0",
+          "routing_instruction": "Choose the route that can satisfy the user's current request with the least privilege. Choose `email` only when email must be read, searched, or acted on. Choose `weather` only when current or forecast weather data is needed. Choose `code` for authorized workspace file or code work. If the request needs more than one route, or none clearly matches, choose the fallback route.",
+          "routes": [
+            {
+              "id": "email",
+              "label": "Email",
+              "description": "Read, search, summarize, or act on email."
+            },
+            {
+              "id": "weather",
+              "label": "Weather",
+              "description": "Retrieve current or forecast weather data."
+            },
+            {
+              "id": "code",
+              "label": "Code",
+              "description": "Inspect or change files in the authorized workspace."
+            }
+          ],
+          "route_memory": "sticky",
+          "threshold_mode": "calibrated",
+          "failure_mode": "fallback",
+          "timeout_ms": 1500
+        }
+      },
+      {
+        "nodeId": "8c27d2a5-bf1c-5a93-b8ee-b03153aad823",
+        "nodeType": "ai/llm_config",
+        "name": "LLM Config",
+        "position": {
+          "x": 380,
+          "y": 760
+        },
+        "config": {
+          "model": ""
+        }
+      },
+      {
+        "nodeId": "d7a05700-2342-5d2e-b33f-0abab14efbe4",
+        "nodeType": "agent/react_agent",
+        "name": "Email Agent",
+        "position": {
+          "x": 820,
+          "y": 0
+        },
+        "config": {
+          "instruction_prompt": "You are an email assistant. You can only use the mail tool. Read, search, summarize, draft, and send email exactly as the user asks; confirm before sending."
+        }
+      },
+      {
+        "nodeId": "10a81a00-164b-5ca6-a3e9-68a52b3cbcf9",
+        "nodeType": "chat/output",
+        "name": "Email Agent Output",
+        "position": {
+          "x": 1200,
+          "y": 0
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "bccc0a5d-e7b2-5e38-86b0-ba313dca4911",
+        "nodeType": "agent/react_agent",
+        "name": "Weather Agent",
+        "position": {
+          "x": 820,
+          "y": 220
+        },
+        "config": {
+          "instruction_prompt": "You are a weather assistant. Use the web tool to look up current conditions and forecasts, and cite the source you used."
+        }
+      },
+      {
+        "nodeId": "0a9ee8d6-b22a-528a-9b4e-c5d1e96f9def",
+        "nodeType": "chat/output",
+        "name": "Weather Agent Output",
+        "position": {
+          "x": 1200,
+          "y": 220
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "5f13e6fb-cd33-5bb9-8856-a3130ea1c671",
+        "nodeType": "agent/react_agent",
+        "name": "Code Agent",
+        "position": {
+          "x": 820,
+          "y": 440
+        },
+        "config": {
+          "instruction_prompt": "You are a workspace coding assistant. Use the file tools to inspect and change files inside the authorized workspace; destructive operations pause for approval."
+        }
+      },
+      {
+        "nodeId": "bc59d878-052c-586f-95a2-d5d6e3b04eef",
+        "nodeType": "chat/output",
+        "name": "Code Agent Output",
+        "position": {
+          "x": 1200,
+          "y": 440
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "0eeb040e-e259-551c-95df-7097239fb8e5",
+        "nodeType": "agent/react_agent",
+        "name": "General Agent",
+        "position": {
+          "x": 820,
+          "y": 660
+        },
+        "config": {
+          "instruction_prompt": "You are a helpful general assistant. Answer ordinary questions directly, and handle requests that need several capabilities step by step with the tools you have."
+        }
+      },
+      {
+        "nodeId": "943e6816-f503-521a-a412-c1b61874780a",
+        "nodeType": "chat/output",
+        "name": "General Agent Output",
+        "position": {
+          "x": 1200,
+          "y": 660
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "c9707209-c104-50d9-be32-fd9c4009156e",
+        "nodeType": "tools/mail",
+        "name": "Mail Tool",
+        "position": {
+          "x": 560,
+          "y": -120
+        },
+        "config": {}
+      },
+      {
+        "nodeId": "4771e498-c074-5530-95c0-46668717073b",
+        "nodeType": "tools/web",
+        "name": "Web Tool",
+        "position": {
+          "x": 560,
+          "y": 120
+        },
+        "config": {
+          "search_provider": "searxng"
+        }
+      },
+      {
+        "nodeId": "ffa8affc-55a8-5923-9508-56cb064c86f8",
+        "nodeType": "tools/file_ops_hub",
+        "name": "File Operations",
+        "position": {
+          "x": 560,
+          "y": 540
+        },
+        "config": {
+          "allow_batch": false,
+          "allow_copy": false,
+          "allow_delete": false,
+          "allow_edit": true,
+          "allow_move": false,
+          "allow_write": true
+        }
+      },
+      {
+        "nodeId": "75a2fc57-17ed-5764-8dd4-431c32225e5c",
+        "nodeType": "tools/tool_hub",
+        "name": "Tool Hub",
+        "position": {
+          "x": 560,
+          "y": 900
+        },
+        "config": {
+          "enabled_tools": [
+            {
+              "enabled": true,
+              "tool": "tools/web"
+            },
+            {
+              "enabled": true,
+              "tool": "tools/http"
+            }
+          ]
+        }
+      }
+    ],
+    "edges": [
+      {
+        "edgeId": "f0467ca6-0232-5d66-aa9b-2ecacc24a5cf",
+        "sourceNode": "8c27d2a5-bf1c-5a93-b8ee-b03153aad823",
+        "sourcePort": "llm_config",
+        "targetNode": "d7a05700-2342-5d2e-b33f-0abab14efbe4",
+        "targetPort": "llm_config"
+      },
+      {
+        "edgeId": "4e02f91b-92bb-5526-ae71-b4e698807e89",
+        "sourceNode": "d7a05700-2342-5d2e-b33f-0abab14efbe4",
+        "sourcePort": "context",
+        "targetNode": "10a81a00-164b-5ca6-a3e9-68a52b3cbcf9",
+        "targetPort": "context"
+      },
+      {
+        "edgeId": "5af0d7ff-3409-5e93-a0be-808257f6d364",
+        "sourceNode": "28076814-f2a6-5f46-9ee6-fcb0cd774d40",
+        "sourcePort": "route_email",
+        "targetNode": "d7a05700-2342-5d2e-b33f-0abab14efbe4",
+        "targetPort": "context"
+      },
+      {
+        "edgeId": "49772da3-ea6d-5f1d-9817-6f4c849e176e",
+        "sourceNode": "8c27d2a5-bf1c-5a93-b8ee-b03153aad823",
+        "sourcePort": "llm_config",
+        "targetNode": "bccc0a5d-e7b2-5e38-86b0-ba313dca4911",
+        "targetPort": "llm_config"
+      },
+      {
+        "edgeId": "f7825858-8069-5627-8190-e9aebed0809b",
+        "sourceNode": "bccc0a5d-e7b2-5e38-86b0-ba313dca4911",
+        "sourcePort": "context",
+        "targetNode": "0a9ee8d6-b22a-528a-9b4e-c5d1e96f9def",
+        "targetPort": "context"
+      },
+      {
+        "edgeId": "a52792e8-8ded-5230-8420-8eb3402ce9b0",
+        "sourceNode": "28076814-f2a6-5f46-9ee6-fcb0cd774d40",
+        "sourcePort": "route_weather",
+        "targetNode": "bccc0a5d-e7b2-5e38-86b0-ba313dca4911",
+        "targetPort": "context"
+      },
+      {
+        "edgeId": "e0618390-a5c8-5a95-b2a5-7eff055c2042",
+        "sourceNode": "8c27d2a5-bf1c-5a93-b8ee-b03153aad823",
+        "sourcePort": "llm_config",
+        "targetNode": "5f13e6fb-cd33-5bb9-8856-a3130ea1c671",
+        "targetPort": "llm_config"
+      },
+      {
+        "edgeId": "d238e405-34f5-589e-b53f-402e739e40c9",
+        "sourceNode": "5f13e6fb-cd33-5bb9-8856-a3130ea1c671",
+        "sourcePort": "context",
+        "targetNode": "bc59d878-052c-586f-95a2-d5d6e3b04eef",
+        "targetPort": "context"
+      },
+      {
+        "edgeId": "e318e774-4d08-58af-9069-ba890df4639a",
+        "sourceNode": "28076814-f2a6-5f46-9ee6-fcb0cd774d40",
+        "sourcePort": "route_code",
+        "targetNode": "5f13e6fb-cd33-5bb9-8856-a3130ea1c671",
+        "targetPort": "context"
+      },
+      {
+        "edgeId": "7913df02-d304-50aa-bde5-f037bd2bd7cf",
+        "sourceNode": "8c27d2a5-bf1c-5a93-b8ee-b03153aad823",
+        "sourcePort": "llm_config",
+        "targetNode": "0eeb040e-e259-551c-95df-7097239fb8e5",
+        "targetPort": "llm_config"
+      },
+      {
+        "edgeId": "edc0ba95-421b-508d-b4e3-6d7da7044639",
+        "sourceNode": "0eeb040e-e259-551c-95df-7097239fb8e5",
+        "sourcePort": "context",
+        "targetNode": "943e6816-f503-521a-a412-c1b61874780a",
+        "targetPort": "context"
+      },
+      {
+        "edgeId": "8f764525-0233-50e2-9a30-7452e8c1bcf8",
+        "sourceNode": "28076814-f2a6-5f46-9ee6-fcb0cd774d40",
+        "sourcePort": "fallback_out",
+        "targetNode": "0eeb040e-e259-551c-95df-7097239fb8e5",
+        "targetPort": "context"
+      },
+      {
+        "edgeId": "bcfee8e3-2cd3-5033-a4d7-bb681e18d79c",
+        "sourceNode": "c9707209-c104-50d9-be32-fd9c4009156e",
+        "sourcePort": "success",
+        "targetNode": "d7a05700-2342-5d2e-b33f-0abab14efbe4",
+        "targetPort": "tool_0"
+      },
+      {
+        "edgeId": "595cfcb1-e9bc-5fda-86b9-211a8d70e812",
+        "sourceNode": "4771e498-c074-5530-95c0-46668717073b",
+        "sourcePort": "operation",
+        "targetNode": "bccc0a5d-e7b2-5e38-86b0-ba313dca4911",
+        "targetPort": "tool_0"
+      },
+      {
+        "edgeId": "7a7ba1eb-ca89-5599-85f3-cd50aa5df81f",
+        "sourceNode": "ffa8affc-55a8-5923-9508-56cb064c86f8",
+        "sourcePort": "operation",
+        "targetNode": "5f13e6fb-cd33-5bb9-8856-a3130ea1c671",
+        "targetPort": "tool_0"
+      },
+      {
+        "edgeId": "ba2ab7c2-61e2-5840-a8e8-fe7ae9dba3ea",
+        "sourceNode": "75a2fc57-17ed-5764-8dd4-431c32225e5c",
+        "sourcePort": "status",
+        "targetNode": "0eeb040e-e259-551c-95df-7097239fb8e5",
+        "targetPort": "tool_0"
+      },
+      {
+        "edgeId": "3293e7a6-6e41-519d-b7bc-79350881c70f",
+        "sourceNode": "b9927906-2594-55b1-9bab-67c4c3ff0e10",
+        "sourcePort": "agent_context",
+        "targetNode": "28076814-f2a6-5f46-9ee6-fcb0cd774d40",
+        "targetPort": "context"
+      }
+    ],
+    "notes": [],
+    "containers": []
+  }
+}

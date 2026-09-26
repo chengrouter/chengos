@@ -1,0 +1,129 @@
+# Decision-provider defaults.
+#
+# Decision providers answer typed choices for `ai/decision_branch`; they are not
+# chat providers and never appear in `[providers.*]` of providers.toml or in
+# `/api/v1/llm/*`. This file is the single source of their built-in defaults.
+#
+# Embedded at build time. `CHENG_DECISION_PROVIDERS_TOML` may point at a
+# replacement file; an unreadable or invalid replacement is logged and the
+# embedded defaults stay in force. `JEV_DEFAULT_MODEL` moves only the Jev pin.
+# Both are read once at startup.
+#
+# A default model is an exact version, not an alias such as `jev-latest`:
+# calibration profiles (decision_calibration.toml) are measured per exact model,
+# and the node gates on the model that actually answered. Move the pin together
+# with a measured profile for the new version.
+
+[jev]
+# Official API base URL. A user credential may override it with an approved
+# HTTPS proxy/test endpoint.
+endpoint = "https://api.typesafe.ai"
+default_model = "jev-1.13.0"
+# Environment variable holding the deployment-managed key, used when a node
+# selects no credential.
+server_key_env = "JEV_API_KEY"
+
+[jev.timeout]
+# Measured p95 0.70 s (2026-09-23); 1.5 s keeps the interactive routing budget.
+default_ms = 1500
+max_ms = 10000
+
+[llm_choice]
+# Largest reply of a Choice decision. The answer is one small JSON object, so
+# a model that does not think stops long before this; the headroom is for
+# reasoning models, whose thinking comes first (GLM-4.6V-Flash: 262 reasoning
+# tokens for one routing decision). Thinking in the reply is stripped before
+# the answer is read.
+reply_max_tokens = 2048
+# With no timeout set on the node, the deadline adapts to each chat model:
+# a model never seen yet gets this much for its first decision, then about
+# 1.5x its slowest recent decision (never below timeout.default_ms), doubling
+# after a timeout, up to timeout.max_ms. A fast model settles at ~1.5 s, a
+# reasoning model at what it actually needs. An explicit node timeout is
+# always used as set.
+adaptive_first_call_ms = 20000
+
+[llm_choice.timeout]
+default_ms = 1500
+# Reasoning models can need well over 10 s per decision.
+max_ms = 30000
+
+# Reasoning chat models spend a Choice reply's small budget (256 tokens) on
+# thinking and return no answer. For models listed here the baseline appends
+# `suffix` to its classification prompt to switch thinking off — only for
+# these one-token decisions, never for chat. Patterns match the model name
+# after any `org/` prefix, case-insensitively; a trailing `*` is a prefix.
+#
+# Measured 2026-09-24, LM Studio, zai-org/glm-4.6v-flash, routing prompt:
+# default thinking used 254 reasoning tokens and returned nothing (9.1 s; with
+# a 4096-token budget it answered in 9.6 s); with `/nothink` it answered in
+# 0.4 s with 0 reasoning tokens. `chat_template_kwargs`/`reasoning_effort` were
+# ignored by LM Studio. Add other models only after checking their reply.
+[[llm_choice.thinking_opt_out]]
+models = ["glm-4.6v*"]
+suffix = "/nothink"
+
+[laya]
+# Laya served by ggmlc's standalone `laya serve` — an operator-managed local
+# deployment, never a user credential. Disabled until the operator enables it
+# (`LAYA_ENABLED=true`); every value below can be overridden by `LAYA_*`
+# environment variables (see `.env.example`), read once at startup.
+enabled = false
+# Port 1215, never laya serve's default 8080 (ChengOS's own UI_PORT default).
+# `127.0.0.1` is the API server's loopback. `LAYA_PORT` changes only the port;
+# `LAYA_ENDPOINT` replaces the address (e.g. `http://laya:1215` in Docker).
+endpoint = "http://127.0.0.1:1215"
+# `model` selects a family (`multilingual`, `english`, or an alias), not a
+# checkpoint.
+default_model = "multilingual"
+# Optional Bearer token; the server reads the same variable name.
+token_env = "LAYA_API_KEY"
+# A non-loopback endpoint over plain http is refused unless the operator
+# declares the path trusted (compose network, VPN).
+trusted_network = false
+# `laya serve` answers one request per question batch of up to max_batch (8)
+# and resets connections beyond ~32 concurrent requests instead of returning
+# 429/503. Calls are queued in-process above this bound, within each node's
+# deadline, so overload becomes a bounded timeout (fallback), never a reset.
+max_concurrent_requests = 8
+# Whether a node sends the previous turn's route as context. Measured with the
+# node's real request order (2026-09-24): with the context, the multilingual
+# GGUF confidently routed new topics to the previous route at every threshold
+# (up to 0.95), and its continuity answer cannot tell follow-ups from new
+# topics, so it cannot hold a route usefully either. Without it every Laya
+# misroute left was a multi-intent request. Calibration profiles were measured
+# with this set to false; changing it invalidates them.
+send_previous_route = false
+
+# Per-family GGUF limits (max_opts / max_len / head_max_len from `laya info`).
+# The server rejects more options but truncates silently past the token
+# limits, so requests are bounded before sending. A model name that matches no
+# family or alias gets the smallest limits of all families.
+#
+# `artifact_sha256` pins the GGUF a family serves. The server reports only
+# family names, so a calibration profile applies only to a pinned artifact
+# (`<family>@sha256:<hex>`). Set per deployment with LAYA_ARTIFACT_SHA256
+# (default family) or LAYA_ARTIFACT_SHA256_<FAMILY>, e.g.
+# LAYA_ARTIFACT_SHA256_ENGLISH.
+[laya.families.multilingual]
+# laya_multilingual_f16.gguf (mmBERT), measured 2026-09-24.
+aliases = ["laya-multilingual"]
+max_options = 16
+max_input_tokens = 1024
+max_head_tokens = 256
+
+[laya.families.english]
+# laya_english_q8_0.gguf (ModernBERT), measured 2026-09-24. Its 192-token head
+# is small: eight routes with the default instruction already exceed it, so an
+# English node needs fewer or shorter routes (the editor reports the refusal).
+aliases = ["laya", "laya-english"]
+max_options = 16
+max_input_tokens = 512
+max_head_tokens = 192
+
+[laya.timeout]
+# Measured GPU (RTX A4000, 2026-09-24): warm routing p95 14 ms (multilingual)
+# and 23 ms (english); first request after start 160–280 ms; p95 ~1 s at 16
+# concurrent requests. 1.5 s covers a cold first call.
+default_ms = 1500
+max_ms = 10000

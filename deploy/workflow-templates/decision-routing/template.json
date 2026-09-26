@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "key": "decision-routing",
+  "version": "1.0.0",
+  "name": "decision-routing",
+  "description": "[Experimental] Semantic routing with ai/decision_branch: each request goes to the smallest capable agent (email, weather, or code), each with only its own tools and prompt; ordinary, ambiguous, multi-intent, or low-confidence requests go to the general agent. Privacy: with the Jev provider the routed user request is sent to TypeSafe (hosted) on every turn. Needs a Jev credential or the deployment's JEV_API_KEY, a model on LLM Config, and mail/web tool credentials.",
+  "category": "experimental",
+  "sortOrder": 200,
+  "enabledByDefault": false
+}

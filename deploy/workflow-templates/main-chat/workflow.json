@@ -1231,7 +1231,7 @@
       {
         "edgeId": "dc88a740-332c-4117-bb12-841b449a9602",
         "sourceNode": "e92d4bc6-e0d8-47e9-8e90-fc4ee3769999",
-        "sourcePort": "context",
+        "sourcePort": "agent_context",
         "targetNode": "2b4513b5-1014-47b6-beb8-af6a8bf02296",
         "targetPort": "context"
       }

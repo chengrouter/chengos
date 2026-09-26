@@ -1,0 +1,133 @@
+# Decision-provider calibration profiles.
+#
+# A threshold is only meaningful for the provider × model × language × task it
+# was measured on. Nothing here is a universal constant, and no profile is ever
+# inherited by another provider or model: a workflow that switches providers
+# gets that provider's own profile, or none.
+#
+# A provider/model/language/task without a profile is *uncalibrated*: a
+# decision node in `calibrated` threshold mode sends it to `fallback_out`; only
+# `threshold_mode = none` may route on its raw answers.
+#
+# Fields:
+#   id                           profile name recorded on every decision
+#   provider / model / language / task
+#   select_threshold             minimum probability of the selected route
+#   hold_follow_up_threshold     sticky routing: minimum probability that the
+#                                request is a referential follow-up
+#   hold_previous_threshold      sticky routing: minimum probability of the
+#                                previous route itself
+#   dataset / sample_size / measured_at   provenance of the measurement
+
+# Measured 2026-09-23 against the live API (model `jev-1.13.0`, alias
+# `jev-latest`) on routing-eval-v2 (crates/cheng-llm/tests/fixtures/decision/):
+# 157 labeled requests, 90 English + 67 Chinese; 3, 8 and 16 routes;
+# single-intent (short/long), chit-chat, ambiguous, multi-intent, referential
+# follow-ups, and new topics after a previous route.
+#
+# - select_threshold 0.70 sits on a plateau: every value in 0.60-0.75 gives the
+#   same result. Routed decisions at p >= 0.90 were 96/96 correct.
+# - Continuity (a separate Choice question) separates cleanly: follow-ups
+#   0.79-1.00, new topics <= 0.04. hold_follow_up 0.75 keeps margin on both
+#   sides; the previous route's own probability on true follow-ups was >= 0.40.
+# - With this profile: 156/157 correct (bootstrap 95% CI 0.981-1.000). The one
+#   error routed a multi-intent Chinese request ("email the code review
+#   results") to `email`; every other miss would have been a safe fallback.
+#   Misroute rate 95% upper bound 0.019. Latency p50 0.57 s, p95 0.70 s.
+#
+# Re-measure before relying on a profile for a new route set, language, or
+# model pin; small segments (e.g. 16 routes, n=28) are directional only.
+
+[[profiles]]
+id = "jev-1.13.0/en/routing-v2"
+provider = "jev"
+model = "jev-1.13.0"
+language = "en"
+task = "routing"
+select_threshold = 0.70
+hold_follow_up_threshold = 0.75
+hold_previous_threshold = 0.30
+dataset = "routing-eval-v2"
+sample_size = 90
+measured_at = "2026-09-23"
+
+[[profiles]]
+id = "jev-1.13.0/zh/routing-v2"
+provider = "jev"
+model = "jev-1.13.0"
+language = "zh"
+task = "routing"
+select_threshold = 0.70
+hold_follow_up_threshold = 0.75
+hold_previous_threshold = 0.30
+dataset = "routing-eval-v2"
+sample_size = 67
+measured_at = "2026-09-23"
+
+# ── Laya (ggmlc `laya serve`) ────────────────────────────────────────────────
+# Measured 2026-09-24 on an RTX A4000 with scripts/decision/laya_eval.py:
+# node-identical requests for routing-eval-v2 (the node's real key order, and
+# no previous route — Laya declares send_previous_route = false, see
+# config/decision_providers.toml); results in
+# crates/cheng-llm/tests/fixtures/decision/laya/routing_eval_results_*.json.
+#
+# Laya reports only family names, so each profile names the exact GGUF it was
+# measured on (`<family>@sha256:<digest>`) and applies only when the operator
+# pins that digest (LAYA_ARTIFACT_SHA256[_<FAMILY>]). Another file, even a
+# re-quantization of the same checkpoint, stays uncalibrated.
+#
+# Accuracy is well below Jev's. Each select_threshold is the lowest value at
+# which every remaining misroute is a multi-intent request (a class no
+# threshold removes; Jev also missed one) and there are at most four of them;
+# everything else falls back safely. The 16-route cases are refused before
+# sending (Laya takes at most 15 routes), and the English GGUF's 192-token
+# head refuses the 8-route cases as well; refusals count as fallback below.
+#
+# Laya gets no previous route, so it asks no continuity question and cannot
+# hold a route: the hold thresholds are 1.0 (never).
+#
+#   multilingual/en  t=0.90  51/90 correct, 30 routed, 4 misroutes (multi-intent)
+#   multilingual/zh  t=0.95  36/67 correct, 22 routed, 3 misroutes (multi-intent)
+#   english/en       t=0.70  44/90 correct, 23 routed, 4 misroutes (multi-intent)
+#
+# Warm latency p95: 11 ms (multilingual), 15 ms (english). Small segments are
+# directional only; re-measure for a new route set, instruction, or GGUF.
+
+[[profiles]]
+id = "laya-multilingual-f16/en/routing-v2"
+provider = "laya"
+model = "multilingual@sha256:5fdabb71480e6469e986d71d15dabe1dc7160fcdf4bc6e10bd3acc4f51ff4f71"
+language = "en"
+task = "routing"
+select_threshold = 0.90
+hold_follow_up_threshold = 1.0
+hold_previous_threshold = 1.0
+dataset = "routing-eval-v2"
+sample_size = 90
+measured_at = "2026-09-24"
+
+[[profiles]]
+id = "laya-multilingual-f16/zh/routing-v2"
+provider = "laya"
+model = "multilingual@sha256:5fdabb71480e6469e986d71d15dabe1dc7160fcdf4bc6e10bd3acc4f51ff4f71"
+language = "zh"
+task = "routing"
+select_threshold = 0.95
+hold_follow_up_threshold = 1.0
+hold_previous_threshold = 1.0
+dataset = "routing-eval-v2"
+sample_size = 67
+measured_at = "2026-09-24"
+
+[[profiles]]
+id = "laya-english-q8_0/en/routing-v2"
+provider = "laya"
+model = "english@sha256:6243305fb16cf22e53b932c220bd029be2adbfbec6ce120356517b8ae2f38382"
+language = "en"
+task = "routing"
+select_threshold = 0.70
+hold_follow_up_threshold = 1.0
+hold_previous_threshold = 1.0
+dataset = "routing-eval-v2"
+sample_size = 90
+measured_at = "2026-09-24"
