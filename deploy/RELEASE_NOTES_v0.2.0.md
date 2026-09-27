@@ -9,7 +9,7 @@
 
 v0.2.0 is a packaging and deployment release. Its headline is that ChengOS now
 ships **real installers** instead of a source checkout: a **desktop application**
-with an embedded engine, an **Android mobile app**, and native **`.deb` / `.rpm`**
+with an embedded engine, an **Android mobile app**, and native **`.deb`**
 packages for Linux (plus **`.msi`** on Windows). Alongside the installers, this
 release hardens the self-hosted deployment path — a Cloudflare Tunnel origin, a
 configurable trusted-proxy set and listen interface, and a `chengos.sh doctor`
@@ -24,10 +24,10 @@ diagnostic — and unifies every component under a single `0.2.0` version.
 **Files:** `src-tauri/tauri.conf.json`, `scripts/build-desktop.sh`, `scripts/fetch-desktop-deps.py`, `.github/workflows/desktop.yml`
 
 - **Self-contained desktop app:** The visual workflow editor and its execution engine now run on the user's own machine with an **embedded PostgreSQL** database — no server to deploy and no account required
-- **Native packages:** Tauri bundles `deb`, `rpm`, and `msi` targets; the Linux build is produced by `scripts/build-desktop.sh` and the Windows MSI by the builder VM
+- **Native packages:** Tauri bundles `deb` and `msi` targets; the Linux build is produced by `scripts/build-desktop.sh` and the Windows MSI by the builder VM
 - **Pinned dependencies:** `fetch-desktop-deps.py` stages PostgreSQL and ffmpeg/ffprobe, each pinned by exact URL **and** SHA-256, so a bundle is reproducible and a corrupt cache entry is re-downloaded and re-verified
 - **Checksummed output:** `build-desktop.sh --output <dir>` collects the produced packages together with a `.sha256` per file and a `desktop-resources-manifest.json`
-- **CI packaging:** `.github/workflows/desktop.yml` builds on `ubuntu-22.04` and `windows-latest`, verifies the bundled PostgreSQL actually starts (`full_postgres_lifecycle`), and uploads the `deb` / `rpm` / `msi` artifacts
+- **CI packaging:** `.github/workflows/desktop.yml` builds on `ubuntu-22.04` and `windows-latest`, verifies the bundled PostgreSQL actually starts (`full_postgres_lifecycle`), and uploads the `deb` / `msi` artifacts
 
 ### 2. Mobile Application — ChengApp for Android (chengapp)
 
@@ -43,9 +43,9 @@ diagnostic — and unifies every component under a single `0.2.0` version.
 
 **Files:** `src-tauri/tauri.conf.json`, `scripts/tauri-env.mjs`, `build.sh`
 
-- **Linux packages:** `deb` and `rpm` bundles with a shared `linux/chengapp.desktop` template
+- **Linux packages:** `deb` bundles with a shared `linux/chengapp.desktop` template
 - **Windows installer:** WiX MSI with `en-US` and `zh-CN` languages
-- **Build environment wrapper:** `scripts/tauri-env.mjs` sets the client build environment (`CHENGAPP_CHENGID_URL`, and `WEBKIT_DISABLE_DMABUF_RENDERER` on Linux) and forwards `--bundles deb,rpm` and friends to the Tauri CLI
+- **Build environment wrapper:** `scripts/tauri-env.mjs` sets the client build environment (`CHENGAPP_CHENGID_URL`, and `WEBKIT_DISABLE_DMABUF_RENDERER` on Linux) and forwards `--bundles deb` and friends to the Tauri CLI
 - **Server bundle:** `build.sh --bundle` assembles the Coordinator binaries, ChengID web pages, migrations, and deploy assets into a versioned `chengapp-linux-amd64-vX.Y.Z.tar.gz` with a `.sha256`
 
 ### 4. Deployment Hardening (deploy)
@@ -98,9 +98,9 @@ diagnostic — and unifies every component under a single `0.2.0` version.
 ### Desktop Application
 
 ```bash
-# Linux (.deb / .rpm)
+# Linux (.deb)
 cd chengflow-ui
-bash scripts/build-desktop.sh --bundles deb,rpm --output ../output/desktop/linux
+bash scripts/build-desktop.sh --bundles deb --output ../output/desktop/linux
 
 # Windows: build the MSI inside the builder VM (build-desktop-windows.ps1)
 ```

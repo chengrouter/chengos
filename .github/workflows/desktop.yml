@@ -117,6 +117,5 @@ jobs:
           name: chengflow-desktop-${{ matrix.artifact }}
           path: |
             chengflow-ui/src-tauri/target/release/bundle/deb/*.deb
-            chengflow-ui/src-tauri/target/release/bundle/rpm/*.rpm
             chengflow-ui/src-tauri/target/release/bundle/msi/*.msi
           if-no-files-found: warn

@@ -134,7 +134,7 @@ ChengOS includes local Word (`.docx`) and spreadsheet (`.xlsx` or grid) workspac
 ### Multiple chat entry points
 
 - Embedded chat in the workflow editor for testing and iteration.
-- Web, H5, PWA, and messaging channels such as WhatsApp, Telegram, Slack, WeCom, DingTalk, and FlowChat.
+- Web, H5, PWA, and messaging channels such as WhatsApp, Telegram, Slack, WeCom, DingTalk, and ChengApp.
 - A lightweight terminal client for local development and remote servers.
 
 <a id="quick-start"></a>
@@ -354,7 +354,7 @@ ChengOS 内置 Word（`.docx`）和电子表格（`.xlsx` 或网格）工作区�
 ### 多种聊天入口
 
 - 工作流编辑器内的嵌入式聊天窗口，适合实时测试与调试。
-- Web、H5、PWA，以及 WhatsApp、Telegram、Slack、企业微信、钉钉、FlowChat 等消息渠道。
+- Web、H5、PWA，以及 WhatsApp、Telegram、Slack、企业微信、钉钉、ChengApp 等消息渠道。
 - 面向本地开发和远程服务器的轻量终端客户端。
 
 <a id="快速开始"></a>
