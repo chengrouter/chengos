@@ -177,6 +177,51 @@ add_pg_bins_to_path() {
 }
 add_pg_bins_to_path
 
+# The managed PostgreSQL listens on the port named in DATABASE_URL, so the
+# instance and cheng-api always agree. Non-local URLs keep the 5432 default.
+PG_PORT=5432
+if [[ "$DATABASE_URL" =~ @(127\.0\.0\.1|localhost):([0-9]+)/ ]]; then
+    PG_PORT="${BASH_REMATCH[2]}"
+fi
+
+# True when anything listens on the port (not only PostgreSQL).
+pg_port_in_use() {
+    local port="$1"
+    if command -v ss >/dev/null 2>&1; then
+        ss -tln 2>/dev/null | grep -qE ":${port}[[:space:]]"
+    else
+        local rc=0
+        pg_isready -h 127.0.0.1 -p "$port" >/dev/null 2>&1 || rc=$?
+        [[ "$rc" -ne 2 ]]
+    fi
+}
+
+find_free_pg_port() {
+    local base="$1" port
+    for (( port = base + 1; port <= base + 20; port++ )); do
+        if ! pg_port_in_use "$port"; then
+            echo "$port"
+            return 0
+        fi
+    done
+    return 1
+}
+
+# Can cheng-api's own credentials open its database? Never prompts.
+app_db_reachable() {
+    PGCONNECT_TIMEOUT=3 psql -w "$DATABASE_URL" -Atqc 'SELECT 1' >/dev/null 2>&1
+}
+
+# Move the managed instance to another port: rewrite DATABASE_URL both in
+# this process (inherited by cheng-api) and in .env (used by later runs).
+set_pg_port() {
+    local new_port="$1"
+    DATABASE_URL="$(sed -E "s#@(127\.0\.0\.1|localhost):[0-9]+/#@\1:${new_port}/#" <<<"$DATABASE_URL")"
+    export DATABASE_URL
+    sed -E -i "/^DATABASE_URL=/ s#@(127\.0\.0\.1|localhost):[0-9]+/#@\1:${new_port}/#" "$ENV_FILE"
+    PG_PORT="$new_port"
+}
+
 setup_and_start_postgres() {
     if [[ "$DB_INSTALL_MODE" == "system-service" ]]; then
         # 1. System service installation
@@ -280,24 +325,60 @@ setup_and_start_postgres() {
             log "Initializing local PostgreSQL data directory at ${pg_data}..."
             (cd /tmp && ${run_prefix} env PATH="$PATH" initdb -D "$pg_data")
         fi
-        
-        # Check if already running on 5432
-        if ! pg_isready -h 127.0.0.1 -p 5432 >/dev/null 2>&1; then
-            # Kill any stale postgres process occupying port 5432
-            local stale_pg_pid
-            stale_pg_pid="$(ss -tlnp 2>/dev/null | grep ':5432 ' | sed -n 's/.*pid=\([0-9]\+\).*/\1/p' | head -1 || true)"
-            if [[ -n "$stale_pg_pid" ]]; then
-                log "Killing stale process (PID ${stale_pg_pid}) on port 5432..."
-                kill "$stale_pg_pid" 2>/dev/null || true
-                sleep 1
-                kill -9 "$stale_pg_pid" 2>/dev/null || true
+
+        # The managed instance may already be up from an earlier start, possibly
+        # on a port that differs from DATABASE_URL (e.g. .env was regenerated).
+        # Follow the running instance rather than starting a second one.
+        local own_pid own_port
+        own_pid="$(sed -n 1p "${pg_data}/postmaster.pid" 2>/dev/null || true)"
+        own_port="$(sed -n 4p "${pg_data}/postmaster.pid" 2>/dev/null || true)"
+        if [[ -n "$own_pid" && -n "$own_port" ]] && kill -0 "$own_pid" 2>/dev/null \
+            && [[ "$own_port" != "$PG_PORT" ]] \
+            && pg_isready -h 127.0.0.1 -p "$own_port" >/dev/null 2>&1; then
+            log "Managed PostgreSQL is already running on port ${own_port}; pointing DATABASE_URL at it"
+            set_pg_port "$own_port"
+        fi
+
+        if [[ -n "$own_pid" && "$own_port" == "$PG_PORT" ]] && kill -0 "$own_pid" 2>/dev/null \
+            && pg_isready -h 127.0.0.1 -p "$PG_PORT" >/dev/null 2>&1; then
+            log "Managed PostgreSQL already running on port ${PG_PORT}"
+            echo "$own_pid" > "$pg_pid_file"
+        else
+            if pg_port_in_use "$PG_PORT"; then
+                local listener_pid
+                listener_pid="$(ss -tlnp 2>/dev/null | grep -E ":${PG_PORT}[[:space:]]" | sed -n 's/.*pid=\([0-9]\+\).*/\1/p' | head -1 || true)"
+                if [[ -n "$listener_pid" && ( "$listener_pid" == "$own_pid" || "$listener_pid" == "$(cat "$pg_pid_file" 2>/dev/null)" ) ]]; then
+                    # Our own instance from a previous run, hung or half-started.
+                    log "Killing stale managed PostgreSQL (PID ${listener_pid}) on port ${PG_PORT}..."
+                    kill "$listener_pid" 2>/dev/null || true
+                    sleep 1
+                    kill -9 "$listener_pid" 2>/dev/null || true
+                elif app_db_reachable; then
+                    # Something else (typically the distro's postgresql service)
+                    # holds the port, and the ChengOS role/database already
+                    # works there -- an earlier install provisioned it. Keep
+                    # using it so existing data stays visible.
+                    log "Port ${PG_PORT} is served by a PostgreSQL not managed by ChengOS, and it already hosts the ChengOS database; using it"
+                    log "Local PostgreSQL is ready"
+                    return 0
+                else
+                    # Foreign server we have no credentials for: leave it alone
+                    # and run the managed instance on the next free port.
+                    local new_port
+                    new_port="$(find_free_pg_port "$PG_PORT")" || \
+                        fail "Port ${PG_PORT} is taken by another service and no free port found in $((PG_PORT + 1))-$((PG_PORT + 20))"
+                    log "Port ${PG_PORT} is taken by a PostgreSQL/service not managed by ChengOS; leaving it untouched"
+                    log "Starting managed PostgreSQL on port ${new_port} instead (DATABASE_URL in .env updated)"
+                    set_pg_port "$new_port"
+                fi
             fi
+
             # Remove stale postmaster.pid from a previous failed start
             if [[ -f "${pg_data}/postmaster.pid" ]]; then
                 log "Removing stale postmaster.pid..."
                 rm -f "${pg_data}/postmaster.pid"
             fi
-            log "Starting local PostgreSQL process..."
+            log "Starting local PostgreSQL process on port ${PG_PORT}..."
             # When running as postgres user, ensure the log file is writable
             local pg_log="${ROOT_DIR}/logs/postgres.log"
             if [[ -n "$run_prefix" ]]; then
@@ -305,22 +386,25 @@ setup_and_start_postgres() {
                 touch "$pg_log"
                 chown postgres:postgres "$pg_log"
             fi
-            (cd /tmp && ${run_prefix} env PATH="$PATH" pg_ctl -D "$pg_data" -o "-p 5432" -l "$pg_log" -w start)
+            (cd /tmp && ${run_prefix} env PATH="$PATH" pg_ctl -D "$pg_data" -o "-p ${PG_PORT}" -l "$pg_log" -w start)
             local pg_pid
             pg_pid="$(cat "${pg_data}/postmaster.pid" 2>/dev/null | head -1 || echo "")"
             [[ -n "$pg_pid" ]] && echo "$pg_pid" > "$pg_pid_file"
         fi
         
-        # Configure DB & user natively under current user context
-        (cd /tmp && ${run_prefix} env PATH="$PATH" psql -h 127.0.0.1 -p 5432 -d postgres -c "CREATE USER tianai_db WITH PASSWORD '${POSTGRES_PASSWORD}';" 2>/dev/null) || true
-        (cd /tmp && ${run_prefix} env PATH="$PATH" psql -h 127.0.0.1 -p 5432 -d postgres -c "ALTER USER tianai_db WITH PASSWORD '${POSTGRES_PASSWORD}';" 2>/dev/null) || true
-        (cd /tmp && ${run_prefix} env PATH="$PATH" psql -h 127.0.0.1 -p 5432 -d postgres -c "CREATE DATABASE master_router OWNER tianai_db;" 2>/dev/null) || true
-        (cd /tmp && ${run_prefix} env PATH="$PATH" psql -h 127.0.0.1 -p 5432 -d postgres -c "GRANT ALL PRIVILEGES ON DATABASE master_router TO tianai_db;" 2>/dev/null) || true
+        # Configure DB & user natively under current user context. -w: never
+        # prompt for a password; the managed instance trusts local connections.
+        pg_admin() { (cd /tmp && ${run_prefix} env PATH="$PATH" psql -w -h 127.0.0.1 -p "$PG_PORT" "$@" 2>/dev/null) || true; }
+        pg_admin -d postgres -c "CREATE USER tianai_db WITH PASSWORD '${POSTGRES_PASSWORD}';"
+        pg_admin -d postgres -c "ALTER USER tianai_db WITH PASSWORD '${POSTGRES_PASSWORD}';"
+        pg_admin -d postgres -c "CREATE DATABASE master_router OWNER tianai_db;"
+        pg_admin -d postgres -c "GRANT ALL PRIVILEGES ON DATABASE master_router TO tianai_db;"
         # Grant superuser so migrations can create extensions (uuid-ossp, etc.)
-        (cd /tmp && ${run_prefix} env PATH="$PATH" psql -h 127.0.0.1 -p 5432 -d postgres -c "ALTER USER tianai_db WITH SUPERUSER;" 2>/dev/null) || true
+        pg_admin -d postgres -c "ALTER USER tianai_db WITH SUPERUSER;"
         # Pre-create common extensions in master_router database
-        (cd /tmp && ${run_prefix} env PATH="$PATH" psql -h 127.0.0.1 -p 5432 -d master_router -c "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";" 2>/dev/null) || true
-        (cd /tmp && ${run_prefix} env PATH="$PATH" psql -h 127.0.0.1 -p 5432 -d master_router -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;" 2>/dev/null) || true
+        pg_admin -d master_router -c "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";"
+        pg_admin -d master_router -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
+        app_db_reachable || log "WARNING: cannot connect with DATABASE_URL on port ${PG_PORT}; check ${ROOT_DIR}/.env"
         log "Local PostgreSQL is ready"
     fi
 }

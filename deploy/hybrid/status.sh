@@ -63,11 +63,15 @@ HR
 log "Database Connections & Ports Status"
 HR
 
-# 1. PostgreSQL Status
-if pg_isready -h 127.0.0.1 -p 5432 >/dev/null 2>&1; then
-    log "  PostgreSQL (5432) : ONLINE"
+# 1. PostgreSQL Status (port follows DATABASE_URL; start.sh may move it off 5432)
+PG_PORT=5432
+if [[ "${DATABASE_URL:-}" =~ @(127\.0\.0\.1|localhost):([0-9]+)/ ]]; then
+    PG_PORT="${BASH_REMATCH[2]}"
+fi
+if pg_isready -h 127.0.0.1 -p "$PG_PORT" >/dev/null 2>&1; then
+    log "  PostgreSQL (${PG_PORT}) : ONLINE"
 else
-    log "  PostgreSQL (5432) : OFFLINE"
+    log "  PostgreSQL (${PG_PORT}) : OFFLINE"
 fi
 
 # 2. Valkey Status
