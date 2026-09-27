@@ -44,6 +44,34 @@ Every release section must declare its rollback compatibility so operators and
 
 - Migration policy: reversible
 
+## [0.2.1] - 2026-09-27
+
+### Release notes
+
+<!-- Maintainer: describe the user-facing changes, required migration
+     steps, and any rollback limitation before publishing. -->
+
+### Added
+
+- feat(deploy): optional local Laya decision model
+- feat(deploy): guided onboarding config and rebuilt UI
+
+### Changed
+
+- chore(release): 移除 rpm 打包并统一 FlowChat 为 ChengApp
+- chore(deploy): 同步 chengflow 的决策配置与路由模板
+- chore(deploy): 忽略前端构建产物与杂散日志
+- docs(deploy): document the sign-in-free demo account
+
+### Other
+
+- revert(deploy): drop guided onboarding config and rebuilt UI
+-  版本0.2.0修复构建脚本
+
+### Notes
+
+- Migration policy: reversible
+
 ## [0.2.0] - 2026-09-20
 
 ### Release notes
