@@ -47,9 +47,13 @@ jobs:
 
       - name: Test the embedded server configuration
         working-directory: chengflow
-        # Only the library-ized startup path — the rest of the workspace is
-        # covered by the main CI job and needs a database.
-        run: cargo test -p cheng-api --lib embedded:: runtime_capabilities::
+        # Only the library-ized startup path and what LAN host mode exposes
+        # (static UI serving, client-address throttling) — the rest of the
+        # workspace is covered by the main CI job and needs a database.
+        run: >-
+          cargo test -p cheng-api --lib --
+          embedded:: runtime_capabilities:: middleware::client_ip::
+          rest::handlers::auth::tests::
 
   bundle:
     name: Bundle (${{ matrix.os }})
@@ -111,6 +115,17 @@ jobs:
         working-directory: chengflow-ui
         shell: bash
         run: ./scripts/build-desktop.sh
+
+      # LAN host mode serves the frontend embedded in the binary, stamping a
+      # fresh CSP nonce into index.html per response. A build whose shell lost
+      # the placeholder would serve pages whose inline script the CSP blocks.
+      - name: Verify the embedded web UI can be served over the LAN
+        working-directory: chengflow-ui
+        shell: bash
+        run: |
+          test -f dist/index.html || { echo "dist/index.html is missing"; exit 1; }
+          grep -q '__CSP_NONCE__' dist/index.html \
+            || { echo "dist/index.html lost its __CSP_NONCE__ placeholder"; exit 1; }
 
       - uses: actions/upload-artifact@v4
         with:

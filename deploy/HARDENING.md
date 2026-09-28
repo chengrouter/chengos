@@ -32,6 +32,7 @@ ChengOS 在一台机器上会监听三个端口，它们的**性质完全不同*
 | `UI_BIND` / `APP_BIND` | 前端服务监听哪块网卡（仅原生模式） | `0.0.0.0` |
 | `TRUSTED_PROXY_IPS` | 哪些代理可以上报访客真实 IP | 空 |
 | `TRUST_CLOUDFLARE` | 读 `CF-Connecting-IP` 而非 `X-Forwarded-For` | `false` |
+| `TRUST_PROXY_HEADERS` | API 是否相信**非回环**来源的 `X-Real-IP`/`X-Forwarded-For`（登录限流按访客 IP 计）。回环来源总是被相信；Docker 已为 api 容器设为 `true` | `false` |
 | `CORS_PERMISSIVE` | 是否允许任意源跨域 | `false` |
 | `CSP_CONNECT_SRC_EXTRA` | CSP `connect-src` 额外来源 | 空 |
 

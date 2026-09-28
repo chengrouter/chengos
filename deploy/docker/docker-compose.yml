@@ -106,6 +106,11 @@ services:
       # The published port is already bound to the host's loopback below, so
       # listening on all container interfaces exposes nothing.
       BIND_ADDRESS: "0.0.0.0"
+      # The API's only callers are the ui and app containers, which dial it
+      # over the Docker network (not loopback) and overwrite X-Real-IP with the
+      # visitor's address. Without this every visitor would share the ui
+      # container's address, and one sign-in throttle bucket.
+      TRUST_PROXY_HEADERS: "true"
     volumes:
       - ../.env:/app/.env
       - ../config:/app/config
