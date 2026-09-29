@@ -32,7 +32,7 @@ The root `chengos.sh` is a symlink to `deploy/chengos.sh`, which is the canonica
 
 Integrity checks for this step:
 
-- A fresh native install creates `deploy/.env` with a non-empty `CHENG_CLI_ALLOWED_ROOTS`.
+- A fresh native install creates `deploy/.env` with `CHENG_CLI_ALLOWED_ROOTS` commented out, so a single-user install runs CLI sessions in deny-only mode; an explicit `--cli-workspace` (hybrid: `CHENG_CLI_WORKSPACE`) activates it. *(Superseded by `docs/chengflow-cli-sandbox-deny-only-default-development-plan.md`.)*
 - Re-running install does not overwrite an existing `deploy/.env`.
 - Existing secrets remain unchanged across install and update.
 - Native start and Docker compose both read the same `deploy/.env`.

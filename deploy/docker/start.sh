@@ -68,7 +68,7 @@ replace_env_line() {
   local value="$2"
 
   if command -v perl > /dev/null 2>&1; then
-    KEY="$key" VALUE="$value" perl -0pi -e 's/^\Q$ENV{KEY}\E=.*/$ENV{KEY}.".".$ENV{VALUE}/me' "$ENV_FILE"
+    KEY="$key" VALUE="$value" perl -0pi -e 's/^(#+\s*)?\Q$ENV{KEY}\E=.*/$ENV{KEY}."=".$ENV{VALUE}/me' "$ENV_FILE"
   else
     local escaped_value="${value//&/\\&}"
     escaped_value="${escaped_value//|/\\|}"

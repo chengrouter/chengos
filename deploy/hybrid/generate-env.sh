@@ -12,7 +12,9 @@ mkdir -p "${ROOT_DIR}/workspace"
 
 args=()
 
-[[ -z "${CHENG_CLI_WORKSPACE:-}" ]] && CHENG_CLI_WORKSPACE="${ROOT_DIR}/workspace"
+# CLI sandbox: no default allowlist. A single-user install then runs the CLI in
+# deny-only mode; set CHENG_CLI_WORKSPACE to confine sessions to one directory
+# (required for CHENG_AUTH_MODE=multi).
 
 [[ -n "${ENABLE_REDIS:-}" ]] && args+=("--enable-redis" "$ENABLE_REDIS")
 [[ -n "${ENABLE_QDRANT:-}" ]] && args+=("--enable-qdrant" "$ENABLE_QDRANT")

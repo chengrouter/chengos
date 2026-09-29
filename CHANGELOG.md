@@ -40,8 +40,29 @@ Every release section must declare its rollback compatibility so operators and
 - Release gates (`scripts/test-release-contract.sh`) and the operations guide
   `chengflow/docs/release-operations-guide.md`.
 
+### Changed
+
+- CLI sandbox: single-user deployments without `CHENG_CLI_ALLOWED_ROOTS` now
+  run CLI sessions in deny-only mode (any readable directory except system,
+  home, credential, and `.env` locations) instead of disabling them. A set
+  allowlist is always enforced, multi-user deployments still require one, and
+  an allowlist entry can no longer expose a protected system directory. New
+  native (hybrid) and loopback desktop installs no longer set an allowlist by
+  default; Docker keeps `/app/workspace`.
+- Code indexing follows the same policy: an invalid or missing allowlist no
+  longer means unrestricted indexing, and protected locations are refused.
+- `CHENG_CLI_SANDBOX_PERMISSIVE` is deprecated and ignored.
+
 ### Notes
 
+- Upgrading: existing `.env` files keep their active `CHENG_CLI_ALLOWED_ROOTS`
+  line, so CLI behavior does not change. To opt into deny-only mode on a
+  single-user install, comment that line out and restart. A setup that relied
+  on `CHENG_CLI_SANDBOX_PERMISSIVE=true` to tolerate an invalid allowlist entry
+  now has CLI disabled until the entry is fixed or removed.
+- CLI sessions and code indexing can no longer start in a directory that
+  contains the deployment `.env` (for example the install root or `/opt`),
+  even if it is allowlisted. Start from the workspace or a project directory.
 - Migration policy: reversible
 
 ## [0.2.1] - 2026-09-27
