@@ -11,6 +11,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_FILE="${SCRIPT_DIR}/../.env"
+ENV_FILE="$(readlink -f -- "$ENV_FILE" 2>/dev/null || printf '%s' "$ENV_FILE")"
+COMPOSE_LIB="${SCRIPT_DIR}/../lib/compose-files.sh"
 
 REMOTE=false
 WITH_BINDS=true
@@ -60,12 +62,19 @@ docker compose version >/dev/null 2>&1 || fail "docker compose plugin is require
 START_SCRIPT="${SCRIPT_DIR}/start.sh"
 [[ -x "$START_SCRIPT" || -f "$START_SCRIPT" ]] || fail "Missing ${START_SCRIPT}"
 
-compose_files=(-f docker-compose.yml)
-if [[ "$WITH_BINDS" == true ]]; then
-  compose_files+=(-f docker-compose.binds.yml)
-fi
-if [[ "$REMOTE" == true ]]; then
-  compose_files+=(-f docker-compose.remote.yml)
+if [[ -f "$COMPOSE_LIB" ]]; then
+  # shellcheck source=../lib/compose-files.sh
+  source "$COMPOSE_LIB"
+  compose_file_args "$SCRIPT_DIR" "$(cd "${SCRIPT_DIR}/.." && pwd)" "$WITH_BINDS" "$REMOTE"
+  compose_files=("${COMPOSE_FILE_ARGS[@]}")
+else
+  compose_files=(-f docker-compose.yml)
+  if [[ "$WITH_BINDS" == true ]]; then
+    compose_files+=(-f docker-compose.binds.yml)
+  fi
+  if [[ "$REMOTE" == true ]]; then
+    compose_files+=(-f docker-compose.remote.yml)
+  fi
 fi
 
 start_args=()

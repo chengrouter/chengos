@@ -6,6 +6,7 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$ROOT_DIR"
 
 ENV_FILE="${ROOT_DIR}/.env"
+ENV_LIB="${ROOT_DIR}/lib/env-file.sh"
 ENV_EXAMPLE="${ROOT_DIR}/.env.example"
 BINARY="${ROOT_DIR}/bin/cheng-api"
 
@@ -218,7 +219,15 @@ set_pg_port() {
     local new_port="$1"
     DATABASE_URL="$(sed -E "s#@(127\.0\.0\.1|localhost):[0-9]+/#@\1:${new_port}/#" <<<"$DATABASE_URL")"
     export DATABASE_URL
-    sed -E -i "/^DATABASE_URL=/ s#@(127\.0\.0\.1|localhost):[0-9]+/#@\1:${new_port}/#" "$ENV_FILE"
+    if [[ -f "$ENV_LIB" ]]; then
+        # shellcheck source=../lib/env-file.sh
+        source "$ENV_LIB"
+        envf_set "$ENV_FILE" "DATABASE_URL=${DATABASE_URL}" \
+            || fail "could not record the new PostgreSQL port in ${ENV_FILE}"
+    else
+        # Older layout without lib/: edit the real file, never a symlink.
+        sed -E -i --follow-symlinks "/^DATABASE_URL=/ s#@(127\.0\.0\.1|localhost):[0-9]+/#@\1:${new_port}/#" "$ENV_FILE"
+    fi
     PG_PORT="$new_port"
 }
 

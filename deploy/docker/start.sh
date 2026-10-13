@@ -5,7 +5,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
 ENV_FILE="${SCRIPT_DIR}/../.env"
+# A migrated instance keeps .env in env/ behind a compatibility link; edits and
+# --env-file must use the real file so the link is never replaced.
+ENV_FILE="$(readlink -f -- "$ENV_FILE" 2>/dev/null || printf '%s' "$ENV_FILE")"
 GENERATE_ENV="${SCRIPT_DIR}/../generate-env.sh"
+COMPOSE_LIB="${SCRIPT_DIR}/../lib/compose-files.sh"
 
 REMOTE=false
 WITH_BINDS=true
@@ -68,11 +72,11 @@ replace_env_line() {
   local value="$2"
 
   if command -v perl > /dev/null 2>&1; then
-    KEY="$key" VALUE="$value" perl -0pi -e 's/^(#+\s*)?\Q$ENV{KEY}\E=.*/$ENV{KEY}."=".$ENV{VALUE}/me' "$ENV_FILE"
+    KEY="$key" VALUE="$value" perl -0pi -e 's/^(#+\s*)?\Q$ENV{KEY}\E=.*/$ENV{KEY}."=".$ENV{VALUE}/me' "${REPLACE_TARGET:-$ENV_FILE}"
   else
     local escaped_value="${value//&/\\&}"
     escaped_value="${escaped_value//|/\\|}"
-    sed -i "s|^\(#*[[:space:]]*\)${key}=.*|${key}=${escaped_value}|" "$ENV_FILE"
+    sed -i "s|^\(#*[[:space:]]*\)${key}=.*|${key}=${escaped_value}|" "${REPLACE_TARGET:-$ENV_FILE}"
   fi
 }
 
@@ -88,7 +92,10 @@ generate_env_fallback() {
   credential_master_key_1="$(openssl rand -hex 32)"
   jwt_secret="$(openssl rand -hex 32)"
 
-  cp "$env_example" "$ENV_FILE"
+  # Stage the whole file, then commit it once under the shared .env lock.
+  REPLACE_TARGET="$(mktemp "$(dirname "$ENV_FILE")/.env.generate.XXXXXX")" || fail "cannot stage ${ENV_FILE}"
+  chmod 600 "$REPLACE_TARGET"
+  cp "$env_example" "$REPLACE_TARGET"
   replace_env_line "POSTGRES_PASSWORD" "$postgres_password"
   replace_env_line "REDIS_PASSWORD" "$redis_password"
   replace_env_line "DATABASE_URL" "postgres://tianai_db:${postgres_password}@127.0.0.1:5432/master_router"
@@ -118,7 +125,19 @@ generate_env_fallback() {
     replace_env_line "PUBLIC_API_URL" "$PUBLIC_API_URL"
   fi
 
-  chmod 600 "$ENV_FILE" 2>/dev/null || true
+  local env_lib="${SCRIPT_DIR}/../lib/env-file.sh"
+  if [[ -f "$env_lib" ]]; then
+    # shellcheck source=../lib/env-file.sh
+    source "$env_lib"
+    envf_replace_file "$ENV_FILE" "$REPLACE_TARGET" || { rm -f "$REPLACE_TARGET"; fail "could not write ${ENV_FILE}"; }
+  else
+    (
+      exec 9>>"${ENV_FILE}.lock" || exit 1
+      flock -w 30 9 || exit 1
+      mv -f -- "$REPLACE_TARGET" "$ENV_FILE"
+    ) || { rm -f "$REPLACE_TARGET"; fail "could not write ${ENV_FILE}"; }
+  fi
+  unset REPLACE_TARGET
   log "Created ${ENV_FILE} with generated secrets"
 }
 
@@ -207,12 +226,19 @@ else
   log "Using existing .env"
 fi
 
-compose_files=(-f docker-compose.yml)
-if [[ "$WITH_BINDS" == true ]]; then
-  compose_files+=(-f docker-compose.binds.yml)
-fi
-if [[ "$REMOTE" == true ]]; then
-  compose_files+=(-f docker-compose.remote.yml)
+if [[ -f "$COMPOSE_LIB" ]]; then
+  # shellcheck source=../lib/compose-files.sh
+  source "$COMPOSE_LIB"
+  compose_file_args "$SCRIPT_DIR" "$(cd "${SCRIPT_DIR}/.." && pwd)" "$WITH_BINDS" "$REMOTE"
+  compose_files=("${COMPOSE_FILE_ARGS[@]}")
+else
+  compose_files=(-f docker-compose.yml)
+  if [[ "$WITH_BINDS" == true ]]; then
+    compose_files+=(-f docker-compose.binds.yml)
+  fi
+  if [[ "$REMOTE" == true ]]; then
+    compose_files+=(-f docker-compose.remote.yml)
+  fi
 fi
 
 if [[ "$PULL" == true ]]; then

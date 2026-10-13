@@ -279,6 +279,28 @@ _doctor_edge() {
     _d_info "  curl -sv --max-time 5 http://<源站公网IP>:19225/health   # 应超时/拒绝"
 }
 
+# Coding-agent deployment: installed / configured / probed state, .env layout,
+# and the native sandbox. Delegates to the read-only `cli/setup.sh --check`,
+# which never installs, updates, or prints secrets.
+_doctor_coding_agent() {
+    local env_file="$1" mode="$2" shared setup out rc
+    _d_head "编码智能体 / Coding agent"
+    shared="$(cd "$(dirname "$env_file")" 2>/dev/null && pwd)" || { _d_info "安装目录不可读，跳过"; return; }
+    setup="${shared}/cli/setup.sh"
+    if [[ ! -f "$setup" ]]; then
+        _d_info "cli/setup.sh 不存在 (旧版脚本)，跳过 — ./chengos.sh update --scripts-only"
+        return
+    fi
+    out="$(bash "$setup" codex --check --shared-dir "$shared" --mode "$mode" --non-interactive 2>&1)"
+    rc=$?
+    printf '%s\n' "$out"
+    case "$rc" in
+        0) _d_pass "编码智能体配置一致 / coding-agent configuration consistent" ;;
+        3) _d_warn "编码智能体配置需要注意 / needs attention (see above)" ;;
+        *) _d_fail "编码智能体配置有问题 / coding-agent configuration is broken (see above)" ;;
+    esac
+}
+
 # ── Entry point ──────────────────────────────────────────────────────────────
 
 run_doctor() {
@@ -299,6 +321,7 @@ run_doctor() {
     _doctor_trust "$env_file"
     _doctor_probe "$env_file"
     _doctor_edge
+    _doctor_coding_agent "$env_file" "$mode"
 
     _d_head "小结 / Summary"
     printf '  通过 %d   警告 %d   问题 %d\n' "$DOCTOR_PASS" "$DOCTOR_WARN" "$DOCTOR_FAIL"

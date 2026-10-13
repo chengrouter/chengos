@@ -158,6 +158,31 @@ for _candidate_dir in "${ROOT_DIR}/lib" "${ROOT_DIR}/deploy/lib" "${REAL_SCRIPT_
     fi
 done
 unset _candidate_dir
+
+# Shared deployment libraries: the .env reader/writer and the Compose file list
+# every Docker entry point uses. Older installs may lack them; every helper
+# below falls back to its historical behaviour in that case.
+DEPLOY_LIB_DIR=""
+DEPLOY_CLI_DIR=""
+for _candidate_dir in "${ROOT_DIR}/lib" "${ROOT_DIR}/deploy/lib" "${REAL_SCRIPT_DIR}/lib"; do
+    if [[ -f "${_candidate_dir}/env-file.sh" ]]; then
+        DEPLOY_LIB_DIR="$_candidate_dir"
+        break
+    fi
+done
+for _candidate_dir in "${ROOT_DIR}/cli" "${ROOT_DIR}/deploy/cli" "${REAL_SCRIPT_DIR}/cli"; do
+    if [[ -f "${_candidate_dir}/setup.sh" ]]; then
+        DEPLOY_CLI_DIR="$_candidate_dir"
+        break
+    fi
+done
+unset _candidate_dir
+if [[ -n "$DEPLOY_LIB_DIR" ]]; then
+    # shellcheck source=lib/env-file.sh
+    source "${DEPLOY_LIB_DIR}/env-file.sh"
+    # shellcheck source=lib/compose-files.sh
+    [[ -f "${DEPLOY_LIB_DIR}/compose-files.sh" ]] && source "${DEPLOY_LIB_DIR}/compose-files.sh"
+fi
 if [[ -z "$RELEASE_VERIFIER" && -f "${ROOT_DIR}/scripts/verify-release-archive.sh" ]]; then
     RELEASE_VERIFIER="${ROOT_DIR}/scripts/verify-release-archive.sh"
 fi
@@ -237,6 +262,29 @@ if [[ "$LANG_VAL" == "zh" ]]; then
     t[menu_exit]="11) 退出 (Exit)"
     t[menu_reset_credentials]="12) 重置登录用户名/密码 (Reset Credentials)"
     t[menu_rollback]="13) 回滚到上一个版本 (Rollback)"
+    t[menu_coding_agent]="14) 配置编码智能体 CLI (Codex)"
+    t[coding_agent_title]="编码智能体 CLI (Codex)"
+    t[coding_agent_install]="1) 安装 / 更换版本 / 重新配置"
+    t[coding_agent_status]="2) 查看状态"
+    t[coding_agent_prune]="3) 预览并清理旧版本"
+    t[coding_agent_back]="0) 返回"
+    t[coding_agent_prompt]="请选择 [默认 2]: "
+    t[prompt_codex]="是否安装 Codex 编码智能体 CLI? 不选则保持常规安装 (y/N): "
+    t[codex_policy_select]="Codex 版本策略:"
+    t[codex_policy_stable]="  1) 最新稳定版 (发布满 7 天，默认)"
+    t[codex_policy_tested]="  2) 已测试参考版本 (仍会在本机重新探测)"
+    t[codex_policy_prompt]="请选择 [默认 1]: "
+    t[codex_tier_select]="Codex 功能层级:"
+    t[codex_tier_tasks]="  1) 一次性任务 (默认)"
+    t[codex_tier_sessions]="  2) 可恢复会话"
+    t[codex_tier_chat]="  3) 会话 + 直接对话"
+    t[codex_tier_prompt]="请选择 [默认 1]: "
+    t[codex_docker_unavailable]="Docker 模式暂不支持编码智能体 (沙箱可行性检查未通过)，已跳过 Codex。请使用原生 (hybrid) 安装。"
+    t[codex_install_failed]="Codex 未能安装或启用；ChengOS 已正常安装。修复后可在菜单 14 或 ./chengos.sh setup-cli codex 重试。"
+    t[cli_restart_scope]="重启会停止 ChengOS 服务：正在运行的工作流以及 %s 个编码智能体进程会被中断。"
+    t[cli_restart_prompt]="Codex 安装和配置成功。现在重启 ChengOS 以应用更改? [y/N]: "
+    t[cli_restart_required]="配置已写入，重启后生效：./chengos.sh restart"
+    t[codex_applies_on_start]="Codex 已配置，将在启动 ChengOS 时生效 (菜单 2 或 ./chengos.sh start)。"
     t[select_op]="请选择操作 [1-12]: "
     t[mode_select]="请选择安装模式:\n  1) 二进制原生安装 (Native Host)\n  2) Docker 容器化安装 (Docker)"
     t[mode_prompt]="选择 [1-2] (默认 1): "
@@ -322,6 +370,29 @@ else
     t[menu_exit]="11) Exit"
     t[menu_reset_credentials]="12) Reset Login Username/Password"
     t[menu_rollback]="13) Roll Back to the Previous Version"
+    t[menu_coding_agent]="14) Configure Coding-Agent CLI (Codex)"
+    t[coding_agent_title]="Coding-Agent CLI (Codex)"
+    t[coding_agent_install]="1) Install / change version / reconfigure"
+    t[coding_agent_status]="2) Status"
+    t[coding_agent_prune]="3) Preview and clean up old versions"
+    t[coding_agent_back]="0) Back"
+    t[coding_agent_prompt]="Select [default 2]: "
+    t[prompt_codex]="Install the Codex coding-agent CLI? Leave it out for a normal installation (y/N): "
+    t[codex_policy_select]="Codex version policy:"
+    t[codex_policy_stable]="  1) Latest stable (published at least 7 days ago, default)"
+    t[codex_policy_tested]="  2) Tested reference version (still probed on this host)"
+    t[codex_policy_prompt]="Select [default 1]: "
+    t[codex_tier_select]="Codex feature tier:"
+    t[codex_tier_tasks]="  1) One-shot tasks (default)"
+    t[codex_tier_sessions]="  2) Resumable sessions"
+    t[codex_tier_chat]="  3) Sessions + direct chat"
+    t[codex_tier_prompt]="Select [default 1]: "
+    t[codex_docker_unavailable]="Coding agents are not available in Docker mode (sandbox feasibility gate failed); Codex was skipped. Use a native (hybrid) installation."
+    t[codex_install_failed]="Codex was not installed or enabled; ChengOS itself installed normally. Fix the reported problem and retry from menu 14 or ./chengos.sh setup-cli codex."
+    t[cli_restart_scope]="Restarting stops ChengOS: running workflow executions and %s coding-agent process(es) will be interrupted."
+    t[cli_restart_prompt]="Codex installation and configuration succeeded. Restart ChengOS now to apply changes? [y/N]: "
+    t[cli_restart_required]="Configuration saved; it applies on the next restart: ./chengos.sh restart"
+    t[codex_applies_on_start]="Codex is configured; it takes effect when ChengOS starts (menu 2 or ./chengos.sh start)."
     t[select_op]="Select option [1-12]: "
     t[mode_select]="Select Installation Mode:\n  1) Native Host Binary\n  2) Docker Containers"
     t[mode_prompt]="Choose [1-2] (Default 1): "
@@ -547,9 +618,11 @@ detect_install_mode() {
 }
 
 # ── Bubblewrap (bwrap) Dependency Check ──────────────────────────────────────
-# The code_shell / code_python nodes require bubblewrap for OS-namespace
-# sandboxing. This function checks for bwrap and installs it automatically
-# via the system package manager when it is absent.
+# The code_shell / code_python nodes (and coding agents) require bubblewrap for
+# OS-namespace sandboxing. Missing bwrap is installed through the system
+# package manager only with consent, the same rule the coding-agent installer
+# follows: --install-deps, or an explicit "yes" at the prompt. A
+# non-interactive run without --install-deps reports and continues.
 ensure_bubblewrap() {
     if command -v bwrap > /dev/null 2>&1; then
         echo "[✓] bubblewrap (bwrap) is already installed: $(command -v bwrap)"
@@ -557,7 +630,20 @@ ensure_bubblewrap() {
     fi
 
     echo "[!] bubblewrap (bwrap) is not installed. Required for sandboxed code execution."
-    echo "    Attempting automatic installation..."
+    if [[ "${INSTALL_DEPS:-false}" != "true" ]]; then
+        if [[ "${ASSUME_YES:-false}" != "true" ]] && { : < /dev/tty; } 2>/dev/null; then
+            local bwrap_yn=""
+            read -r -p "    Install the bubblewrap system package now (may add EPEL on RHEL-family systems)? [Y/n]: " bwrap_yn < /dev/tty || bwrap_yn="n"
+            if [[ "$bwrap_yn" =~ ^[Nn] ]]; then
+                echo "    Skipped. Install bubblewrap yourself, or rerun with --install-deps."
+                return 1
+            fi
+        else
+            echo "    Not installing system packages without consent (non-interactive run): rerun with --install-deps."
+            return 1
+        fi
+    fi
+    echo "    Installing bubblewrap..."
 
     if command -v apt-get > /dev/null 2>&1; then
         ${SUDO} apt-get update -qq
@@ -755,20 +841,17 @@ setup_systemd_user_session() {
             local key="$1"
             local val="$2"
             [[ -n "$val" ]] || return 0
-            if grep -q "^${key}=" "$env_file"; then
+            local existing
+            if existing="$(read_env_value "$env_file" "$key")"; then
                 # Update only if the value differs
-                local existing
-                existing="$(grep "^${key}=" "$env_file" | head -1 | cut -d= -f2-)"
                 if [[ "$existing" != "$val" ]]; then
-                    sed -i "s|^${key}=.*|${key}=${val}|" "$env_file"
+                    write_env_value "$env_file" "$key" "$val" \
+                        "Systemd user session (for bubblewrap cgroup v2 memory limit)"
                     echo "    Updated ${key} in .env"
                 fi
             else
-                {
-                    echo ""
-                    echo "# Systemd user session (for bubblewrap cgroup v2 memory limit)"
-                    echo "${key}=${val}"
-                } >> "$env_file"
+                write_env_value "$env_file" "$key" "$val" \
+                    "Systemd user session (for bubblewrap cgroup v2 memory limit)"
                 echo "    Added ${key} to .env"
             fi
         }
@@ -861,11 +944,7 @@ ensure_native_log_file_envs() {
             return 0
         fi
 
-        {
-            echo ""
-            echo "# Native ${label} file log path."
-            echo "${key}=${log_file}"
-        } >> "$env_file"
+        write_env_value "$env_file" "$key" "$log_file" "Native ${label} file log path."
         echo "Configured native ${label} log file: ${log_file}"
     }
 
@@ -1114,20 +1193,18 @@ run_service_cmd() {
                 bash start.sh
             else
                 ensure_docker_compose
-                docker compose --env-file ../.env up -d
+                docker_compose_cmd "$docker_dir" up -d
             fi
         elif [[ "$cmd" == "stop" ]]; then
-            cd "$docker_dir"
             ensure_docker_compose
             if [[ "$with_infra" == "true" ]]; then
-                docker compose --env-file ../.env down -v
+                docker_compose_cmd "$docker_dir" down -v
             else
-                docker compose --env-file ../.env down
+                docker_compose_cmd "$docker_dir" down
             fi
         elif [[ "$cmd" == "status" ]]; then
-            cd "$docker_dir"
             ensure_docker_compose
-            docker compose --env-file ../.env ps
+            docker_compose_cmd "$docker_dir" ps
         fi
     else
         local hybrid_dir
@@ -1182,13 +1259,8 @@ setup_native_env() {
             # Persist workspace_root into existing .env if provided
             if [[ -n "$workspace_root" ]]; then
                 local env_file="${shared_dir}/.env"
-                if grep -q "^#\?CHENG_WORKSPACE_ROOT=" "$env_file"; then
-                    sed -i "s|^#\?CHENG_WORKSPACE_ROOT=.*|CHENG_WORKSPACE_ROOT=${workspace_root}|" "$env_file"
-                else
-                    echo "" >> "$env_file"
-                    echo "# Workspace root for non-CLI workflow execution" >> "$env_file"
-                    echo "CHENG_WORKSPACE_ROOT=${workspace_root}" >> "$env_file"
-                fi
+                write_env_value "$env_file" CHENG_WORKSPACE_ROOT "$workspace_root" \
+                    "Workspace root for non-CLI workflow execution"
                 echo "Configured CHENG_WORKSPACE_ROOT=${workspace_root} in .env"
             fi
         fi
@@ -1229,19 +1301,30 @@ setup_docker_env() {
     fi
 }
 
-# Reads a key from the managed Compose environment file.
+# Reads a key from the managed Compose environment file. Returns 1 when the
+# key is absent or empty.
 read_env_value() {
     local env_file="$1" key="$2"
     [[ -f "$env_file" ]] || return 1
     local value
-    value="$(sed -n "s/^${key}=\(.*\)$/\1/p" "$env_file" | tail -n1 | tr -d '[:space:]')"
+    if declare -F envf_get >/dev/null; then
+        value="$(envf_get "$env_file" "$key")" || return 1
+    else
+        value="$(sed -n "s/^${key}=\(.*\)$/\1/p" "$env_file" | tail -n1 | tr -d '[:space:]')"
+    fi
     [[ -n "$value" ]] || return 1
     printf '%s' "$value"
 }
 
-# Writes (or replaces) a key in the managed Compose environment file.
+# Writes (or replaces) a key in the managed Compose environment file through
+# the shared locked writer (lib/env-file.sh). SECTION labels the block a new
+# key is appended under.
 write_env_value() {
-    local env_file="$1" key="$2" value="$3"
+    local env_file="$1" key="$2" value="$3" section="${4:-Added by chengos.sh}"
+    if declare -F envf_set >/dev/null; then
+        envf_set "$env_file" --section "$section" "${key}=${value}"
+        return
+    fi
     touch "$env_file"
     if grep -q "^${key}=" "$env_file"; then
         local tmp
@@ -1271,10 +1354,21 @@ docker_overrides_present() {
     return 1
 }
 
+# Runs docker compose for the instance with the shared file list
+# (lib/compose-files.sh), so every lifecycle path applies the same overrides.
 docker_compose_cmd() {
     local docker_dir="$1"
     shift
-    ( cd "$docker_dir" && docker compose --env-file ../.env "$@" )
+    local -a files=(-f docker-compose.yml)
+    local env_file="../.env"
+    if declare -F compose_file_args >/dev/null; then
+        local shared_dir
+        shared_dir="$(cd "${docker_dir}/.." && pwd)"
+        compose_file_args "$docker_dir" "$shared_dir"
+        files=("${COMPOSE_FILE_ARGS[@]}")
+        env_file="$(compose_env_file "$shared_dir")"
+    fi
+    ( cd "$docker_dir" && docker compose "${files[@]}" --env-file "$env_file" "$@" )
 }
 
 # Pins every ChengOS application service to one exact release, pulls it,
@@ -1610,8 +1704,20 @@ update_script_files() {
         update_one_script "deploy/docker/docker-compose.yml" "${docker_dir}/docker-compose.yml"
         update_one_script "deploy/docker/docker-compose.binds.yml" "${docker_dir}/docker-compose.binds.yml"
         update_one_script "deploy/docker/docker-compose.remote.yml" "${docker_dir}/docker-compose.remote.yml"
+        update_one_script "deploy/docker/docker-compose.env-dir.yml" "${docker_dir}/docker-compose.env-dir.yml"
         update_one_script "deploy/.env.example" "${shared_dir}/.env.example"
     fi
+
+    # Shared deployment libraries and the coding-agent CLI modules. Package
+    # code only: runtime/cli (installed versions, records), env/ and .env are
+    # instance data and never part of this list.
+    local lib_item
+    for lib_item in env-file.sh compose-files.sh cli-common.sh npm-registry.sh \
+            npm_registry.py npm-registry-keys.json doctor.sh; do
+        update_one_script "deploy/lib/${lib_item}" "${shared_dir}/lib/${lib_item}"
+    done
+    update_one_script "deploy/cli/setup.sh" "${shared_dir}/cli/setup.sh"
+    update_one_script "deploy/cli/codex.sh" "${shared_dir}/cli/codex.sh"
 
     if [[ "$updated_any" == "true" ]]; then
         echo "Script update completed. Re-run ./chengos.sh for the refreshed manager if this command was launched from the old script."
@@ -2061,22 +2167,23 @@ uninstall_docker_install() {
 
     if [[ -n "$recorded_modules" ]]; then
         docker_services="$(modules_to_docker_services "$recorded_modules")"
-        docker compose --env-file ../.env down $docker_services
+        # shellcheck disable=SC2086
+        docker_compose_cmd "$docker_dir" down $docker_services
     else
-        docker compose --env-file ../.env down
+        docker_compose_cmd "$docker_dir" down
     fi
     read -p "Remove ChengOS Docker volumes and persistent data? (y/n) [Default n]: " remove_data < /dev/tty
     if [[ "$remove_data" =~ ^[Yy]$ ]]; then
-        docker compose --env-file ../.env down -v
+        docker_compose_cmd "$docker_dir" down -v
     fi
     read -p "Remove ChengOS Docker images? (y/n) [Default n]: " remove_images < /dev/tty
     if [[ "$remove_images" =~ ^[Yy]$ ]]; then
         if [[ -n "$docker_services" ]]; then
             for svc in $docker_services; do
-                docker compose --env-file ../.env config --images "$svc" 2>/dev/null | head -1 | xargs -r docker image rm 2>/dev/null || true
+                docker_compose_cmd "$docker_dir" config --images "$svc" 2>/dev/null | head -1 | xargs -r docker image rm 2>/dev/null || true
             done
         else
-            docker compose --env-file ../.env config --images 2>/dev/null | sort -u | xargs -r docker image rm || true
+            docker_compose_cmd "$docker_dir" config --images 2>/dev/null | sort -u | xargs -r docker image rm || true
         fi
     fi
 
@@ -2150,9 +2257,9 @@ reset_login_credentials() {
     if [[ "$install_mode" == "docker" ]]; then
         ensure_docker_compose
         if [[ -n "$new_password" ]]; then
-            printf '%s' "$new_password" | (cd "$docker_dir" && docker compose --env-file ../.env run --rm -T api "${reset_args[@]}")
+            printf '%s' "$new_password" | docker_compose_cmd "$docker_dir" run --rm -T api "${reset_args[@]}"
         else
-            (cd "$docker_dir" && docker compose --env-file ../.env run --rm -T api "${reset_args[@]}")
+            docker_compose_cmd "$docker_dir" run --rm -T api "${reset_args[@]}"
         fi
     else
         if [[ ! -x "${shared_dir}/bin/cheng-api" ]]; then
@@ -2189,7 +2296,7 @@ run_admin_cli() {
 
     if [[ "$install_mode" == "docker" ]]; then
         ensure_docker_compose
-        (cd "$docker_dir" && docker compose --env-file ../.env run --rm -T api admin "$@")
+        docker_compose_cmd "$docker_dir" run --rm -T api admin "$@"
     else
         if [[ ! -x "${shared_dir}/bin/cheng-api" ]]; then
             echo "cheng-api binary not found: ${shared_dir}/bin/cheng-api" >&2
@@ -2203,6 +2310,140 @@ run_admin_cli() {
     fi
 }
 
+# ── Coding-agent CLI deployment ──────────────────────────────────────────────
+# Installation, probing and configuration live in cli/setup.sh and its
+# provider adapters; this manager only routes there and owns the lifecycle
+# around it (restart consent, .env layout migration, pending-restart state).
+
+cli_pending_restart_file() {
+    printf '%s/runtime/cli/codex/state' "$(resolve_shared_dir)"
+}
+
+cli_restart_pending() {
+    local f
+    f="$(cli_pending_restart_file)"
+    [[ -f "$f" ]] && declare -F envf_get >/dev/null || return 1
+    [[ "$(envf_get "$f" PENDING_RESTART 2>/dev/null)" == "true" ]]
+}
+
+# Called after every successful start/restart: the configuration on disk is
+# now the configuration the services run with.
+clear_cli_pending_restart() {
+    cli_restart_pending || return 0
+    envf_set "$(cli_pending_restart_file)" PENDING_RESTART=false \
+        "LAST_APPLIED_AT=$(date -u +%FT%TZ)" >/dev/null 2>&1 || true
+}
+
+# Numeric group of the API container's runtime user (never assumed: custom
+# images may differ from the stock UID/GID 1001).
+docker_api_runtime_gid() {
+    # Run the bare image (no Compose mounts), so nothing on the host is created
+    # as a side effect of asking.
+    local image
+    image="$(docker_compose_cmd "$(resolve_docker_dir)" config --images api 2>/dev/null | head -n1)"
+    [[ -n "$image" ]] || return 1
+    docker run --rm --network none --entrypoint id "$image" -g 2>/dev/null | tr -d '[:space:]'
+}
+
+# Moves a legacy .env into env/ behind a compatibility link (lib/env-file.sh).
+# The caller guarantees the backend is stopped or about to be (re)created.
+# Failure leaves the legacy layout in place and is never fatal to the caller.
+migrate_env_layout() {
+    local mode="$1" shared gid=""
+    shared="$(resolve_shared_dir)"
+    declare -F envf_migrate >/dev/null || return 1
+    [[ "$(envf_layout "$shared")" == "legacy" ]] || return 0
+    if [[ "$mode" == "docker" ]]; then
+        if [[ ! -f "$(resolve_docker_dir)/docker-compose.env-dir.yml" ]]; then
+            echo "Note: docker-compose.env-dir.yml is missing; keeping the single-file .env layout."
+            return 1
+        fi
+        gid="$(docker_api_runtime_gid)"
+        if [[ ! "$gid" =~ ^[0-9]+$ ]]; then
+            echo "Note: could not determine the API container's group; keeping the single-file .env layout."
+            return 1
+        fi
+    fi
+    local mrc=0
+    envf_migrate "$shared" "$gid" || mrc=$?
+    if [[ $mrc -eq 2 ]]; then
+        echo "WARNING: .env was moved to ${shared}/env/.env, but its group permissions could not be set and the move could not be undone." >&2
+        echo "         Grant group ${gid} rw on ${shared}/env and env/.env, or move env/.env back to ${shared}/.env by hand." >&2
+        return 2
+    elif [[ $mrc -ne 0 ]]; then
+        return 1
+    fi
+    write_env_value "${shared}/.env" CHENGOS_ENV_FILE "$(readlink -f -- "${shared}/env/.env")" \
+        "Deployment settings panel target"
+    echo "Moved .env to ${shared}/env/.env (compatibility link kept at ${shared}/.env)."
+}
+
+# Offers the restart that applies a coding-agent configuration (plan §5.1-C).
+# Default No; never without a terminal. The .env layout migration rides on it.
+offer_cli_restart() {
+    local mode="$1"
+    cli_restart_pending || return 0
+    if [[ "${CLI_NONINTERACTIVE_RUN:-false}" == "true" ]] || ! { : < /dev/tty; } 2>/dev/null; then
+        echo "${t[cli_restart_required]}"
+        return 0
+    fi
+    local running
+    running="$(pgrep -fc 'runtime/cli/codex/versions/.*/bin/codex app-server' 2>/dev/null || true)"
+    printf "${t[cli_restart_scope]}\n" "${running:-0}"
+    local answer=""
+    read -r -p "${t[cli_restart_prompt]}" answer < /dev/tty || answer=""
+    if [[ ! "$answer" =~ ^[Yy]$ ]]; then
+        echo "${t[cli_restart_required]}"
+        return 0
+    fi
+    echo "Stopping ChengOS services..."
+    bash "$0" stop --mode "$mode" || true
+    local migrate_rc=0
+    migrate_env_layout "$mode" || migrate_rc=$?
+    [[ $migrate_rc -eq 1 ]] && echo "The .env layout is unchanged."
+    echo "Starting ChengOS services..."
+    bash "$0" start --mode "$mode"
+}
+
+run_setup_cli() {
+    if [[ -z "$DEPLOY_CLI_DIR" || -z "$DEPLOY_LIB_DIR" ]]; then
+        echo "cli/setup.sh or lib/ is missing; refresh the deployment scripts: ./chengos.sh update --scripts-only" >&2
+        return 1
+    fi
+    local shared mode explicit_mode="" arg prev=""
+    local -a args=()
+    for arg in "$@"; do
+        if [[ "$prev" == "--mode" ]]; then
+            explicit_mode="$arg"
+            prev=""
+            continue
+        fi
+        if [[ "$arg" == "--mode" ]]; then
+            prev="--mode"
+            continue
+        fi
+        [[ "$arg" == "--non-interactive" ]] && CLI_NONINTERACTIVE_RUN=true
+        args+=("$arg")
+    done
+    shared="$(resolve_shared_dir)"
+    mode="$(detect_install_mode)"
+    if [[ -n "$explicit_mode" ]]; then
+        if read_install_metadata >/dev/null 2>&1 && [[ "$explicit_mode" != "$mode" ]]; then
+            echo "--mode ${explicit_mode} conflicts with the recorded installation mode (${mode}); switching modes is a separate operation." >&2
+            return 2
+        fi
+        mode="$explicit_mode"
+    fi
+    local rc=0
+    bash "${DEPLOY_CLI_DIR}/setup.sh" "${args[@]}" --shared-dir "$shared" --mode "$mode" \
+        --lang "${LANG_VAL:-en}" || rc=$?
+    if [[ ( $rc -eq 0 || $rc -eq 5 ) && " ${args[*]} " != *" --check "* && " ${args[*]} " != *" --prune "* \
+          && " ${args[*]} " != *" --repair "* ]]; then
+        offer_cli_restart "$mode"
+    fi
+    return "$rc"
+}
+
 if [[ $# -gt 0 ]]; then
     CMD="$1"
     shift
@@ -2212,6 +2453,11 @@ if [[ $# -gt 0 ]]; then
     # reject `--user`, `--email`, and friends.
     if [[ "$CMD" == "admin" ]]; then
         run_admin_cli "$@"
+        exit $?
+    fi
+    # `setup-cli` forwards its options to cli/setup.sh for the same reason.
+    if [[ "$CMD" == "setup-cli" ]]; then
+        run_setup_cli "$@"
         exit $?
     fi
     
@@ -2228,6 +2474,11 @@ if [[ $# -gt 0 ]]; then
     SERVER_URL=""
     CLI_TARGET="local"
     CLOUDFLARE_ACTION="status"
+    CODEX_VERSION_POLICY=""
+    CODEX_VERSION=""
+    CODEX_TIER=""
+    ASSUME_YES="false"
+    INSTALL_DEPS="false"
     
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -2265,6 +2516,26 @@ if [[ $# -gt 0 ]]; then
                 ;;
             --with-infra)
                 WITH_INFRA_OPT="true"
+                shift
+                ;;
+            --codex-version-policy)
+                CODEX_VERSION_POLICY="$2"
+                shift 2
+                ;;
+            --codex-version)
+                CODEX_VERSION="$2"
+                shift 2
+                ;;
+            --codex-tier)
+                CODEX_TIER="$2"
+                shift 2
+                ;;
+            --yes)
+                ASSUME_YES="true"
+                shift
+                ;;
+            --install-deps)
+                INSTALL_DEPS="true"
                 shift
                 ;;
             --scripts-only)
@@ -2457,9 +2728,11 @@ if [[ $# -gt 0 ]]; then
             fi
             
             # 3. Setup configs & environments
+            env_was_new="true"
+            [[ -e "$(resolve_shared_dir)/.env" ]] && env_was_new="false"
             if [[ "$MODE" == "docker" ]]; then
                 setup_docker_env "$enable_redis" "$enable_qdrant" "$UI_PORT" "$APP_PORT"
-                docker compose pull || true
+                docker_compose_cmd "$(resolve_docker_dir)" pull || true
             else
                 # 3a. Check & install bubblewrap (required for code_shell / code_python nodes)
                 ensure_bubblewrap || echo "[!] bubblewrap unavailable — sandboxed code nodes will fail until it is installed"
@@ -2481,6 +2754,49 @@ if [[ $# -gt 0 ]]; then
             shared_dir="$(resolve_shared_dir)"
             if [[ -d "${shared_dir}/bin" ]]; then
                 chmod +x "${shared_dir}/bin/"* 2>/dev/null || true
+            fi
+
+            # A fresh .env starts in the env/ directory layout: nothing runs
+            # yet, so there is no container or process to keep attached to the
+            # old single file (deployment plan §9.1).
+            if [[ "$env_was_new" == "true" ]]; then
+                migrate_env_layout "$MODE" || true
+            fi
+
+            # 4. Optional coding-agent CLI (Codex). Native only; a failure here
+            # never fails the ChengOS installation itself.
+            if [[ ",$WITH_MODULES," == *",codex,"* ]]; then
+                if [[ "$MODE" == "docker" ]]; then
+                    echo "${t[codex_docker_unavailable]}"
+                else
+                    codex_args=(codex)
+                    [[ -n "$CODEX_VERSION" ]] && codex_args+=(--version "$CODEX_VERSION")
+                    [[ -z "$CODEX_VERSION" && -n "$CODEX_VERSION_POLICY" ]] && codex_args+=(--version-policy "$CODEX_VERSION_POLICY")
+                    [[ -n "$CODEX_TIER" ]] && codex_args+=(--tier "$CODEX_TIER")
+                    [[ "$ASSUME_YES" == "true" ]] && codex_args+=(--non-interactive)
+                    [[ "$INSTALL_DEPS" == "true" ]] && codex_args+=(--install-deps)
+                    codex_rc=0
+                    if [[ -z "$DEPLOY_CLI_DIR" ]]; then
+                        echo "WARNING: cli/setup.sh is missing; Codex was not installed." >&2
+                        codex_rc=1
+                    else
+                        bash "${DEPLOY_CLI_DIR}/setup.sh" "${codex_args[@]}" --shared-dir "$shared_dir" \
+                            --mode "$MODE" --lang "${LANG_VAL:-en}" || codex_rc=$?
+                    fi
+                    if [[ $codex_rc -eq 0 || $codex_rc -eq 5 ]]; then
+                        # Same post-success handling as setup-cli: a running
+                        # instance gets the confirmed restart offer; otherwise
+                        # the configuration applies on the first start.
+                        if pgrep -f -- "${shared_dir}/bin/cheng-api" >/dev/null 2>&1; then
+                            [[ "$ASSUME_YES" == "true" ]] && CLI_NONINTERACTIVE_RUN=true
+                            offer_cli_restart "$MODE"
+                        else
+                            echo "${t[codex_applies_on_start]}"
+                        fi
+                    else
+                        echo "${t[codex_install_failed]}" >&2
+                    fi
+                fi
             fi
 
             echo "${t[install_done]}"
@@ -2505,6 +2821,7 @@ if [[ $# -gt 0 ]]; then
                 
                 run_service_cmd start native --with "$modules"
             fi
+            clear_cli_pending_restart
             ;;
             
         stop)
@@ -2548,6 +2865,7 @@ if [[ $# -gt 0 ]]; then
                 echo "Starting native services with modules: ${modules}"
                 (cd "$hybrid_dir" && bash start.sh --with "$modules")
             fi
+            clear_cli_pending_restart
             echo "Restart completed."
             ;;
             
@@ -2622,6 +2940,34 @@ if [[ $# -gt 0 ]]; then
             source "$doctor_lib"
             run_doctor "${shared_dir}/.env" "$MODE"
             exit $?
+            ;;
+
+        env-migrate)
+            # Explicit move of a legacy .env into env/ (deployment plan §9.1):
+            # stop, move, start, all under the operator's confirmation.
+            shared_dir="$(resolve_shared_dir)"
+            layout="unknown"
+            declare -F envf_layout >/dev/null && layout="$(envf_layout "$shared_dir")"
+            case "$layout" in
+                migrated) echo ".env is already in ${shared_dir}/env/."; exit 0 ;;
+                legacy) ;;
+                *) echo "Cannot migrate: .env layout is '${layout}' (needs lib/env-file.sh and a single legacy file)." >&2; exit 1 ;;
+            esac
+            echo "This stops ChengOS, moves ${shared_dir}/.env to ${shared_dir}/env/.env behind a"
+            echo "compatibility link, and starts ChengOS again."
+            if [[ "$ASSUME_YES" != "true" ]]; then
+                read -r -p "Continue? [y/N]: " migrate_yn < /dev/tty || migrate_yn=""
+                [[ "$migrate_yn" =~ ^[Yy]$ ]] || { echo "Cancelled."; exit 0; }
+            fi
+            bash "$0" stop --mode "$MODE" || true
+            migrate_rc=0
+            migrate_env_layout "$MODE" || migrate_rc=$?
+            if [[ $migrate_rc -ne 0 ]]; then
+                [[ $migrate_rc -eq 1 ]] && echo "Migration failed; the previous layout is unchanged." >&2
+                bash "$0" start --mode "$MODE"
+                exit 1
+            fi
+            bash "$0" start --mode "$MODE"
             ;;
 
         cloudflare)
@@ -2704,6 +3050,7 @@ while true; do
     echo "  ${t[menu_exit]}"
     echo "  ${t[menu_reset_credentials]}"
     echo "  ${t[menu_rollback]}"
+    echo "  ${t[menu_coding_agent]}"
     echo "==========================================="
     read -p "${t[select_op]}" op < /dev/tty
     
@@ -2775,16 +3122,41 @@ while true; do
                 read -p "${t[prompt_workspace_root]}" workspace_root < /dev/tty
             fi
 
+            # Install-environment step: optional Codex selection (native only).
+            enable_codex="false"
+            codex_policy="stable"
+            codex_tier="tasks"
+            if [[ "$install_mode" == "native" ]]; then
+                read -p "${t[prompt_codex]}" codex_yn < /dev/tty
+                if [[ "$codex_yn" =~ ^[Yy]$ ]]; then
+                    enable_codex="true"
+                    echo "${t[codex_policy_select]}"
+                    echo "${t[codex_policy_stable]}"
+                    echo "${t[codex_policy_tested]}"
+                    read -p "${t[codex_policy_prompt]}" codex_policy_choice < /dev/tty
+                    [[ "$codex_policy_choice" == "2" ]] && codex_policy="tested"
+                    echo "${t[codex_tier_select]}"
+                    echo "${t[codex_tier_tasks]}"
+                    echo "${t[codex_tier_sessions]}"
+                    echo "${t[codex_tier_chat]}"
+                    read -p "${t[codex_tier_prompt]}" codex_tier_choice < /dev/tty
+                    [[ "$codex_tier_choice" == "2" ]] && codex_tier="sessions"
+                    [[ "$codex_tier_choice" == "3" ]] && codex_tier="chat"
+                fi
+            fi
+
             modules_list="api"
             [[ "$enable_redis" == "true" ]] && modules_list="${modules_list},redis"
             [[ "$enable_qdrant" == "true" ]] && modules_list="${modules_list},qdrant"
             [[ "$enable_ui" == "true" ]] && modules_list="${modules_list},ui"
             [[ "$enable_app" == "true" ]] && modules_list="${modules_list},app"
             [[ "$enable_cli" == "true" ]] && modules_list="${modules_list},cli"
+            [[ "$enable_codex" == "true" ]] && modules_list="${modules_list},codex"
             
             echo ""
             install_args=(install --mode "$install_mode" --with "$modules_list" --db-install-mode "$db_mode" --ui-port "$ui_port" --app-port "$app_port")
             [[ -n "$workspace_root" ]] && install_args+=(--workspace-root "$workspace_root")
+            [[ "$enable_codex" == "true" ]] && install_args+=(--codex-version-policy "$codex_policy" --codex-tier "$codex_tier")
             bash "$0" "${install_args[@]}"
             read -p "${t[press_enter]}" dummy < /dev/tty
             ;;
@@ -2996,6 +3368,25 @@ EOF
             else
                 echo "${t[rollback_cancelled]}"
             fi
+            read -p "${t[press_enter]}" dummy < /dev/tty
+            ;;
+
+        14)
+            clear
+            install_mode="$(detect_install_mode)"
+            echo "${t[coding_agent_title]}"
+            echo "  ${t[coding_agent_install]}"
+            echo "  ${t[coding_agent_status]}"
+            echo "  ${t[coding_agent_prune]}"
+            echo "  ${t[coding_agent_back]}"
+            read -p "${t[coding_agent_prompt]}" ca_choice < /dev/tty
+            echo ""
+            case "${ca_choice:-2}" in
+                1) bash "$0" setup-cli codex --mode "$install_mode" || true ;;
+                2) bash "$0" setup-cli codex --check --mode "$install_mode" || true ;;
+                3) bash "$0" setup-cli codex --prune --mode "$install_mode" || true ;;
+                *) continue ;;
+            esac
             read -p "${t[press_enter]}" dummy < /dev/tty
             ;;
 

@@ -20,8 +20,13 @@ cd "$ROOT_DIR"
 
 ENV_EXAMPLE="${ROOT_DIR}/.env.example"
 ENV_FILE="${ROOT_DIR}/.env"
+# A migrated instance keeps .env in env/ behind a compatibility symlink. Edit
+# the real file: perl -i / sed -i replace whatever path they are given, and
+# replacing the link would split the configuration in two.
+ENV_FILE="$(readlink -f -- "$ENV_FILE" 2>/dev/null || printf '%s' "$ENV_FILE")"
 
 FORCE=false
+ALLOW_RUNNING=false
 CORS_ORIGIN=""
 UI_PORT=""
 APP_PORT=""
@@ -44,7 +49,10 @@ Usage:
   bash generate-env.sh [options]
 
 Options:
-  --force                  Overwrite an existing .env file
+  --force                  Overwrite an existing .env file (regenerates every
+                           secret; refused while this instance is running)
+  --allow-running          With --force: proceed even though ChengOS appears
+                           to be running (maintenance use only)
   --cors-origin URL        Fill CORS_ALLOWED_ORIGINS with a real origin
   --ui-port PORT           Set UI_PORT
   --app-port PORT          Set APP_PORT
@@ -66,6 +74,10 @@ EOF
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        --allow-running)
+            ALLOW_RUNNING=true
+            shift
+            ;;
         --force)
             FORCE=true
             shift
@@ -146,6 +158,30 @@ if [[ -f "$ENV_FILE" && "$FORCE" != true ]]; then
     fail "${ENV_FILE} already exists. Use --force to overwrite it."
 fi
 
+# A forced regeneration replaces the database password, JWT secret and the
+# credential master key. Under a running instance that breaks database access
+# and every session, and it would race the settings panel's own writes, so it
+# is a maintenance-window operation: stop ChengOS first.
+instance_running() {
+    if command -v pgrep >/dev/null 2>&1 && pgrep -f -- "${ROOT_DIR}/bin/cheng-api" >/dev/null 2>&1; then
+        return 0
+    fi
+    # A running API container of THIS installation (its mounts come from here).
+    if command -v docker >/dev/null 2>&1; then
+        local id
+        for id in $(docker ps -q --filter 'name=^chengos-api$' 2>/dev/null); do
+            if docker inspect -f '{{range .Mounts}}{{.Source}}{{"\n"}}{{end}}' "$id" 2>/dev/null \
+                | grep -q -- "^${ROOT_DIR}/"; then
+                return 0
+            fi
+        done
+    fi
+    return 1
+}
+if [[ -f "$ENV_FILE" && "$FORCE" == true && "$ALLOW_RUNNING" != true ]] && instance_running; then
+    fail "ChengOS appears to be running. Stop it first (./chengos.sh stop): --force regenerates every secret. Use --allow-running only in a maintenance window."
+fi
+
 command -v openssl >/dev/null 2>&1 || fail "openssl is required to generate random secrets"
 
 postgres_password="$(openssl rand -hex 16)"
@@ -153,20 +189,27 @@ redis_password="$(openssl rand -hex 16)"
 credential_master_key_1="$(openssl rand -hex 32)"
 jwt_secret="$(openssl rand -hex 32)"
 
-cp "$ENV_EXAMPLE" "$ENV_FILE"
+# Build the complete file in a staged copy next to the target, then commit it
+# once under the shared .env lock (lib/env-file.sh), so a generator never
+# interleaves with the settings panel or another script.
+mkdir -p "$(dirname "$ENV_FILE")"
+STAGED="$(mktemp "$(dirname "$ENV_FILE")/.env.generate.XXXXXX")" || fail "cannot stage ${ENV_FILE}"
+trap 'rm -f -- "$STAGED"' EXIT
+chmod 600 "$STAGED"
+cp "$ENV_EXAMPLE" "$STAGED"
 
 replace_env_line() {
     local key="$1"
     local value="$2"
 
     if command -v perl > /dev/null 2>&1; then
-        KEY="$key" VALUE="$value" perl -0pi -e 's/^(#+\s*)?\Q$ENV{KEY}\E=.*/$ENV{KEY}."=".$ENV{VALUE}/me' "$ENV_FILE"
+        KEY="$key" VALUE="$value" perl -0pi -e 's/^(#+\s*)?\Q$ENV{KEY}\E=.*/$ENV{KEY}."=".$ENV{VALUE}/me' "$STAGED"
     else
         # sed fallback: use | as delimiter (the pattern contains # for matching commented lines)
         # escape & and | in the replacement value
         local escaped_value="${value//&/\\&}"
         escaped_value="${escaped_value//|/\\|}"
-        sed -i "s|^\(#*[[:space:]]*\)${key}=.*|${key}=${escaped_value}|" "$ENV_FILE"
+        sed -i "s|^\(#*[[:space:]]*\)${key}=.*|${key}=${escaped_value}|" "$STAGED"
     fi
 }
 
@@ -227,7 +270,30 @@ replace_env_line "CHENGOS_ENV_FILE" "${ENV_FILE}"
 [[ -n "$PUBLIC_API_URL" ]] && replace_env_line "PUBLIC_API_URL" "${PUBLIC_API_URL}"
 [[ -n "$DB_POOL" ]] && replace_env_line "DATABASE_MAX_CONNECTIONS" "${DB_POOL}" && replace_env_line "REDIS_MAX_CONNECTIONS" "${DB_POOL}"
 
-chmod 600 "$ENV_FILE" 2>/dev/null || true
+# Commit. --if-absent re-checks existence under the lock for a non-forced run.
+commit_mode=""
+[[ "$FORCE" == true ]] || commit_mode="--if-absent"
+if [[ -f "${ROOT_DIR}/lib/env-file.sh" ]]; then
+    # shellcheck source=lib/env-file.sh
+    source "${ROOT_DIR}/lib/env-file.sh"
+    envf_replace_file "$ENV_FILE" "$STAGED" $commit_mode \
+        || fail "could not write ${ENV_FILE}"
+else
+    # Minimal fallback for layouts without lib/: the same lock file and rules.
+    (
+        exec 9>>"${ENV_FILE}.lock" || exit 1
+        flock -w "${ENVF_LOCK_TIMEOUT:-30}" 9 || { echo "timed out waiting for ${ENV_FILE}.lock" >&2; exit 1; }
+        [[ -n "$commit_mode" && -e "$ENV_FILE" ]] && exit 3
+        if [[ -e "$ENV_FILE" ]]; then
+            cp -p -- "$ENV_FILE" "${ENV_FILE}.bak" || exit 1
+            cat -- "$STAGED" > "$ENV_FILE" || exit 1
+        else
+            mv -f -- "$STAGED" "$ENV_FILE" || exit 1
+        fi
+    ) || fail "could not write ${ENV_FILE}"
+fi
+# Modes: a new file keeps the staged 0600; a replaced file keeps its own mode
+# (0660 for a Docker env/ layout whose API container must write it).
 
 log "Created ${ENV_FILE} with generated secrets"
 log "Review ${ENV_FILE}, then run the start script for your deployment mode"

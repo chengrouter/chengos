@@ -11,6 +11,10 @@ cd "$ROOT_DIR"
 
 VPS_ENV_FILE="${SCRIPT_DIR}/vps_b_env.txt"
 ENV_FILE="${ROOT_DIR}/.env"
+# A migrated instance keeps .env in env/ behind a compatibility symlink. Edit
+# the real file: perl -i / sed -i replace whatever path they are given, and
+# replacing the link would split the configuration in two.
+ENV_FILE="$(readlink -f -- "$ENV_FILE" 2>/dev/null || printf '%s' "$ENV_FILE")"
 
 log()  { printf '[chengos] %s\n' "$*"; }
 fail() { printf '[chengos] ERROR: %s\n' "$*" >&2; exit 1; }
@@ -50,18 +54,29 @@ if [[ -f "$VPS_ENV_FILE" ]]; then
     postgres_password="${POSTGRES_PASSWORD:-$(openssl rand -hex 16)}"
     redis_password="${REDIS_PASSWORD:-$(openssl rand -hex 16)}"
 
-    replace_env_line() {
-        local key="$1"
-        local value="$2"
-        KEY="$key" VALUE="$value" perl -0pi -e 's/^\Q$ENV{KEY}\E=.*/$ENV{KEY}."=".$ENV{VALUE}/me' "$ENV_FILE"
-    }
-
-    replace_env_line "POSTGRES_PASSWORD" "${postgres_password}"
-    replace_env_line "REDIS_PASSWORD" "${redis_password}"
-    replace_env_line "DB_PASSWORD" "${postgres_password}"
-    replace_env_line "DATABASE_URL" "postgres://tianai_db:${postgres_password}@${db_host}:5432/master_router"
-    replace_env_line "REDIS_URL" "redis://:${redis_password}@${db_host}:6379"
-    replace_env_line "QDRANT_URL" "http://${qdrant_host}:6334"
+    overrides=(
+        "POSTGRES_PASSWORD=${postgres_password}"
+        "REDIS_PASSWORD=${redis_password}"
+        "DB_PASSWORD=${postgres_password}"
+        "DATABASE_URL=postgres://tianai_db:${postgres_password}@${db_host}:5432/master_router"
+        "REDIS_URL=redis://:${redis_password}@${db_host}:6379"
+        "QDRANT_URL=http://${qdrant_host}:6334"
+    )
+    # One locked transaction through the shared writer (lib/env-file.sh).
+    if [[ -f "${ROOT_DIR}/lib/env-file.sh" ]]; then
+        # shellcheck source=../lib/env-file.sh
+        source "${ROOT_DIR}/lib/env-file.sh"
+        envf_set "$ENV_FILE" --section "Distributed database overrides" "${overrides[@]}" \
+            || fail "could not apply the distributed overrides to ${ENV_FILE}"
+    else
+        (
+            exec 9>>"${ENV_FILE}.lock" || exit 1
+            flock -w 30 9 || exit 1
+            for kv in "${overrides[@]}"; do
+                KEY="${kv%%=*}" VALUE="${kv#*=}" perl -0pi -e 's/^\Q$ENV{KEY}\E=.*/$ENV{KEY}."=".$ENV{VALUE}/me' "$ENV_FILE" || exit 1
+            done
+        ) || fail "could not apply the distributed overrides to ${ENV_FILE}"
+    fi
 fi
 
 log "Created ${ENV_FILE} successfully!"
