@@ -428,6 +428,72 @@ _codex_flag() {
     case "${v,,}" in 1|true|yes) printf 'true' ;; *) printf 'false' ;; esac
 }
 
+# _codex_inside_roots DIR ROOTS — whether DIR's canonical path equals or lies
+# under one of the ':'-separated ROOTS (canonicalized, whole path components,
+# like the backend: /a/project2 is not inside /a/project).
+_codex_inside_roots() {
+    local dir root canon_root
+    dir="$(readlink -f -- "$1" 2>/dev/null)" || return 1
+    local IFS=':'
+    for root in $2; do
+        [[ -n "$root" ]] || continue
+        canon_root="$(readlink -f -- "$root" 2>/dev/null)" || continue
+        [[ "$dir" == "$canon_root" || "$dir" == "${canon_root%/}/"* ]] && return 0
+    done
+    return 1
+}
+
+# codex_check_web_default_scope ENV_FILE
+# Reports the single-user web default scope (web chat without a CLI session)
+# separately from credential login: the scope being available never means a
+# login exists. Returns 1 for a configuration the backend refuses or that is
+# riskier than intended (warnings only; --check stays read-only).
+codex_check_web_default_scope() {
+    local env_file="$1" scope default_root auth signup warn=0
+    scope="$(envf_get "$env_file" CHENG_CODING_AGENT_WEB_DEFAULT_SCOPE 2>/dev/null || printf 'off')"
+    default_root="$(envf_get "$env_file" CHENG_CODING_AGENT_DEFAULT_ROOT 2>/dev/null || true)"
+    echo "    default directory: ${default_root:-<first work root>}"
+    case "${scope,,}" in
+        on|true|1|yes) ;;
+        ""|off|false|0|no)
+            echo "    web default scope: off (web chat needs a CLI session; set CHENG_CODING_AGENT_WEB_DEFAULT_SCOPE=on to allow the operator)"
+            return 0
+            ;;
+        *)
+            echo "  ! CHENG_CODING_AGENT_WEB_DEFAULT_SCOPE='${scope}' is not on/off; the backend treats it as off"
+            return 1
+            ;;
+    esac
+    echo "    web default scope: on (the platform administrator can run coding agents from the web; a credential login is still required)"
+    auth="$(envf_get "$env_file" CHENG_AUTH_MODE 2>/dev/null || printf 'single')"
+    if [[ "${auth,,}" != "single" ]]; then
+        echo "  ! CHENG_AUTH_MODE=${auth}: the web default scope only works in single-user mode"
+        warn=1
+    fi
+    if [[ "$(_codex_flag "$env_file" CHENG_CREDENTIAL_AUTH_ENABLED)" != "true" ]]; then
+        echo "  ! the web default scope needs managed credentials (CHENG_CREDENTIAL_AUTH_ENABLED=true)"
+        warn=1
+    fi
+    if [[ -n "$default_root" ]]; then
+        if [[ ! -d "$default_root" ]]; then
+            echo "  ! CHENG_CODING_AGENT_DEFAULT_ROOT does not exist; the web default scope stays off"
+            warn=1
+        elif ! _codex_inside_roots "$default_root" "$(envf_get "$env_file" CHENG_CODING_AGENT_DEDICATED_ROOTS 2>/dev/null || true)"; then
+            echo "  ! CHENG_CODING_AGENT_DEFAULT_ROOT is not inside CHENG_CODING_AGENT_DEDICATED_ROOTS; the web default scope stays off"
+            warn=1
+        fi
+    fi
+    signup="$(envf_get "$env_file" CHENG_SIGNUP_MODE 2>/dev/null || printf 'open')"
+    if [[ -z "$signup" || "${signup,,}" == "open" ]]; then
+        echo "  ! CHENG_SIGNUP_MODE is open: anyone who can reach this server can register. Only the"
+        echo "    platform administrator gets the web default scope, but set CHENG_SIGNUP_MODE=closed"
+        echo "    on a single-user install"
+        warn=1
+    fi
+    echo "    note: changing the default directory makes existing coding-agent chats ask for a reset"
+    return "$warn"
+}
+
 # Current tier from .env: none | tasks | sessions | chat.
 codex_current_tier() {
     local env_file="$1"
@@ -507,12 +573,99 @@ codex_credential_decision() {
     fi
 }
 
-# codex_activate SHARED MODE VERSION BIN SOURCE TIER CREDENTIAL SKIP_PROBE
+# _codex_scope_on ENV_FILE — whether the web default scope is switched on.
+_codex_scope_on() {
+    case "$(envf_get "$1" CHENG_CODING_AGENT_WEB_DEFAULT_SCOPE 2>/dev/null || true)" in
+        on|ON|On|true|TRUE|True|1|yes|YES|Yes) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+# codex_web_scope_decision ENV_FILE REQUESTED CREDENTIAL — prints on | off | keep.
+# REQUESTED: "" (keep, or ask), enable, disable. CREDENTIAL is this run's
+# credential decision. The scope lets the platform administrator of a
+# single-user install run coding agents from the web without a CLI session; it
+# is never switched on without explicit consent (a flag or a "yes"), and only
+# where the backend would honour it. Returns 2 when an explicit request cannot
+# be honoured (nothing is written then).
+codex_web_scope_decision() {
+    local env_file="$1" requested="$2" credential="$3" auth managed=false
+    auth="$(envf_get "$env_file" CHENG_AUTH_MODE 2>/dev/null || printf 'single')"
+    [[ "$credential" == "true" || "$(_codex_flag "$env_file" CHENG_CREDENTIAL_AUTH_ENABLED)" == "true" ]] && managed=true
+    case "$requested" in
+        disable) printf 'off'; return 0 ;;
+        enable)
+            if [[ "${auth:-single}" != "single" ]]; then
+                cli_err "--enable-web-default-scope needs CHENG_AUTH_MODE=single (this install uses ${auth})"
+                return 2
+            fi
+            if [[ "$managed" != true ]]; then
+                cli_err "--enable-web-default-scope needs device-code login (managed credentials); drop --no-credential-auth or add --enable-credential-auth"
+                return 2
+            fi
+            printf 'on'
+            return 0
+            ;;
+    esac
+    if _codex_scope_on "$env_file" || [[ "${auth:-single}" != "single" || "$managed" != true ]]; then
+        printf 'keep'
+        return 0
+    fi
+    if cli_can_prompt; then
+        {
+            echo ""
+            echo "  Web default scope: let the platform administrator chat with the coding agent"
+            echo "  directly from the web UI, in the default directory"
+            echo "  ($(envf_get "$env_file" CHENG_CODING_AGENT_DEFAULT_ROOT 2>/dev/null || echo 'the first work root')),"
+            echo "  without starting a \`cheng\` CLI session first. The sandbox, approvals and budgets"
+            echo "  stay in force; other accounts never get it. A credential login is still needed."
+        } >&2
+        if cli_confirm "  Allow the administrator to use the default sandbox from the web? [y/N]: " n; then
+            printf 'on'
+            return 0
+        fi
+    fi
+    printf 'keep'
+}
+
+# codex_signup_decision ENV_FILE REQUESTED WEB_SCOPE — prints closed | keep.
+# REQUESTED: "" or close. Offered only when the web default scope will be on
+# and registration is still open; closing it is never done silently.
+codex_signup_decision() {
+    local env_file="$1" requested="$2" scope="$3" signup
+    signup="$(envf_get "$env_file" CHENG_SIGNUP_MODE 2>/dev/null || printf 'open')"
+    if [[ -n "$signup" && "${signup,,}" != "open" ]]; then
+        printf 'keep'
+        return 0
+    fi
+    if [[ "$requested" == "close" ]]; then
+        printf 'closed'
+        return 0
+    fi
+    if [[ "$scope" == "on" ]] || { [[ "$scope" == "keep" ]] && _codex_scope_on "$env_file"; }; then
+        if cli_can_prompt; then
+            {
+                echo ""
+                echo "  Registration is open (CHENG_SIGNUP_MODE): anyone who can reach this server can"
+                echo "  create an account. Only the administrator gets the web default scope, but a"
+                echo "  single-user install should close registration."
+            } >&2
+            if cli_confirm "  Close registration now (CHENG_SIGNUP_MODE=closed)? [Y/n]: " y; then
+                printf 'closed'
+                return 0
+            fi
+        fi
+    fi
+    printf 'keep'
+}
+
+# codex_activate SHARED MODE VERSION BIN SOURCE TIER CREDENTIAL SKIP_PROBE [WEB_SCOPE] [SIGNUP]
 # Provisions directories, runs the backend probe, then commits every key of
 # the selected tier in ONE locked .env transaction. Nothing is written when a
 # check fails.
 codex_activate() {
     local shared="$1" mode="$2" version="$3" bin="$4" source="$5" tier="$6" credential="$7" skip_probe="$8"
+    local web_scope="${9:-keep}" signup="${10:-keep}"
     local env_file state root host_id previous
     env_file="$(envf_canonical "${shared}/.env")"
     [[ -f "$env_file" ]] || { cli_err "no ${shared}/.env yet; install ChengOS first"; return 1; }
@@ -533,6 +686,10 @@ codex_activate() {
         "CHENG_CODING_AGENT_CODEX_BIN=${bin}"
         "CHENG_CODING_AGENT_STATE_DIR=${state}"
         "CHENG_CODING_AGENT_DEDICATED_ROOTS=$(envf_get "$env_file" CHENG_CODING_AGENT_DEDICATED_ROOTS 2>/dev/null || printf '%s' "$root")"
+        # Pinned explicitly so reordering the roots cannot move it; an
+        # operator's existing choice is preserved. The web default scope that
+        # uses it is switched only by an explicit decision (WEB_SCOPE).
+        "CHENG_CODING_AGENT_DEFAULT_ROOT=$(envf_get "$env_file" CHENG_CODING_AGENT_DEFAULT_ROOT 2>/dev/null || printf '%s' "$root")"
         "CHENGOS_CODEX_VERSION=${version}"
     )
     local need_host_id=false
@@ -554,6 +711,17 @@ codex_activate() {
         true) keys+=(CHENG_CREDENTIAL_AUTH_ENABLED=true); need_host_id=true ;;
         keep) ;;
         *) cli_err "unknown credential decision ${credential}"; return 1 ;;
+    esac
+    case "$web_scope" in
+        on) keys+=(CHENG_CODING_AGENT_WEB_DEFAULT_SCOPE=on) ;;
+        off) keys+=(-CHENG_CODING_AGENT_WEB_DEFAULT_SCOPE) ;;
+        keep) ;;
+        *) cli_err "unknown web default scope decision ${web_scope}"; return 1 ;;
+    esac
+    case "$signup" in
+        closed) keys+=(CHENG_SIGNUP_MODE=closed) ;;
+        keep) ;;
+        *) cli_err "unknown signup decision ${signup}"; return 1 ;;
     esac
     # Managed credentials and resumable sessions both bind to the host
     # identity, so it is written whenever either is on, and preserved always.
@@ -762,6 +930,7 @@ codex_status() {
         fi
         echo "    device-code login (managed credentials): $(_codex_flag "$env_file" CHENG_CREDENTIAL_AUTH_ENABLED)"
         echo "    login state: managed per user in the UI credential settings (not visible here)"
+        codex_check_web_default_scope "$env_file" || { [[ $rc -eq 0 ]] && rc=3; }
     fi
     # Bookkeeping must agree with .env (the source of truth).
     local activating configured_state actives="" v2

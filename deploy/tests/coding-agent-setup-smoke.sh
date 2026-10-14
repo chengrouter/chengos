@@ -438,6 +438,8 @@ assert_eq "${CHENGOS_CLI_RUNTIME_HOME}/.local/share/cheng/agent-state" "$(envf_g
     "state lives in the runtime user's home, outside the installation"
 assert_eq "700" "$(stat -c %a "${CHENGOS_CLI_RUNTIME_HOME}/.local/share/cheng/agent-state")" "state dir is 0700"
 assert_eq "${I}/workspace/coding-agent" "$(envf_get "$EF" CHENG_CODING_AGENT_DEDICATED_ROOTS)" "working root under the workspace"
+assert_eq "${I}/workspace/coding-agent" "$(envf_get "$EF" CHENG_CODING_AGENT_DEFAULT_ROOT)" "pins the default directory to the work root"
+assert_false "never switches the web default scope on" envf_get "$EF" CHENG_CODING_AGENT_WEB_DEFAULT_SCOPE
 assert_eq "true" "$(envf_get "$EF" CHENG_CREDENTIAL_AUTH_ENABLED)" "new setup enables device-code login"
 host_id="$(envf_get "$EF" CHENG_CODING_AGENT_HOST_ID)"
 if [[ -r /etc/machine-id && "$(tr -d '[:space:]' < /etc/machine-id)" =~ ^[0-9a-f]{32}$ ]]; then
@@ -636,6 +638,56 @@ assert_eq "${WORK_ROOT}/home/legacy-state" "$(envf_get "$LEF" CHENG_CODING_AGENT
 bash "${L}/cli/setup.sh" codex --shared-dir "$L" --mode native --non-interactive --version 0.162.0 \
     --enable-credential-auth >"${WORK_ROOT}/out.log" 2>&1
 assert_eq "true" "$(envf_get "$LEF" CHENG_CREDENTIAL_AUTH_ENABLED)" "--enable-credential-auth switches it explicitly"
+
+# Web default scope: an operator's default directory survives a re-run, and
+# --check reports the scope apart from login, warning about open signup.
+mkdir -p "${L}/workspace/coding-agent/project-a"
+envf_set "$LEF" "CHENG_CODING_AGENT_DEFAULT_ROOT=${L}/workspace/coding-agent/project-a"
+bash "${L}/cli/setup.sh" codex --shared-dir "$L" --mode native --non-interactive --version 0.162.0 >"${WORK_ROOT}/out.log" 2>&1
+assert_eq "${L}/workspace/coding-agent/project-a" "$(envf_get "$LEF" CHENG_CODING_AGENT_DEFAULT_ROOT)" \
+    "preserves the operator's default directory"
+out="$(bash "${L}/cli/setup.sh" codex --shared-dir "$L" --mode native --check 2>&1)"
+assert_contains "web default scope: off" "$out" "--check reports the web default scope as off by default"
+envf_set "$LEF" CHENG_CODING_AGENT_WEB_DEFAULT_SCOPE=on
+out="$(bash "${L}/cli/setup.sh" codex --shared-dir "$L" --mode native --check 2>&1)"
+assert_contains "a credential login is still required" "$out" "--check separates the scope from login"
+assert_contains "CHENG_SIGNUP_MODE is open" "$out" "--check warns about open signup"
+envf_set "$LEF" CHENG_SIGNUP_MODE=closed
+out="$(bash "${L}/cli/setup.sh" codex --shared-dir "$L" --mode native --check 2>&1)"
+assert_false "no signup warning once signup is closed" grep -q "CHENG_SIGNUP_MODE is open" <<<"$out"
+envf_set "$LEF" -CHENG_CODING_AGENT_WEB_DEFAULT_SCOPE -CHENG_SIGNUP_MODE
+mkdir -p "${WORK_ROOT}/elsewhere"
+envf_set "$LEF" "CHENG_CODING_AGENT_DEFAULT_ROOT=${WORK_ROOT}/elsewhere" CHENG_CODING_AGENT_WEB_DEFAULT_SCOPE=on
+out="$(bash "${L}/cli/setup.sh" codex --shared-dir "$L" --mode native --check 2>&1)"
+assert_contains "is not inside CHENG_CODING_AGENT_DEDICATED_ROOTS" "$out" "--check flags a default directory outside the work roots"
+mkdir -p "${L}/workspace/coding-agent2"
+envf_set "$LEF" "CHENG_CODING_AGENT_DEFAULT_ROOT=${L}/workspace/coding-agent2"
+out="$(bash "${L}/cli/setup.sh" codex --shared-dir "$L" --mode native --check 2>&1)"
+assert_contains "is not inside CHENG_CODING_AGENT_DEDICATED_ROOTS" "$out" "--check compares whole path components (coding-agent2)"
+envf_set "$LEF" "CHENG_CODING_AGENT_DEFAULT_ROOT=${L}/workspace/coding-agent/project-a" -CHENG_CODING_AGENT_WEB_DEFAULT_SCOPE
+
+# The installer switches the web default scope only on request.
+bash "${L}/cli/setup.sh" codex --shared-dir "$L" --mode native --non-interactive --version 0.162.0 \
+    --enable-web-default-scope --close-signup >"${WORK_ROOT}/out.log" 2>&1
+assert_eq "0" "$?" "--enable-web-default-scope activates"
+assert_eq "on" "$(envf_get "$LEF" CHENG_CODING_AGENT_WEB_DEFAULT_SCOPE)" "writes the web default scope"
+assert_eq "closed" "$(envf_get "$LEF" CHENG_SIGNUP_MODE)" "--close-signup closes registration"
+bash "${L}/cli/setup.sh" codex --shared-dir "$L" --mode native --non-interactive --version 0.162.0 >"${WORK_ROOT}/out.log" 2>&1
+assert_eq "on" "$(envf_get "$LEF" CHENG_CODING_AGENT_WEB_DEFAULT_SCOPE)" "a re-run without the flag keeps it"
+bash "${L}/cli/setup.sh" codex --shared-dir "$L" --mode native --non-interactive --version 0.162.0 \
+    --no-web-default-scope >"${WORK_ROOT}/out.log" 2>&1
+assert_false "--no-web-default-scope switches it off" envf_get "$LEF" CHENG_CODING_AGENT_WEB_DEFAULT_SCOPE
+envf_set "$LEF" -CHENG_SIGNUP_MODE
+
+N="${WORK_ROOT}/no-managed"
+make_install "$N"
+NEF="$(readlink -f "${N}/.env")"
+nbefore="$(sha256sum < "$NEF")"
+bash "${N}/cli/setup.sh" codex --shared-dir "$N" --mode native --non-interactive --version 0.162.0 \
+    --no-credential-auth --enable-web-default-scope >"${WORK_ROOT}/out.log" 2>&1
+assert_eq "2" "$?" "refuses the web default scope without managed credentials"
+assert_contains "needs device-code login" "$(cat "${WORK_ROOT}/out.log")" "names the missing requirement"
+assert_eq "$nbefore" "$(sha256sum < "$NEF")" "a refused request writes nothing"
 
 # --bin reuse of an existing native installation.
 R="${WORK_ROOT}/reuse"

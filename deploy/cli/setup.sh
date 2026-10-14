@@ -30,6 +30,13 @@ Usage: setup.sh codex [options]
   --enable-credential-auth  Switch an existing legacy-profile deployment to
                             device-code login (irreversible once used)
   --no-credential-auth      New setups only: leave device-code login off
+  --enable-web-default-scope
+                            Let the platform administrator of a single-user
+                            install run coding agents from the web without a
+                            CLI session (needs device-code login)
+  --no-web-default-scope    Switch the web default scope off
+  --close-signup            Set CHENG_SIGNUP_MODE=closed (asked interactively
+                            when the web default scope is on and signup open)
   --install-deps            Authorize installing missing system packages
   --skip-backend-probe      Activate on local probes only (recorded)
   --check                   Read-only status report
@@ -54,6 +61,8 @@ EXACT_VERSION=""
 REUSE_BIN=""
 TIER=""
 CREDENTIAL_REQUEST=""
+WEB_SCOPE_REQUEST=""
+SIGNUP_REQUEST=""
 SKIP_BACKEND_PROBE=false
 ACTION="setup"
 PRUNE_APPLY=false
@@ -71,6 +80,9 @@ while [[ $# -gt 0 ]]; do
         --tier) TIER="${2:?--tier needs a value}"; shift 2 ;;
         --enable-credential-auth) CREDENTIAL_REQUEST="enable"; shift ;;
         --no-credential-auth) CREDENTIAL_REQUEST="disable"; shift ;;
+        --enable-web-default-scope) WEB_SCOPE_REQUEST="enable"; shift ;;
+        --no-web-default-scope) WEB_SCOPE_REQUEST="disable"; shift ;;
+        --close-signup) SIGNUP_REQUEST="close"; shift ;;
         --install-deps) CLI_INSTALL_DEPS=true; shift ;;
         --skip-backend-probe) SKIP_BACKEND_PROBE=true; shift ;;
         --check) ACTION="check"; shift ;;
@@ -313,6 +325,8 @@ if [[ -z "$TIER" ]]; then
 fi
 
 CREDENTIAL="$(codex_credential_decision "$ENV_FILE" "$CREDENTIAL_REQUEST")"
+WEB_SCOPE="$(codex_web_scope_decision "$ENV_FILE" "$WEB_SCOPE_REQUEST" "$CREDENTIAL")" || exit 2
+SIGNUP="$(codex_signup_decision "$ENV_FILE" "$SIGNUP_REQUEST" "$WEB_SCOPE")"
 
 echo ""
 cli_log "Summary"
@@ -327,6 +341,17 @@ case "$CREDENTIAL" in
     true) echo "    device-code login: enabled (CHENG_CREDENTIAL_AUTH_ENABLED=true)" ;;
     keep) echo "    device-code login: unchanged ($(_codex_flag "$ENV_FILE" CHENG_CREDENTIAL_AUTH_ENABLED))" ;;
 esac
+case "$WEB_SCOPE" in
+    on) echo "    web default scope: on (administrator can use coding agents from the web)" ;;
+    off) echo "    web default scope: off" ;;
+    keep) _codex_scope_on "$ENV_FILE" && echo "    web default scope: on (unchanged)" \
+        || echo "    web default scope: off (enable with --enable-web-default-scope)" ;;
+esac
+if [[ "$SIGNUP" == "closed" ]]; then
+    echo "    registration: closed (CHENG_SIGNUP_MODE=closed)"
+elif [[ "$WEB_SCOPE" == "on" ]]; then
+    echo "    registration: unchanged ($(envf_get "$ENV_FILE" CHENG_SIGNUP_MODE 2>/dev/null || echo 'open'); consider --close-signup)"
+fi
 echo "    runtime user: $(cli_runtime_user); .env: ${ENV_FILE}"
 if cli_can_prompt && ! cli_confirm "$(msg confirm)" y; then
     msg cancelled
@@ -395,7 +420,7 @@ run_setup() {
     # A replaced tree stays recoverable until activation has fully succeeded:
     # the backend probe and the commit still run after the local probes.
     local rc=0
-    codex_activate "$SHARED_DIR" "$MODE" "$version" "$bin" "$SOURCE" "$TIER" "$CREDENTIAL" "$SKIP_BACKEND_PROBE" || rc=$?
+    codex_activate "$SHARED_DIR" "$MODE" "$version" "$bin" "$SOURCE" "$TIER" "$CREDENTIAL" "$SKIP_BACKEND_PROBE" "$WEB_SCOPE" "$SIGNUP" || rc=$?
     if [[ $rc -eq 0 ]]; then
         codex_finish_replacement
     elif [[ $rc -eq 5 ]]; then
