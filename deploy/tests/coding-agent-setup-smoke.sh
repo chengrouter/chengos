@@ -737,6 +737,56 @@ fn="$(sed -n '/^ensure_bubblewrap() {/,/^}/p' "${DEPLOY_DIR}/chengos.sh")"
 out="$(INSTALL_DEPS=false ASSUME_YES=true "$BASH" -c "PATH='${WORK_ROOT}/emptybin'; ${fn}; ensure_bubblewrap" 2>&1 </dev/null)"
 assert_contains "without consent" "$out" "ensure_bubblewrap never installs without consent in a non-interactive run"
 
+# ── Claude Code settings ─────────────────────────────────────────────────────
+
+section "Claude Code settings (cli/claude.sh --reconfigure)"
+
+for v in 'Bash(cargo:*)' 'Bash(git status:*) Edit' 'x*y' '{a}'; do
+    r="$(envf_render_value "$v")"
+    got="$(eval "K=$r"; printf '%s' "$K")"
+    assert_eq "$v" "$got" "a value with shell metacharacters survives source: $v"
+done
+
+C="${WORK_ROOT}/claude-settings"
+mkdir -p "${C}/bin"
+printf '#!/bin/sh\n' > "${C}/bin/claude"
+chmod +x "${C}/bin/claude"
+cat > "${C}/.env" <<EOF
+CHENG_CODING_AGENT_ENABLED=true
+CHENG_CODING_AGENT_CLAUDE_ENABLED=true
+CHENG_CODING_AGENT_CLAUDE_BIN=${C}/bin/claude
+EOF
+claude_cfg() {
+    "$BASH" "${DEPLOY_DIR}/cli/claude.sh" --shared-dir "$C" --mode native --non-interactive \
+        --skip-backend-probe --reconfigure "$@" </dev/null 2>&1
+}
+out="$(claude_cfg --allowed-tools 'Bash(git status:*) Bash(cargo test:*)' --models claude-sonnet-5-5)"
+assert_eq "Bash(git status:*) Bash(cargo test:*)" \
+    "$(envf_get "${C}/.env" CHENG_CODING_AGENT_CLAUDE_ALLOWED_TOOLS)" "--allowed-tools is written"
+assert_true "the written .env still sources" "$BASH" -c "set -a; source '${C}/.env'"
+assert_eq "false" "$(envf_get "${C}/.env" CHENG_CODING_AGENT_CLAUDE_MANAGED_AUTH_ENABLED)" \
+    "managed login stays off without a flag or a yes"
+assert_eq "true" "$(envf_get "${C}/runtime/cli/claude/state" PENDING_RESTART)" "a change asks for a restart"
+out="$(claude_cfg --enable-managed-auth)"
+assert_eq "true" "$(envf_get "${C}/.env" CHENG_CODING_AGENT_CLAUDE_MANAGED_AUTH_ENABLED)" \
+    "--enable-managed-auth switches managed login on"
+assert_contains "Consumer Terms" "$out" "turning managed login on shows the terms risk"
+envf_set "${C}/runtime/cli/claude/state" PENDING_RESTART=false >/dev/null
+out="$(claude_cfg)"
+assert_contains "Nothing to change" "$out" "an unchanged reconfigure writes nothing"
+assert_eq "false" "$(envf_get "${C}/runtime/cli/claude/state" PENDING_RESTART)" \
+    "an unchanged reconfigure asks for no restart"
+out="$(claude_cfg --allowed-tools '')"
+assert_contains "no shell commands are allowed" "$out" "an empty allowlist is warned about"
+out="$("$BASH" "${DEPLOY_DIR}/cli/claude.sh" --shared-dir "$C" --reconfigure --version 1.2.3 2>&1)"
+assert_contains "keeps the installed binary" "$out" "--reconfigure refuses a version change"
+out="$("$BASH" "${DEPLOY_DIR}/cli/claude.sh" --shared-dir "$C" --enable-managed-auth --disable-managed-auth 2>&1)"
+assert_contains "conflict" "$out" "contradictory managed-login flags are refused"
+out="$("$BASH" "${DEPLOY_DIR}/cli/claude.sh" --shared-dir "$C" --mode native --check </dev/null 2>&1)"
+assert_contains "Claude-only host" "$out" "status reports a host without Codex"
+assert_contains "update_one_script \"deploy/cli/claude.sh\"" "$(cat "${DEPLOY_DIR}/chengos.sh")" \
+    "script refresh ships cli/claude.sh"
+
 # ── Summary ──────────────────────────────────────────────────────────────────
 
 printf '\n─────────────────────────────────────────\n'

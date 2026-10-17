@@ -262,11 +262,20 @@ if [[ "$LANG_VAL" == "zh" ]]; then
     t[menu_exit]="11) 退出 (Exit)"
     t[menu_reset_credentials]="12) 重置登录用户名/密码 (Reset Credentials)"
     t[menu_rollback]="13) 回滚到上一个版本 (Rollback)"
-    t[menu_coding_agent]="14) 配置编码智能体 CLI (Codex)"
-    t[coding_agent_title]="编码智能体 CLI (Codex)"
-    t[coding_agent_install]="1) 安装 / 更换版本 / 重新配置"
-    t[coding_agent_status]="2) 查看状态"
-    t[coding_agent_prune]="3) 预览并清理旧版本"
+    t[menu_coding_agent]="14) 配置编码智能体 CLI (Codex + Claude Code)"
+    t[coding_agent_title]="编码智能体 CLI (Codex + Claude Code)"
+    t[coding_agent_install]="1) 安装 / 更换 Codex 版本 / 重新配置"
+    t[coding_agent_status]="2) 查看 Codex 状态"
+    t[coding_agent_prune]="3) 预览并清理 Codex 旧版本"
+    t[coding_agent_claude_install]="4) 安装 / 配置 Claude Code (任务模式)"
+    t[coding_agent_claude_status]="5) 查看 Claude Code 状态"
+    t[coding_agent_claude_prune]="6) 预览 Claude 旧版本清理"
+    t[coding_agent_claude_prune_apply]="7) 预览并删除未使用的 Claude 旧版本 (需确认)"
+    t[coding_agent_claude_reconfigure]="8) 修改 Claude 设置 (订阅登录开关 / 允许的命令 / 模型)"
+    t[coding_agent_claude_prune_confirm]="删除以上列出的 Claude 旧版本? [y/N]: "
+    t[prompt_claude]="是否安装 Claude Code 任务模式? 每位用户使用自己的 Anthropic API Key 或 Claude 订阅 (y/N): "
+    t[claude_docker_unavailable]="Docker 模式暂不支持编码智能体，已跳过 Claude Code。请使用原生 (hybrid) 安装。"
+    t[claude_install_failed]="Claude Code 未能安装或启用；ChengOS 已正常安装。修复后可在菜单 14 或 ./chengos.sh setup-cli claude 重试。"
     t[coding_agent_back]="0) 返回"
     t[coding_agent_prompt]="请选择 [默认 2]: "
     t[prompt_codex]="是否安装 Codex 编码智能体 CLI? 不选则保持常规安装 (y/N): "
@@ -282,9 +291,9 @@ if [[ "$LANG_VAL" == "zh" ]]; then
     t[codex_docker_unavailable]="Docker 模式暂不支持编码智能体 (沙箱可行性检查未通过)，已跳过 Codex。请使用原生 (hybrid) 安装。"
     t[codex_install_failed]="Codex 未能安装或启用；ChengOS 已正常安装。修复后可在菜单 14 或 ./chengos.sh setup-cli codex 重试。"
     t[cli_restart_scope]="重启会停止 ChengOS 服务：正在运行的工作流以及 %s 个编码智能体进程会被中断。"
-    t[cli_restart_prompt]="Codex 安装和配置成功。现在重启 ChengOS 以应用更改? [y/N]: "
+    t[cli_restart_prompt]="编码智能体 CLI 安装和配置成功。现在重启 ChengOS 以应用更改? [y/N]: "
     t[cli_restart_required]="配置已写入，重启后生效：./chengos.sh restart"
-    t[codex_applies_on_start]="Codex 已配置，将在启动 ChengOS 时生效 (菜单 2 或 ./chengos.sh start)。"
+    t[codex_applies_on_start]="编码智能体 CLI 已配置，将在启动 ChengOS 时生效 (菜单 2 或 ./chengos.sh start)。"
     t[select_op]="请选择操作 [1-12]: "
     t[mode_select]="请选择安装模式:\n  1) 二进制原生安装 (Native Host)\n  2) Docker 容器化安装 (Docker)"
     t[mode_prompt]="选择 [1-2] (默认 1): "
@@ -370,11 +379,20 @@ else
     t[menu_exit]="11) Exit"
     t[menu_reset_credentials]="12) Reset Login Username/Password"
     t[menu_rollback]="13) Roll Back to the Previous Version"
-    t[menu_coding_agent]="14) Configure Coding-Agent CLI (Codex)"
-    t[coding_agent_title]="Coding-Agent CLI (Codex)"
-    t[coding_agent_install]="1) Install / change version / reconfigure"
-    t[coding_agent_status]="2) Status"
-    t[coding_agent_prune]="3) Preview and clean up old versions"
+    t[menu_coding_agent]="14) Configure Coding-Agent CLI (Codex + Claude Code)"
+    t[coding_agent_title]="Coding-Agent CLI (Codex + Claude Code)"
+    t[coding_agent_install]="1) Install / change Codex version / reconfigure"
+    t[coding_agent_status]="2) Check Codex status"
+    t[coding_agent_prune]="3) Preview and clean up old Codex versions"
+    t[coding_agent_claude_install]="4) Install / configure Claude Code (task mode)"
+    t[coding_agent_claude_status]="5) Check Claude Code status"
+    t[coding_agent_claude_prune]="6) Preview Claude version cleanup"
+    t[coding_agent_claude_prune_apply]="7) Preview and delete unused Claude versions (asks first)"
+    t[coding_agent_claude_reconfigure]="8) Change Claude settings (subscription login switch / allowed commands / models)"
+    t[coding_agent_claude_prune_confirm]="Delete the Claude versions listed above? [y/N]: "
+    t[prompt_claude]="Install Claude Code task mode? Each user brings their own Anthropic API key or Claude subscription (y/N): "
+    t[claude_docker_unavailable]="Coding agents are not available in Docker mode; Claude Code was skipped. Use a native (hybrid) installation."
+    t[claude_install_failed]="Claude Code was not installed or enabled; ChengOS itself installed normally. Fix the reported problem and retry from menu 14 or ./chengos.sh setup-cli claude."
     t[coding_agent_back]="0) Back"
     t[coding_agent_prompt]="Select [default 2]: "
     t[prompt_codex]="Install the Codex coding-agent CLI? Leave it out for a normal installation (y/N): "
@@ -390,9 +408,9 @@ else
     t[codex_docker_unavailable]="Coding agents are not available in Docker mode (sandbox feasibility gate failed); Codex was skipped. Use a native (hybrid) installation."
     t[codex_install_failed]="Codex was not installed or enabled; ChengOS itself installed normally. Fix the reported problem and retry from menu 14 or ./chengos.sh setup-cli codex."
     t[cli_restart_scope]="Restarting stops ChengOS: running workflow executions and %s coding-agent process(es) will be interrupted."
-    t[cli_restart_prompt]="Codex installation and configuration succeeded. Restart ChengOS now to apply changes? [y/N]: "
+    t[cli_restart_prompt]="Coding-agent CLI installation and configuration succeeded. Restart ChengOS now to apply changes? [y/N]: "
     t[cli_restart_required]="Configuration saved; it applies on the next restart: ./chengos.sh restart"
-    t[codex_applies_on_start]="Codex is configured; it takes effect when ChengOS starts (menu 2 or ./chengos.sh start)."
+    t[codex_applies_on_start]="The coding-agent CLI is configured; it takes effect when ChengOS starts (menu 2 or ./chengos.sh start)."
     t[select_op]="Select option [1-12]: "
     t[mode_select]="Select Installation Mode:\n  1) Native Host Binary\n  2) Docker Containers"
     t[mode_prompt]="Choose [1-2] (Default 1): "
@@ -1718,6 +1736,7 @@ update_script_files() {
     done
     update_one_script "deploy/cli/setup.sh" "${shared_dir}/cli/setup.sh"
     update_one_script "deploy/cli/codex.sh" "${shared_dir}/cli/codex.sh"
+    update_one_script "deploy/cli/claude.sh" "${shared_dir}/cli/claude.sh"
 
     if [[ "$updated_any" == "true" ]]; then
         echo "Script update completed. Re-run ./chengos.sh for the refreshed manager if this command was launched from the old script."
@@ -2315,23 +2334,34 @@ run_admin_cli() {
 # provider adapters; this manager only routes there and owns the lifecycle
 # around it (restart consent, .env layout migration, pending-restart state).
 
-cli_pending_restart_file() {
-    printf '%s/runtime/cli/codex/state' "$(resolve_shared_dir)"
+# Installer state of each coding-agent CLI; any of them can ask for a restart.
+cli_pending_restart_files() {
+    local shared cli
+    shared="$(resolve_shared_dir)"
+    for cli in codex claude; do
+        printf '%s/runtime/cli/%s/state\n' "$shared" "$cli"
+    done
 }
 
 cli_restart_pending() {
     local f
-    f="$(cli_pending_restart_file)"
-    [[ -f "$f" ]] && declare -F envf_get >/dev/null || return 1
-    [[ "$(envf_get "$f" PENDING_RESTART 2>/dev/null)" == "true" ]]
+    declare -F envf_get >/dev/null || return 1
+    while IFS= read -r f; do
+        [[ -f "$f" && "$(envf_get "$f" PENDING_RESTART 2>/dev/null)" == "true" ]] && return 0
+    done < <(cli_pending_restart_files)
+    return 1
 }
 
 # Called after every successful start/restart: the configuration on disk is
 # now the configuration the services run with.
 clear_cli_pending_restart() {
     cli_restart_pending || return 0
-    envf_set "$(cli_pending_restart_file)" PENDING_RESTART=false \
-        "LAST_APPLIED_AT=$(date -u +%FT%TZ)" >/dev/null 2>&1 || true
+    local f now
+    now="$(date -u +%FT%TZ)"
+    while IFS= read -r f; do
+        [[ -f "$f" && "$(envf_get "$f" PENDING_RESTART 2>/dev/null)" == "true" ]] || continue
+        envf_set "$f" PENDING_RESTART=false "LAST_APPLIED_AT=${now}" >/dev/null 2>&1 || true
+    done < <(cli_pending_restart_files)
 }
 
 # Numeric group of the API container's runtime user (never assumed: custom
@@ -2388,7 +2418,7 @@ offer_cli_restart() {
         return 0
     fi
     local running
-    running="$(pgrep -fc 'runtime/cli/codex/versions/.*/bin/codex app-server' 2>/dev/null || true)"
+    running="$(pgrep -fc 'runtime/cli/(codex/versions/.*/bin/codex app-server|claude/versions/.*/bin/claude )' 2>/dev/null || true)"
     printf "${t[cli_restart_scope]}\n" "${running:-0}"
     local answer=""
     read -r -p "${t[cli_restart_prompt]}" answer < /dev/tty || answer=""
@@ -2477,6 +2507,8 @@ if [[ $# -gt 0 ]]; then
     CODEX_VERSION_POLICY=""
     CODEX_VERSION=""
     CODEX_TIER=""
+    CLAUDE_VERSION=""
+    CLAUDE_BIN=""
     ASSUME_YES="false"
     INSTALL_DEPS="false"
     
@@ -2528,6 +2560,14 @@ if [[ $# -gt 0 ]]; then
                 ;;
             --codex-tier)
                 CODEX_TIER="$2"
+                shift 2
+                ;;
+            --claude-version)
+                CLAUDE_VERSION="$2"
+                shift 2
+                ;;
+            --claude-bin)
+                CLAUDE_BIN="$2"
                 shift 2
                 ;;
             --yes)
@@ -2763,8 +2803,10 @@ if [[ $# -gt 0 ]]; then
                 migrate_env_layout "$MODE" || true
             fi
 
-            # 4. Optional coding-agent CLI (Codex). Native only; a failure here
-            # never fails the ChengOS installation itself.
+            # 4. Optional coding-agent CLIs (Codex, then Claude Code). Native
+            # only; a failure here never fails the ChengOS installation itself.
+            # One restart offer covers every CLI configured below.
+            cli_configured="false"
             if [[ ",$WITH_MODULES," == *",codex,"* ]]; then
                 if [[ "$MODE" == "docker" ]]; then
                     echo "${t[codex_docker_unavailable]}"
@@ -2784,18 +2826,44 @@ if [[ $# -gt 0 ]]; then
                             --mode "$MODE" --lang "${LANG_VAL:-en}" || codex_rc=$?
                     fi
                     if [[ $codex_rc -eq 0 || $codex_rc -eq 5 ]]; then
-                        # Same post-success handling as setup-cli: a running
-                        # instance gets the confirmed restart offer; otherwise
-                        # the configuration applies on the first start.
-                        if pgrep -f -- "${shared_dir}/bin/cheng-api" >/dev/null 2>&1; then
-                            [[ "$ASSUME_YES" == "true" ]] && CLI_NONINTERACTIVE_RUN=true
-                            offer_cli_restart "$MODE"
-                        else
-                            echo "${t[codex_applies_on_start]}"
-                        fi
+                        cli_configured="true"
                     else
                         echo "${t[codex_install_failed]}" >&2
                     fi
+                fi
+            fi
+            if [[ ",$WITH_MODULES," == *",claude,"* ]]; then
+                if [[ "$MODE" == "docker" ]]; then
+                    echo "${t[claude_docker_unavailable]}"
+                else
+                    claude_args=(claude)
+                    [[ -n "$CLAUDE_VERSION" ]] && claude_args+=(--version "$CLAUDE_VERSION")
+                    [[ -n "$CLAUDE_BIN" ]] && claude_args+=(--bin "$CLAUDE_BIN")
+                    [[ "$ASSUME_YES" == "true" ]] && claude_args+=(--non-interactive)
+                    claude_rc=0
+                    if [[ -z "$DEPLOY_CLI_DIR" ]]; then
+                        echo "WARNING: cli/setup.sh is missing; Claude Code was not installed." >&2
+                        claude_rc=1
+                    else
+                        bash "${DEPLOY_CLI_DIR}/setup.sh" "${claude_args[@]}" --shared-dir "$shared_dir" \
+                            --mode "$MODE" --lang "${LANG_VAL:-en}" || claude_rc=$?
+                    fi
+                    if [[ $claude_rc -eq 0 || $claude_rc -eq 5 ]]; then
+                        cli_configured="true"
+                    else
+                        echo "${t[claude_install_failed]}" >&2
+                    fi
+                fi
+            fi
+            if [[ "$cli_configured" == "true" ]]; then
+                # Same post-success handling as setup-cli: a running instance
+                # gets the confirmed restart offer; otherwise the configuration
+                # applies on the first start.
+                if pgrep -f -- "${shared_dir}/bin/cheng-api" >/dev/null 2>&1; then
+                    [[ "$ASSUME_YES" == "true" ]] && CLI_NONINTERACTIVE_RUN=true
+                    offer_cli_restart "$MODE"
+                else
+                    echo "${t[codex_applies_on_start]}"
                 fi
             fi
 
@@ -3145,6 +3213,12 @@ while true; do
                 fi
             fi
 
+            enable_claude="false"
+            if [[ "$install_mode" == "native" ]]; then
+                read -p "${t[prompt_claude]}" claude_yn < /dev/tty
+                [[ "$claude_yn" =~ ^[Yy]$ ]] && enable_claude="true"
+            fi
+
             modules_list="api"
             [[ "$enable_redis" == "true" ]] && modules_list="${modules_list},redis"
             [[ "$enable_qdrant" == "true" ]] && modules_list="${modules_list},qdrant"
@@ -3152,6 +3226,7 @@ while true; do
             [[ "$enable_app" == "true" ]] && modules_list="${modules_list},app"
             [[ "$enable_cli" == "true" ]] && modules_list="${modules_list},cli"
             [[ "$enable_codex" == "true" ]] && modules_list="${modules_list},codex"
+            [[ "$enable_claude" == "true" ]] && modules_list="${modules_list},claude"
             
             echo ""
             install_args=(install --mode "$install_mode" --with "$modules_list" --db-install-mode "$db_mode" --ui-port "$ui_port" --app-port "$app_port")
@@ -3378,6 +3453,11 @@ EOF
             echo "  ${t[coding_agent_install]}"
             echo "  ${t[coding_agent_status]}"
             echo "  ${t[coding_agent_prune]}"
+            echo "  ${t[coding_agent_claude_install]}"
+            echo "  ${t[coding_agent_claude_status]}"
+            echo "  ${t[coding_agent_claude_prune]}"
+            echo "  ${t[coding_agent_claude_prune_apply]}"
+            echo "  ${t[coding_agent_claude_reconfigure]}"
             echo "  ${t[coding_agent_back]}"
             read -p "${t[coding_agent_prompt]}" ca_choice < /dev/tty
             echo ""
@@ -3385,6 +3465,17 @@ EOF
                 1) bash "$0" setup-cli codex --mode "$install_mode" || true ;;
                 2) bash "$0" setup-cli codex --check --mode "$install_mode" || true ;;
                 3) bash "$0" setup-cli codex --prune --mode "$install_mode" || true ;;
+                4) bash "$0" setup-cli claude --mode "$install_mode" || true ;;
+                5) bash "$0" setup-cli claude --check --mode "$install_mode" || true ;;
+                6) bash "$0" setup-cli claude --prune --mode "$install_mode" || true ;;
+                7)
+                    bash "$0" setup-cli claude --prune --mode "$install_mode" || true
+                    read -r -p "${t[coding_agent_claude_prune_confirm]}" prune_yn < /dev/tty || prune_yn=""
+                    if [[ "$prune_yn" =~ ^[Yy]$ ]]; then
+                        bash "$0" setup-cli claude --prune --yes --mode "$install_mode" || true
+                    fi
+                    ;;
+                8) bash "$0" setup-cli claude --reconfigure --mode "$install_mode" || true ;;
                 *) continue ;;
             esac
             read -p "${t[press_enter]}" dummy < /dev/tty

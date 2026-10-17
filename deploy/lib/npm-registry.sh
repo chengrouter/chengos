@@ -121,6 +121,33 @@ npmr_resolve() {
     [[ -n "$NPMR_VERSION" && -n "$NPMR_TARBALL" && -n "$NPMR_INTEGRITY" ]]
 }
 
+# npmr_resolve_package NAME MIN_AGE_DAYS SELECTOR OS CPU — resolves a
+# platform-specific npm package whose version does not contain a platform suffix.
+# Sets the same NPMR_* fields as npmr_resolve.
+npmr_resolve_package() {
+    local packument="$1" name="$2" min_age="$3" selector="$4" os_name="$5" cpu="$6" output line key value
+    output="$(npmr_py resolve-package "$packument" "$name" "$min_age" "$(date -u +%s)" "$selector" "$os_name" "$cpu")" || return 1
+    NPMR_VERSION="" NPMR_PLATFORM_VERSION="" NPMR_PUBLISHED="" NPMR_AGE_DAYS=""
+    NPMR_WITHIN_WINDOW="" NPMR_TARBALL="" NPMR_INTEGRITY="" NPMR_ATTESTATIONS=""
+    NPMR_SIGS=()
+    while IFS= read -r line; do
+        key="${line%%=*}"
+        value="${line#*=}"
+        case "$key" in
+            version) NPMR_VERSION="$value" ;;
+            platform_version) NPMR_PLATFORM_VERSION="$value" ;;
+            published) NPMR_PUBLISHED="$value" ;;
+            age_days) NPMR_AGE_DAYS="$value" ;;
+            within_window) NPMR_WITHIN_WINDOW="$value" ;;
+            tarball) NPMR_TARBALL="$value" ;;
+            integrity) NPMR_INTEGRITY="$value" ;;
+            attestations) NPMR_ATTESTATIONS="$value" ;;
+            sig) NPMR_SIGS+=("$value") ;;
+        esac
+    done <<< "$output"
+    [[ -n "$NPMR_VERSION" && -n "$NPMR_TARBALL" && -n "$NPMR_INTEGRITY" ]]
+}
+
 # npmr_verify_integrity FILE SRI — SRI is "sha512-<base64>".
 npmr_verify_integrity() {
     local file="$1" sri="$2" actual
@@ -175,4 +202,12 @@ npmr_extract() {
     npmr_py check-archive "$tgz" "$target" >/dev/null || return 1
     tar -xzf "$tgz" -C "$staging" --no-same-owner --no-same-permissions \
         || { npmr_err "extraction failed"; return 1; }
+}
+
+# Extract the already validated, script-free Anthropic native package.
+npmr_extract_claude() {
+    local tgz="$1" package="$2" version="$3" staging="$4"
+    npmr_py check-claude-archive "$tgz" "$package" "$version" >/dev/null || return 1
+    tar -xzf "$tgz" -C "$staging" --strip-components=1 --no-same-owner --no-same-permissions \
+        || { npmr_err "Claude archive extraction failed"; return 1; }
 }

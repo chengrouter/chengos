@@ -80,7 +80,13 @@ envf_render_value() {
         envf_err "values must be a single line"
         return 1
     fi
-    if [[ -z "$value" ]] || ! [[ "$value" =~ [[:space:]\#\"\'\$\`\\] ]]; then
+    # Shell metacharacters too: `KEY=Bash(cargo:*)` unquoted is a syntax
+    # error for `source`, which would stop ChengOS from starting.
+    local plain=true
+    case "$value" in
+        *[[:space:]\#\"\'\$\`\\\(\)\;\&\|\<\>\*\?\[\]\{\}\~\!]*) plain=false ;;
+    esac
+    if [[ -z "$value" || "$plain" == true ]]; then
         printf '%s' "$value"
         return 0
     fi

@@ -19,7 +19,9 @@ SETUP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 usage() {
     cat <<'EOF'
-Usage: setup.sh codex [options]
+Usage: setup.sh {codex|claude} [options]
+
+Options below are for codex; Claude Code has its own: setup.sh claude --help
 
   --shared-dir DIR          Installation directory holding .env (default: ..)
   --mode native|docker      Deployment mode (default: recorded mode, else native)
@@ -50,8 +52,9 @@ EOF
 CLI_NAME="${1:-}"
 case "$CLI_NAME" in
     codex) shift ;;
+    claude) shift; exec bash "${SETUP_DIR}/claude.sh" "$@" ;;
     -h|--help|"") usage; exit 2 ;;
-    *) echo "Unsupported coding-agent CLI: ${CLI_NAME} (available: codex)" >&2; exit 2 ;;
+    *) echo "Unsupported coding-agent CLI: ${CLI_NAME} (available: codex, claude)" >&2; exit 2 ;;
 esac
 
 SHARED_DIR="$(cd "${SETUP_DIR}/.." && pwd)"
