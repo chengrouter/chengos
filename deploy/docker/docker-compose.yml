@@ -111,6 +111,12 @@ services:
       # visitor's address. Without this every visitor would share the ui
       # container's address, and one sign-in throttle bucket.
       TRUST_PROXY_HEADERS: "true"
+      # Remembered browser profiles live in the runtime/ bind mount (private,
+      # persistent). Pinned like PORT: the .env value is a host path. Unused
+      # unless BROWSER_REMEMBERED_PROFILES=true. A container has no display,
+      # so local-window handoff stays off; use BROWSER_REMOTE_VIEWER.
+      BROWSER_PROFILE_ROOT: /app/runtime/browser-profiles
+      BROWSER_HANDOFF_LOCAL_WINDOW: "false"
     volumes:
       - ../.env:/app/.env
       - ../config:/app/config

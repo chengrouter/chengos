@@ -35,6 +35,7 @@ ENABLE_REDIS=""
 ENABLE_QDRANT=""
 CLI_WORKSPACE=""
 WORKSPACE_ROOT=""
+BROWSER_PROFILE_ROOT=""
 PUBLIC_UI_URL=""
 PUBLIC_APP_URL=""
 PUBLIC_API_URL=""
@@ -61,6 +62,9 @@ Options:
   --enable-qdrant true|false  Set ENABLE_QDRANT
   --cli-workspace PATH     Set CHENG_CLI_ALLOWED_ROOTS to an absolute workspace path
   --workspace-root PATH    Set CHENG_WORKSPACE_ROOT to an absolute workspace root path
+  --browser-profile-root PATH
+                           Set BROWSER_PROFILE_ROOT (remembered browser sign-in;
+                           default: <install root>/runtime/browser-profiles)
   --public-ui-url URL      Set PUBLIC_UI_URL (docker deployments)
   --public-app-url URL     Set PUBLIC_APP_URL (docker deployments)
   --public-api-url URL     Set PUBLIC_API_URL (docker deployments)
@@ -120,6 +124,11 @@ while [[ $# -gt 0 ]]; do
         --workspace-root)
             WORKSPACE_ROOT="${2:-}"
             [[ -n "$WORKSPACE_ROOT" ]] || fail "--workspace-root requires a value"
+            shift 2
+            ;;
+        --browser-profile-root)
+            BROWSER_PROFILE_ROOT="${2:-}"
+            [[ -n "$BROWSER_PROFILE_ROOT" ]] || fail "--browser-profile-root requires a value"
             shift 2
             ;;
         --public-ui-url)
@@ -245,6 +254,20 @@ if [[ -n "$WORKSPACE_ROOT" ]]; then
     mkdir -p "$WORKSPACE_ROOT"
     WORKSPACE_ROOT="$(cd "$WORKSPACE_ROOT" && pwd)"
     replace_env_line "CHENG_WORKSPACE_ROOT" "${WORKSPACE_ROOT}"
+fi
+
+# Remembered browser sign-in keeps per-user Chrome profiles under one private
+# directory. Point the (still disabled) setting at the instance's runtime/ so
+# enabling it later is a single switch; Docker pins its own container path.
+# The API creates the directory with mode 0700 on first use.
+if [[ -n "$BROWSER_PROFILE_ROOT" ]]; then
+    case "$BROWSER_PROFILE_ROOT" in
+        /*) ;;
+        *) fail "--browser-profile-root must be an absolute path" ;;
+    esac
+    replace_env_line "BROWSER_PROFILE_ROOT" "${BROWSER_PROFILE_ROOT}"
+else
+    replace_env_line "BROWSER_PROFILE_ROOT" "${ROOT_DIR}/runtime/browser-profiles"
 fi
 
 # Resolve global config and workflow template directories relative to the

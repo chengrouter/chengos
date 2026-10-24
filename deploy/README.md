@@ -100,7 +100,7 @@ ChengOS 工作流引擎内置了涵盖代码执行、文件管理、网络抓取
 
 ### 🌐 网络与外部集成 (Web & Remote Integration)
 - **`tools/http`**: 通用 HTTP/HTTPS API 请求客户端，支持 Auth 凭证管理、自定义 Header 与 JSON/Form 请求体。
-- **`tools/browser`**: 无头浏览器 (Playwright/Puppeteer) 网页自动化，支持页面导航、截图、DOM 元素提取与交互。
+- **`tools/browser`**: 基于 Chromium/CDP（chromiumoxide）的浏览器自动化，支持页面导航、截图、DOM 提取与交互；可选（需 `browser` 构建特性并显式开启）：把实时页面交给用户完成登录/验证后再交还（`BROWSER_HUMAN_HANDOFF`，单 API 实例），以及按用户与工作区隔离的记住登录（`BROWSER_REMEMBERED_PROFILES`，非永久登录）。不提供绕过验证码或站点风控的能力。
 - **`tools/web`**: Web 搜索引擎接入与网页内容提纯提取。
 - **`tools/mail`**: SMTP/IMAP 邮件自动发送与读取。
 - **`tools/ssh`**: 远程服务器 SSH 命令执行与运维交互。
@@ -451,7 +451,7 @@ Built-in `skill-importer` pipeline converts external capability specifications i
 
 ### 🌐 Network & External Integrations
 - **`tools/http`**: General HTTP/HTTPS API client with auth credentials and custom headers.
-- **`tools/browser`**: Headless browser automation (Playwright/Puppeteer) for web page navigation, screenshots, and extraction.
+- **`tools/browser`**: Chromium/CDP (chromiumoxide) browser automation for navigation, screenshots, extraction, and interaction. Optional (API built with the `browser` feature, each switch off by default): hand the live page to its user for a sign-in or verification and take it back (`BROWSER_HUMAN_HANDOFF`; single API instance), and opt-in remembered sign-in isolated per user and workspace (`BROWSER_REMEMBERED_PROFILES`; not permanent login). It does not bypass CAPTCHAs or site anti-automation controls.
 - **`tools/web`**: Web search engine integration and clean content extraction.
 - **`tools/mail`**: SMTP/IMAP email sending and fetching.
 - **`tools/ssh`**: Remote server SSH command execution.
