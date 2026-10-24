@@ -22,8 +22,21 @@ Every release section must declare its rollback compatibility so operators and
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-24
+
+### Release notes
+
+See `deploy/RELEASE_NOTES_v0.3.0.md` for the full user-facing notes, upgrade
+steps, and known limitations.
+
 ### Added
 
+- Native coding-agent CLI setup for Codex (npm-verified, no Node required) and
+  Claude Code, with activation probes and one locked `.env` transaction.
+- Single-user web default scope for coding agents (`--enable-web-default-scope`),
+  refused unless sign-in mode is `single` with managed credentials on.
+- Browser handoff and remembered-profile settings in deployment config.
+- OpenWrt appliance packaging under `deploy/openwrt/`.
 - Release contract: authoritative root `VERSION`, `release.sh` maintainer entry
   point, and `scripts/check-release-consistency.sh` validation gate.
 - Self-identifying build outputs: versioned native archive with `.sha256`
