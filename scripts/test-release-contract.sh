@@ -88,6 +88,11 @@ RELEASE_SCRIPTS=(
     deploy/hybrid/stop.sh
     deploy/hybrid/status.sh
     deploy/generate-env.sh
+    deploy/openwrt/elf-check.sh
+    deploy/openwrt/lib/common.sh
+    deploy/openwrt/package.sh
+    deploy/openwrt/appliance/chengos-openwrt.sh
+    deploy/tests/openwrt-appliance-smoke.sh
     chengflow/build.sh
 )
 

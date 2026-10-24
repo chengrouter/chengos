@@ -13,6 +13,10 @@ unset _lib
 
 CLAUDE_PACKAGE="@anthropic-ai/claude-code-linux-x64"
 CLAUDE_MIN_AGE_DAYS="${CHENGOS_CLAUDE_MIN_RELEASE_AGE_DAYS:-7}"
+# Used when CHENG_CODING_AGENT_CLAUDE_ALLOWED_TOOLS has never been set.
+# Read-only git, plus the check/test commands a task needs. No arbitrary
+# shell, git push, or package installs.
+CLAUDE_DEFAULT_ALLOWED_TOOLS="Bash(git status:*) Bash(git diff:*) Bash(git log:*) Bash(git show:*) Bash(cargo check:*) Bash(cargo test:*) Bash(pnpm test:*)"
 CLAUDE_ENV_SECTION="Coding agent (Claude Code) - managed by chengos.sh setup-cli"
 SHARED_DIR="$(cd "${SETUP_DIR}/.." && pwd)"
 MODE=""
@@ -44,6 +48,7 @@ Usage: setup.sh claude [options]
   --repair                  Reconcile installer records with .env
   --prune [--yes]           Preview or delete unprotected managed versions
   --reconfigure             Change the settings below, keeping the installed binary
+  --install-deps            Authorize installing missing system packages (gnupg)
   --non-interactive         Never prompt
   --lang zh|en              Prompt language
 
@@ -52,7 +57,9 @@ Settings (setup or --reconfigure; a setting not given keeps its value):
                             Settings -> Credentials (CHENG_CODING_AGENT_CLAUDE_MANAGED_AUTH_ENABLED)
   --disable-managed-auth    Turn that off again
   --allowed-tools RULES     Shell rules runs may use without asking, e.g.
-                            'Bash(git status:*) Bash(cargo test:*)'; '' clears
+                            'Bash(git status:*) Bash(cargo test:*)'; '' clears.
+                            Absent key: the read-only git and test defaults
+                            are written, with no prompt
   --disallowed-tools RULES  Extra denials (WebFetch, WebSearch are always denied)
   --models LIST             Models a node may select; '' = CLI default only
 EOF_USAGE
@@ -80,6 +87,7 @@ while [[ $# -gt 0 ]]; do
         --repair) ACTION="repair"; shift ;;
         --prune) ACTION="prune"; shift ;;
         --yes) PRUNE_APPLY=true; shift ;;
+        --install-deps) CLI_INSTALL_DEPS=true; shift ;;
         --non-interactive) CLI_NONINTERACTIVE=true; shift ;;
         --lang) SETUP_LANG="${2:?--lang needs a value}"; shift 2 ;;
         -h|--help) usage; exit 0 ;;
@@ -166,8 +174,16 @@ claude_probe_local() {
     cli_log "Local probes passed: native Linux x86_64 Claude Code ${CLAUDE_PROBED_VERSION}"
 }
 
+# One line of gpg stderr, safe to append to cli_err.
+_claude_gpg_detail() {
+    local err="${1//$'\n'/; }"
+    err="${err#"${err%%[![:space:]]*}"}"
+    err="${err%"${err##*[![:space:]]}"}"
+    printf '%s' "${err:0:240}"
+}
+
 claude_verify_release_manifest() {
-    local version="$1" bin="$2" work="$3" verify_dir key manifest sig fingerprint expected actual code gnupg_home
+    local version="$1" bin="$2" work="$3" verify_dir key manifest sig fingerprint expected actual code gnupg_home gpg_err
     verify_dir="$(mktemp -d "${work}/claude-release-verify.XXXXXX")" || return 1
     key="${verify_dir}/claude-code.asc"
     manifest="${verify_dir}/manifest.json"
@@ -177,9 +193,13 @@ claude_verify_release_manifest() {
     code="$(curl -sS --proto '=https' --tlsv1.2 --max-time 120 -w '%{http_code}' -o "$key" \
         https://downloads.claude.ai/keys/claude-code.asc)" || { rm -rf -- "$verify_dir"; return 1; }
     [[ "$code" == 200 ]] || { rm -rf -- "$verify_dir"; cli_err "Anthropic signing key download returned HTTP ${code}"; return 1; }
-    gpg --batch --homedir "$gnupg_home" --import "$key" >/dev/null 2>&1 || {
-        rm -rf -- "$verify_dir"; cli_err "cannot import Anthropic release signing key"; return 1;
-    }
+    gpg_err=""
+    if ! gpg_err="$(gpg --batch --homedir "$gnupg_home" --import "$key" 2>&1 >/dev/null)"; then
+        gpg_err="$(_claude_gpg_detail "$gpg_err")"
+        rm -rf -- "$verify_dir"
+        cli_err "cannot import Anthropic release signing key${gpg_err:+: ${gpg_err}}"
+        return 1
+    fi
     fingerprint="$(gpg --batch --homedir "$gnupg_home" --with-colons --fingerprint \
         | awk -F: '$1 == "fpr" { print toupper($10); exit }')"
     [[ "$fingerprint" == "31DDDE24DDFAB679F42D7BD2BAA929FF1A7ECACE" ]] || {
@@ -194,8 +214,12 @@ claude_verify_release_manifest() {
         rm -rf -- "$verify_dir"; return 1;
     }
     [[ "$code" == 200 ]] || { rm -rf -- "$verify_dir"; cli_err "Claude manifest signature returned HTTP ${code}"; return 1; }
-    if ! gpg --batch --homedir "$gnupg_home" --verify "$sig" "$manifest" >/dev/null 2>&1; then
-        rm -rf -- "$verify_dir"; cli_err "Anthropic release manifest signature verification failed"; return 1;
+    gpg_err=""
+    if ! gpg_err="$(gpg --batch --homedir "$gnupg_home" --verify "$sig" "$manifest" 2>&1 >/dev/null)"; then
+        gpg_err="$(_claude_gpg_detail "$gpg_err")"
+        rm -rf -- "$verify_dir"
+        cli_err "Anthropic release manifest signature verification failed${gpg_err:+: ${gpg_err}}"
+        return 1
     fi
     expected="$(python3 -I -c 'import json,sys; d=json.load(open(sys.argv[1], encoding="utf-8")); print(d["platforms"]["linux-x64"]["checksum"])' "$manifest")" || {
         rm -rf -- "$verify_dir"; cli_err "Claude release manifest has no linux-x64 checksum"; return 1;
@@ -316,24 +340,18 @@ claude_managed_auth_decision() {
 # CLAUDE_SETTING_KEYS (KEY=VALUE). Settings that were neither given nor
 # answered keep their value and are not written.
 claude_collect_settings() {
-    local env_file="$1" current answer
+    local env_file="$1"
     CLAUDE_SETTING_KEYS=(
         "CHENG_CODING_AGENT_CLAUDE_MANAGED_AUTH_ENABLED=$(claude_managed_auth_decision "$env_file")"
     )
-    if [[ "$ALLOWED_TOOLS_SET" != true ]] && cli_can_prompt; then
-        current="$(envf_get "$env_file" CHENG_CODING_AGENT_CLAUDE_ALLOWED_TOOLS 2>/dev/null || true)"
-        {
-            echo ""
-            echo "  Shell commands Claude runs may use without asking (--allowedTools rules)."
-            echo "  Current: ${current:-<none: no shell commands, file edits only>}"
-            echo "  Example: Bash(git status:*) Bash(git diff:*) Bash(cargo test:*) Bash(pnpm test:*)"
-        } >&2
-        read -r -p "  Rules (Enter keeps current, '-' clears): " answer < /dev/tty || answer=""
-        case "$answer" in
-            "") ;;
-            -) ALLOWED_TOOLS=""; ALLOWED_TOOLS_SET=true ;;
-            *) ALLOWED_TOOLS="$answer"; ALLOWED_TOOLS_SET=true ;;
-        esac
+    if [[ "$ALLOWED_TOOLS_SET" != true ]]; then
+        # A missing key gets the safe default. An assignment, including an
+        # explicit empty one from --allowed-tools '', is left as the operator set it.
+        if ! envf_get "$env_file" CHENG_CODING_AGENT_CLAUDE_ALLOWED_TOOLS >/dev/null 2>&1; then
+            ALLOWED_TOOLS="$CLAUDE_DEFAULT_ALLOWED_TOOLS"
+            ALLOWED_TOOLS_SET=true
+            cli_log "allowing the default read-only and test commands: ${ALLOWED_TOOLS}"
+        fi
     fi
     [[ "$ALLOWED_TOOLS_SET" == true ]] && CLAUDE_SETTING_KEYS+=("CHENG_CODING_AGENT_CLAUDE_ALLOWED_TOOLS=${ALLOWED_TOOLS}")
     [[ "$DISALLOWED_TOOLS_SET" == true ]] && CLAUDE_SETTING_KEYS+=("CHENG_CODING_AGENT_CLAUDE_DISALLOWED_TOOLS=${DISALLOWED_TOOLS}")
@@ -758,6 +776,10 @@ if [[ "$ACTION" == reconfigure ]]; then
 fi
 claude_platform || exit 3
 
+# gnupg, bubblewrap, and the other probe tools are required for Claude to
+# install and run. Declining leaves the provider unusable, so install them
+# without a second prompt. Codex keeps its own consent check.
+CLI_INSTALL_DEPS=true
 cli_ensure_tools curl tar gzip openssl base64 sha256sum python3 gpg flock timeout od || exit 3
 if ! cli_native_sandbox_preflight; then
     if [[ "$CLI_SANDBOX_STATUS" == missing_bwrap ]]; then
@@ -807,6 +829,14 @@ if cli_can_prompt; then
         echo "    install to:   $(claude_version_dir "$SHARED_DIR" "$NPMR_VERSION")/bin/claude"
     fi
     echo "    feature:      Claude task mode only"
+    if [[ "$ALLOWED_TOOLS_SET" == true ]]; then
+        echo "    allowed tools: ${ALLOWED_TOOLS:-<none>}"
+    elif _shown="$(envf_get "$ENV_FILE" CHENG_CODING_AGENT_CLAUDE_ALLOWED_TOOLS 2>/dev/null)"; then
+        echo "    allowed tools: ${_shown:-<none>}"
+    else
+        echo "    allowed tools: ${CLAUDE_DEFAULT_ALLOWED_TOOLS}"
+    fi
+    unset _shown
     echo "    managed auth: $(_claude_flag "$ENV_FILE" CHENG_CODING_AGENT_CLAUDE_MANAGED_AUTH_ENABLED) (separate switch; asked next)"
     echo "    .env:         ${ENV_FILE}"
     if ! cli_confirm "Install and enable Claude Code task mode? [Y/n]: " y; then

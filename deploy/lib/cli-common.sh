@@ -176,8 +176,30 @@ cli_package_for() {
         flock) printf 'util-linux' ;;
         base64|sha256sum) printf 'coreutils' ;;
         python3) [[ "$pm" == "pacman" ]] && printf 'python' || printf 'python3' ;;
+        # The bare `gpg` package is the binary only. `gpg --import` needs
+        # gpg-agent, which the metapackage depends on. apt installs with
+        # --no-install-recommends, so the binary package would not pull it.
+        gpg)
+            case "$pm" in
+                dnf|yum) printf 'gnupg2' ;;
+                zypper) printf 'gpg2' ;;
+                *) printf 'gnupg' ;;
+            esac
+            ;;
         *) printf '%s' "$tool" ;;
     esac
+}
+
+# True when gpg can open a keyring. A binary without gpg-agent exits here,
+# which is the failure behind "cannot import Anthropic release signing key".
+cli_gpg_usable() {
+    local home rc=0
+    command -v gpg >/dev/null 2>&1 || return 1
+    home="$(mktemp -d "${TMPDIR:-/tmp}/chengos-gpg.XXXXXX")" || return 1
+    chmod 700 "$home" || { rm -rf -- "$home"; return 1; }
+    gpg --batch --homedir "$home" --list-keys >/dev/null 2>&1 || rc=1
+    rm -rf -- "$home"
+    return "$rc"
 }
 
 # cli_install_packages PKG... — shows the exact command and installs only with
@@ -228,10 +250,17 @@ cli_ensure_tools() {
     local -a missing=() pkgs=()
     local tool pm pkg
     for tool in "$@"; do
+        if [[ "$tool" == "gpg" ]]; then
+            cli_gpg_usable || missing+=("gpg")
+            continue
+        fi
         command -v "$tool" >/dev/null 2>&1 || missing+=("$tool")
     done
     [[ ${#missing[@]} -gt 0 ]] || return 0
     cli_warn "missing tools: ${missing[*]}"
+    if [[ " ${missing[*]} " == *" gpg "* ]] && command -v gpg >/dev/null 2>&1; then
+        cli_warn "gpg is present but cannot open a keyring; the gnupg package (with gpg-agent) is required"
+    fi
     pm="$(cli_package_manager || true)"
     for tool in "${missing[@]}"; do
         pkg="$(cli_package_for "$tool" "$pm")"
@@ -239,6 +268,10 @@ cli_ensure_tools() {
     done
     cli_install_packages "${pkgs[@]}" || return 1
     for tool in "${missing[@]}"; do
+        if [[ "$tool" == "gpg" ]]; then
+            cli_gpg_usable || { cli_err "gpg is still unavailable"; return 1; }
+            continue
+        fi
         command -v "$tool" >/dev/null 2>&1 || { cli_err "${tool} is still unavailable"; return 1; }
     done
 }

@@ -2840,6 +2840,7 @@ if [[ $# -gt 0 ]]; then
                     [[ -n "$CLAUDE_VERSION" ]] && claude_args+=(--version "$CLAUDE_VERSION")
                     [[ -n "$CLAUDE_BIN" ]] && claude_args+=(--bin "$CLAUDE_BIN")
                     [[ "$ASSUME_YES" == "true" ]] && claude_args+=(--non-interactive)
+                    [[ "$INSTALL_DEPS" == "true" ]] && claude_args+=(--install-deps)
                     claude_rc=0
                     if [[ -z "$DEPLOY_CLI_DIR" ]]; then
                         echo "WARNING: cli/setup.sh is missing; Claude Code was not installed." >&2

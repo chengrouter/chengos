@@ -11,24 +11,27 @@
 # exact version we intended to install?
 #
 # Usage:
-#   ./scripts/verify-release-archive.sh --archive PATH  [--expect-version X.Y.Z]
-#   ./scripts/verify-release-archive.sh --dir PATH      [--expect-version X.Y.Z]
+#   ./scripts/verify-release-archive.sh --archive PATH  [--expect-version X.Y.Z] [--expect-arch ARCH]
+#   ./scripts/verify-release-archive.sh --dir PATH      [--expect-version X.Y.Z] [--expect-arch ARCH]
 #
 # Options:
 #   --archive PATH         Verify a .tar.gz archive (listed, and VERSION read).
 #   --dir PATH             Verify an already-extracted bundle root (the
 #                          directory that directly contains bin/ and VERSION).
 #   --expect-version X.Y.Z Require the embedded VERSION to equal this value.
+#   --expect-arch ARCH     Require bin/cheng-api and bin/cheng to be 64-bit ELFs
+#                          for ARCH (amd64 or arm64).
 #   --quiet                Only report failures.
 set -euo pipefail
 
 ARCHIVE=""
 BUNDLE_DIR=""
 EXPECT_VERSION=""
+EXPECT_ARCH=""
 QUIET="false"
 
 usage() {
-    sed -n '2,22p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+    sed -n '2,24p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
 }
 
 fail() {
@@ -50,6 +53,7 @@ while [[ $# -gt 0 ]]; do
         --archive) ARCHIVE="${2:-}"; shift 2 ;;
         --dir) BUNDLE_DIR="${2:-}"; shift 2 ;;
         --expect-version) EXPECT_VERSION="${2#v}"; shift 2 ;;
+        --expect-arch) EXPECT_ARCH="${2:-}"; shift 2 ;;
         --quiet|-q) QUIET="true"; shift ;;
         -h|--help) usage; exit 0 ;;
         *) echo "verify-release-archive: unknown option: $1" >&2; usage >&2; exit 1 ;;
@@ -65,6 +69,33 @@ fi
 if [[ -n "$EXPECT_VERSION" ]] && ! is_stable_semver "$EXPECT_VERSION"; then
     fail "--expect-version '${EXPECT_VERSION}' is not a strict stable SemVer"
 fi
+case "$EXPECT_ARCH" in
+    "") ;;
+    amd64) expected_machine=62 ;;   # EM_X86_64
+    arm64) expected_machine=183 ;;  # EM_AARCH64
+    *) fail "--expect-arch '${EXPECT_ARCH}' is not supported (amd64 or arm64)" ;;
+esac
+
+# Prints the ELF e_machine of a file (64-bit little-endian only) using od
+# byte reads, which also work on BusyBox and BSD userlands.
+elf_machine() {
+    local magic class data lo hi
+    magic="$(od -An -tx1 -N4 "$1" 2>/dev/null | tr -d ' \n')"
+    [[ "$magic" == "7f454c46" ]] || return 1
+    class="$(od -An -tu1 -j4 -N1 "$1" | tr -d ' \n')"
+    data="$(od -An -tu1 -j5 -N1 "$1" | tr -d ' \n')"
+    [[ "$class" == "2" && "$data" == "1" ]] || return 1
+    read -r lo hi <<< "$(od -An -tu1 -j18 -N2 "$1")"
+    [[ -n "${lo:-}" && -n "${hi:-}" ]] || return 1
+    printf '%s' "$(( lo + 256 * hi ))"
+}
+
+check_binary_arch() {
+    local label="$1" file="$2" machine
+    machine="$(elf_machine "$file")" || fail "${label} is not a 64-bit little-endian ELF"
+    [[ "$machine" == "$expected_machine" ]] \
+        || fail "${label} is built for ELF machine ${machine}, not ${EXPECT_ARCH}"
+}
 
 # Package-owned entries that must exist in every native bundle. Anything an
 # operator owns (.env, data, logs, runtime, workspace, models) is deliberately
@@ -154,6 +185,15 @@ if [[ -n "$ARCHIVE" ]]; then
 
     embedded_version="$(tar -xzOf "$ARCHIVE" chengos/VERSION 2>/dev/null | tr -d '[:space:]')" \
         || fail "failed to read chengos/VERSION from ${ARCHIVE}"
+
+    if [[ -n "$EXPECT_ARCH" ]]; then
+        arch_tmp="$(mktemp -d)"
+        trap 'rm -rf "$arch_tmp"' EXIT
+        tar -xzf "$ARCHIVE" -C "$arch_tmp" chengos/bin/cheng-api chengos/bin/cheng \
+            || fail "failed to extract binaries from ${ARCHIVE}"
+        check_binary_arch "chengos/bin/cheng-api" "${arch_tmp}/chengos/bin/cheng-api"
+        check_binary_arch "chengos/bin/cheng" "${arch_tmp}/chengos/bin/cheng"
+    fi
 else
     [[ -d "$BUNDLE_DIR" ]] || fail "bundle directory not found: ${BUNDLE_DIR}"
     BUNDLE_DIR="${BUNDLE_DIR%/}"
@@ -178,6 +218,11 @@ else
     done
 
     embedded_version="$(tr -d '[:space:]' < "${BUNDLE_DIR}/VERSION")"
+
+    if [[ -n "$EXPECT_ARCH" ]]; then
+        check_binary_arch "bin/cheng-api" "${BUNDLE_DIR}/bin/cheng-api"
+        check_binary_arch "bin/cheng" "${BUNDLE_DIR}/bin/cheng"
+    fi
 fi
 
 [[ -n "$embedded_version" ]] || fail "embedded VERSION is empty"
@@ -190,4 +235,4 @@ if [[ -n "$EXPECT_VERSION" && "$embedded_version" != "$EXPECT_VERSION" ]]; then
     fail "version mismatch: bundle carries ${embedded_version} but ${EXPECT_VERSION} was expected"
 fi
 
-log "Archive verification passed (${embedded_version})"
+log "Archive verification passed (${embedded_version}${EXPECT_ARCH:+, ${EXPECT_ARCH}})"

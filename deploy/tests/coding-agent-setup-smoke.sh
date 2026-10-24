@@ -778,6 +778,29 @@ assert_eq "false" "$(envf_get "${C}/runtime/cli/claude/state" PENDING_RESTART)" 
     "an unchanged reconfigure asks for no restart"
 out="$(claude_cfg --allowed-tools '')"
 assert_contains "no shell commands are allowed" "$out" "an empty allowlist is warned about"
+assert_eq "" "$(envf_get "${C}/.env" CHENG_CODING_AGENT_CLAUDE_ALLOWED_TOOLS)" \
+    "an explicit empty allowlist stays empty"
+out="$(claude_cfg)"
+assert_eq "" "$(envf_get "${C}/.env" CHENG_CODING_AGENT_CLAUDE_ALLOWED_TOOLS)" \
+    "a later reconfigure does not refill a cleared allowlist"
+
+D="${WORK_ROOT}/claude-default-tools"
+mkdir -p "${D}/bin"
+printf '#!/bin/sh\n' > "${D}/bin/claude"
+chmod +x "${D}/bin/claude"
+cat > "${D}/.env" <<EOF
+CHENG_CODING_AGENT_ENABLED=true
+CHENG_CODING_AGENT_CLAUDE_ENABLED=true
+CHENG_CODING_AGENT_CLAUDE_BIN=${D}/bin/claude
+EOF
+out="$("$BASH" "${DEPLOY_DIR}/cli/claude.sh" --shared-dir "$D" --mode native --non-interactive \
+    --skip-backend-probe --reconfigure </dev/null 2>&1)"
+assert_eq "Bash(git status:*) Bash(git diff:*) Bash(git log:*) Bash(git show:*) Bash(cargo check:*) Bash(cargo test:*) Bash(pnpm test:*)" \
+    "$(envf_get "${D}/.env" CHENG_CODING_AGENT_CLAUDE_ALLOWED_TOOLS)" \
+    "a missing allowlist gets the read-only and test defaults"
+assert_contains "default read-only and test commands" "$out" "the default allowlist is reported, not prompted"
+assert_contains 'CLI_INSTALL_DEPS=true' "$(cat "${DEPLOY_DIR}/cli/claude.sh")" \
+    "Claude installs required system packages without a second prompt"
 out="$("$BASH" "${DEPLOY_DIR}/cli/claude.sh" --shared-dir "$C" --reconfigure --version 1.2.3 2>&1)"
 assert_contains "keeps the installed binary" "$out" "--reconfigure refuses a version change"
 out="$("$BASH" "${DEPLOY_DIR}/cli/claude.sh" --shared-dir "$C" --enable-managed-auth --disable-managed-auth 2>&1)"
@@ -786,6 +809,20 @@ out="$("$BASH" "${DEPLOY_DIR}/cli/claude.sh" --shared-dir "$C" --mode native --c
 assert_contains "Claude-only host" "$out" "status reports a host without Codex"
 assert_contains "update_one_script \"deploy/cli/claude.sh\"" "$(cat "${DEPLOY_DIR}/chengos.sh")" \
     "script refresh ships cli/claude.sh"
+
+# shellcheck source=../lib/cli-common.sh
+source "${DEPLOY_DIR}/lib/cli-common.sh"
+assert_eq "gnupg" "$(cli_package_for gpg apt-get)" "Debian installs the gnupg metapackage, which depends on gpg-agent"
+assert_eq "gnupg" "$(cli_package_for gpg apk)" "Alpine installs gnupg"
+assert_eq "gnupg" "$(cli_package_for gpg pacman)" "Arch installs gnupg"
+assert_eq "gnupg2" "$(cli_package_for gpg dnf)" "RHEL-family dnf installs gnupg2"
+assert_eq "gnupg2" "$(cli_package_for gpg yum)" "RHEL-family yum installs gnupg2"
+assert_eq "gpg2" "$(cli_package_for gpg zypper)" "openSUSE installs gpg2"
+assert_eq "curl" "$(cli_package_for curl apt-get)" "other tools keep their own package name"
+out="$("$BASH" "${DEPLOY_DIR}/cli/claude.sh" --install-deps --shared-dir /nonexistent 2>&1)"
+assert_contains "no installation directory" "$out" "claude.sh accepts --install-deps"
+assert_contains 'claude_args+=(--install-deps)' "$(cat "${DEPLOY_DIR}/chengos.sh")" \
+    "chengos.sh install forwards --install-deps to Claude"
 
 # ── Summary ──────────────────────────────────────────────────────────────────
 
