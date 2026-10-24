@@ -26,6 +26,37 @@ Every release section must declare its rollback compatibility so operators and
 
 ### Release notes
 
+<!-- Maintainer: describe the user-facing changes, required migration
+     steps, and any rollback limitation before publishing. -->
+
+### Changed
+
+- chore(sandbox): document deny-only CLI sandbox mode and update environment templates
+- chore(deploy): document TRUST_PROXY_HEADERS and gate the desktop LAN build
+- docs(release): 只保留最新发布说明 v0.2.1
+- chore: uqdate deploy/hybrid/install directory
+
+### Fixed
+
+- fix(deploy): run managed PostgreSQL on a free port when 5432 is taken
+
+### Other
+
+- New features: Native installation and configuration for Codex and Claude Code, browser handoff setup, and OpenWrt router packaging. Changes: Single-user deployments without an allowlist now switch to “deny-only” mode instead of directly disabling the CLI; TRUST_PROXY_HEADERS has been documented; version pinning and rollback have been added to the release process. Upgrade notes: Upgrading from v0.2.1, changes in CLI sandbox behavior, and the impact of the deprecation of CHENG_CLI_SANDBOX_PERMISSIVE. Migration strategy: Reversible, consistent with the Unreleased statement in CHANGELOG.md.
+- Add browser handoff and remembered-profile settings to deployment config.
+- Add OpenWrt appliance packaging and tighten Claude Code shell defaults.
+- Add Claude Code task-mode setup beside the Codex installer.
+- Add single-user web default scope to the Codex setup
+- Add native coding-agent CLI (Codex) setup to the deployment tooling
+
+### Notes
+
+- Migration policy: reversible
+
+## [0.3.0] - 2026-10-24
+
+### Release notes
+
 See `deploy/RELEASE_NOTES_v0.3.0.md` for the full user-facing notes, upgrade
 steps, and known limitations.
 
