@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="deploy/ui/chengos.png" alt="ChengOS logo" width="168" height="168">
+<img src="deploy/ui/chengos-mark.png" alt="ChengOS logo" width="168">
 
 <h1 id="chengos">ChengOS</h1>
 
