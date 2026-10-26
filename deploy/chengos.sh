@@ -250,12 +250,12 @@ declare -A t
 if [[ "$LANG_VAL" == "zh" ]]; then
     t[banner]="===========================================\n       ChengOS 统一管理与部署工具\n==========================================="
     t[menu_install]="1) 安装/初始化模块 (Install/Init)"
-    t[menu_start]="2) 启动服务 (Start)"
-    t[menu_stop]="3) 停止服务 (Stop)"
+    t[menu_start]="2) 启动服务 (Start + 开机自启)"
+    t[menu_stop]="3) 停止服务 (Stop + 关闭开机自启)"
     t[menu_restart]="4) 重启服务 (Restart)"
     t[menu_update]="5) 更新模块 (Update)"
     t[menu_cli]="6) 单独安装 CLI (Install CLI Only)"
-    t[menu_status]="7) 查看服务状态 (Status)"
+    t[menu_status]="7) 查看服务状态 (运行 / 开机自启)"
     t[menu_link]="8) 安装系统命令 (Install Command Shortcuts)"
     t[menu_uninstall]="9) 卸载/停用模块 (Uninstall)"
     t[menu_lang]="10) 切换语言 (Switch Language)"
@@ -367,12 +367,12 @@ if [[ "$LANG_VAL" == "zh" ]]; then
 else
     t[banner]="===========================================\n       ChengOS Unified Management Utility\n==========================================="
     t[menu_install]="1) Install/Initialize Modules"
-    t[menu_start]="2) Start Services"
-    t[menu_stop]="3) Stop Services"
+    t[menu_start]="2) Start Services (+ Boot Autostart)"
+    t[menu_stop]="3) Stop Services (+ Disable Boot Autostart)"
     t[menu_restart]="4) Restart Services"
     t[menu_update]="5) Update Modules"
     t[menu_cli]="6) Install CLI Only"
-    t[menu_status]="7) Service Status"
+    t[menu_status]="7) Service Status (Runtime / Boot)"
     t[menu_link]="8) Install Command Shortcuts"
     t[menu_uninstall]="9) Uninstall/Stop Modules"
     t[menu_lang]="10) Switch Language"
@@ -1244,6 +1244,235 @@ run_service_cmd() {
     fi
 }
 
+# Native systemd units use the same installation paths and .env as hybrid/start.sh.
+# Keeping the application in the foreground lets systemd restart it after a crash.
+run_native_foreground() {
+    local component="$1" shared_dir
+    shared_dir="$(resolve_shared_dir)"
+    [[ -f "${shared_dir}/.env" ]] || { echo "Missing ${shared_dir}/.env" >&2; return 1; }
+    cd "$shared_dir"
+    set -a
+    # shellcheck disable=SC1091
+    source .env
+    set +a
+    case "$component" in
+        api)
+            [[ -x bin/cheng-api ]] || { echo "Missing executable: bin/cheng-api" >&2; return 1; }
+            [[ "${ENABLE_REDIS:-false}" == "true" ]] || export REDIS_URL=""
+            local log_file="${CHENG_API_LOG_FILE:-${shared_dir}/logs/cheng-api.log}"
+            if [[ "${log_file,,}" == "off" || "${log_file,,}" == "stdout" ]]; then
+                exec "${shared_dir}/bin/cheng-api"
+            fi
+            mkdir -p "$(dirname "$log_file")"
+            exec "${shared_dir}/bin/cheng-api" --log-file "$log_file"
+            ;;
+        ui|app)
+            local port_var script
+            if [[ "$component" == "ui" ]]; then
+                port_var="${UI_PORT:-8080}"
+                script="ui-server.js"
+                export UI_PORT="$port_var" UI_BIND="${UI_BIND:-0.0.0.0}"
+            else
+                port_var="${APP_PORT:-5055}"
+                script="app-server.js"
+                export APP_PORT="$port_var" APP_BIND="${APP_BIND:-0.0.0.0}"
+            fi
+            [[ -f "bin/$script" ]] || { echo "Missing bin/$script" >&2; return 1; }
+            export BACKEND_URL="http://127.0.0.1:${PORT:-19225}"
+            exec node "${shared_dir}/bin/${script}"
+            ;;
+        *) echo "Unknown native service: $component" >&2; return 2 ;;
+    esac
+}
+
+native_systemd_units() {
+    local shared_dir modules
+    shared_dir="$(resolve_shared_dir)"
+    modules="$(compute_native_modules "$shared_dir")"
+    printf '%s\n' chengos-infra.service cheng-api.service
+    [[ ",$modules," == *",ui,"* ]] && printf '%s\n' cheng-ui.service
+    [[ ",$modules," == *",app,"* ]] && printf '%s\n' cheng-app.service
+}
+
+native_systemd_available() {
+    command -v systemctl >/dev/null 2>&1 && systemctl show-environment >/dev/null 2>&1
+}
+
+native_systemd_managed() {
+    grep -Fxq "# ChengOS managed: $(resolve_shared_dir)" \
+        "${CHENGOS_SYSTEMD_UNIT_DIR:-/etc/systemd/system}/cheng-api.service" 2>/dev/null
+}
+
+native_autostart_enabled() {
+    native_systemd_managed && {
+        systemctl is-enabled --quiet cheng-api.service 2>/dev/null ||
+            systemctl is-active --quiet cheng-api.service 2>/dev/null
+    }
+}
+
+native_autostart_ready() {
+    native_systemd_managed || return 1
+    local unit units=()
+    mapfile -t units < <(native_systemd_units)
+    for unit in "${units[@]}"; do
+        grep -Fxq "# ChengOS managed: $(resolve_shared_dir)" \
+            "${CHENGOS_SYSTEMD_UNIT_DIR:-/etc/systemd/system}/${unit}" 2>/dev/null || return 1
+        systemctl is-enabled --quiet "$unit" 2>/dev/null || return 1
+    done
+}
+
+show_native_systemd_status() {
+    local units=() unit active enabled
+    if ! native_systemd_managed; then
+        echo "Native boot service: not configured"
+        return
+    fi
+    mapfile -t units < <(native_systemd_units)
+    echo "Native systemd services (runtime / boot):"
+    for unit in "${units[@]}"; do
+        active="$(systemctl is-active "$unit" 2>/dev/null || true)"
+        enabled="$(systemctl is-enabled "$unit" 2>/dev/null || true)"
+        printf '  %-24s %s / %s\n' "$unit" "${active:-unknown}" "${enabled:-unknown}"
+    done
+}
+
+native_autostart() {
+    local action="$1" shared_dir hybrid_dir unit_dir user unit component modules tmp
+    shared_dir="$(resolve_shared_dir)"
+    hybrid_dir="$(resolve_hybrid_dir)"
+    unit_dir="${CHENGOS_SYSTEMD_UNIT_DIR:-/etc/systemd/system}"
+    native_systemd_available || {
+        echo "System systemd is not running; native autostart is unavailable." >&2; return 1;
+    }
+    [[ "$(detect_install_mode)" == "native" ]] || {
+        echo "Docker mode already uses Compose restart: unless-stopped; enable Docker at boot instead." >&2; return 1;
+    }
+    [[ "$action" == "enable" || "$action" == "disable" ]] || return 2
+    if [[ "$action" == "disable" ]]; then
+        # Disabling affects future boots only; do not interrupt running services.
+        local owned=()
+        for unit in cheng-app cheng-ui cheng-api chengos-infra; do
+            if [[ -f "${unit_dir}/${unit}.service" ]] &&
+                grep -Fxq "# ChengOS managed: ${shared_dir}" "${unit_dir}/${unit}.service"; then
+                owned+=("${unit}.service")
+            fi
+        done
+        [[ " ${owned[*]} " == *" cheng-api.service "* ]] || {
+            echo "No autostart units managed by this installation." >&2; return 1;
+        }
+        ${SUDO} systemctl disable "${owned[@]}"
+        echo "Boot autostart disabled."
+        return
+    fi
+    [[ -f "${shared_dir}/.env" && -x "${shared_dir}/bin/cheng-api" ]] || {
+        echo "Install the native backend and configure ${shared_dir}/.env first." >&2; return 1;
+    }
+    for unit in "$shared_dir" "$hybrid_dir" "$REAL_SCRIPT_PATH"; do
+        [[ "$unit" != *[$'\n\"%']* ]] || { echo "Unsupported installation path: $unit" >&2; return 1; }
+    done
+    modules="$(compute_native_modules "$shared_dir")"
+    [[ ",$modules," != *",ui,"* || -f "${shared_dir}/bin/ui-server.js" ]] || {
+        echo "Missing bin/ui-server.js" >&2; return 1;
+    }
+    [[ ",$modules," != *",app,"* || -f "${shared_dir}/bin/app-server.js" ]] || {
+        echo "Missing bin/app-server.js" >&2; return 1;
+    }
+    user="$(id -un)"
+    # Do not silently replace units belonging to another installation.
+    for unit in chengos-infra cheng-api cheng-ui cheng-app; do
+        if [[ -e "${unit_dir}/${unit}.service" ]] && ! grep -Fxq "# ChengOS managed: ${shared_dir}" "${unit_dir}/${unit}.service"; then
+            echo "Refusing to overwrite ${unit_dir}/${unit}.service (not managed by this installation)." >&2
+            return 1
+        fi
+    done
+    setup_systemd_user_session "$shared_dir"
+    tmp="$(mktemp -d)"
+    cat > "${tmp}/chengos-infra.service" <<EOF
+# ChengOS managed: ${shared_dir}
+[Unit]
+Description=ChengOS native infrastructure
+After=network-online.target
+Wants=network-online.target
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=${user}
+WorkingDirectory=${shared_dir}
+ExecStart=/bin/bash "${hybrid_dir}/start.sh" --with infra
+ExecStop=/bin/bash "${hybrid_dir}/stop.sh"
+TimeoutStartSec=180
+[Install]
+WantedBy=multi-user.target
+EOF
+    for component in api ui app; do
+        [[ "$component" == "api" || ",$modules," == *",$component,"* ]] || continue
+        local name="cheng-${component}"
+        cat > "${tmp}/${name}.service" <<EOF
+# ChengOS managed: ${shared_dir}
+[Unit]
+Description=ChengOS ${component}
+Requires=chengos-infra.service
+After=chengos-infra.service
+StartLimitIntervalSec=0
+[Service]
+Type=simple
+User=${user}
+WorkingDirectory=${shared_dir}
+ExecStart=/bin/bash "${REAL_SCRIPT_PATH}" service-run ${component}
+Restart=always
+RestartSec=5s
+[Install]
+WantedBy=multi-user.target
+EOF
+    done
+    # Stop old units before removing legacy detached processes, or systemd may
+    # consider them active even though their processes have been killed.
+    if native_autostart_enabled; then
+        ${SUDO} systemctl stop cheng-app.service cheng-ui.service cheng-api.service chengos-infra.service
+    fi
+    bash "${hybrid_dir}/stop.sh"
+    for unit in "${tmp}"/*.service; do
+        ${SUDO} install -m 0644 "$unit" "${unit_dir}/$(basename "$unit")"
+    done
+    rm -r "$tmp"
+    ${SUDO} systemctl daemon-reload
+    local units=()
+    mapfile -t units < <(native_systemd_units)
+    ${SUDO} systemctl enable "${units[@]}"
+    ${SUDO} systemctl start "${units[@]}"
+    echo "Native autostart enabled: ${units[*]}"
+}
+
+native_maintenance_running() {
+    if native_autostart_enabled; then
+        systemctl is-active --quiet cheng-api.service
+    else
+        [[ -f "$(resolve_shared_dir)/runtime/cheng-api.pid" ]]
+    fi
+}
+
+native_stop_for_maintenance() {
+    local hybrid_dir="$1" units=()
+    if [[ "${NATIVE_MAINTENANCE_SYSTEMD:-false}" == "true" ]] || native_autostart_enabled; then
+        NATIVE_MAINTENANCE_SYSTEMD=true
+        mapfile -t units < <(native_systemd_units)
+        ${SUDO} systemctl stop "${units[@]}"
+    else
+        NATIVE_MAINTENANCE_SYSTEMD=false
+        bash "${hybrid_dir}/stop.sh"
+    fi
+}
+
+native_start_for_maintenance() {
+    local hybrid_dir="$1" shared_dir="$2" units=()
+    if [[ "${NATIVE_MAINTENANCE_SYSTEMD:-false}" == "true" ]]; then
+        mapfile -t units < <(native_systemd_units)
+        ${SUDO} systemctl start "${units[@]}"
+    else
+        bash "${hybrid_dir}/start.sh" --with "$(compute_native_modules "$shared_dir")"
+    fi
+}
+
 # Setup env for native
 setup_native_env() {
     local db_mode="$1"
@@ -1764,10 +1993,10 @@ rebuild_native_from_git_checkout() {
     fi
 
     local was_running="false"
-    [[ -f "${shared_dir}/runtime/cheng-api.pid" ]] && was_running="true"
+    native_maintenance_running && was_running="true"
 
     echo "Stopping services before rebuilding package-owned files..."
-    bash "${hybrid_dir}/stop.sh" || true
+    native_stop_for_maintenance "$hybrid_dir" || true
 
     if [[ ",$recorded_modules," == *",ui,"* && -d "${git_root}/chengflow-ui" ]]; then
         echo "Building UI from updated source..."
@@ -1825,9 +2054,7 @@ rebuild_native_from_git_checkout() {
 
     if [[ "$was_running" == "true" ]]; then
         echo "Services were running before update; restarting..."
-        local restart_modules
-        restart_modules="$(compute_native_modules "$shared_dir")"
-        bash "${hybrid_dir}/start.sh" --with "$restart_modules"
+        native_start_for_maintenance "$hybrid_dir" "$shared_dir"
     fi
 }
 
@@ -1899,7 +2126,7 @@ update_native_install() {
 
     local was_running
     was_running="false"
-    [[ -f "${shared_dir}/runtime/cheng-api.pid" ]] && was_running="true"
+    native_maintenance_running && was_running="true"
 
     local recorded_modules
     recorded_modules="$(read_installed_modules 2>/dev/null || echo "api,ui,app")"
@@ -2015,7 +2242,7 @@ update_native_install() {
     # A stop that leaves a process running would let the updater replace files
     # underneath it. Nothing has been mutated yet, so abort cleanly.
     echo "Stopping services before replacing package-owned files..."
-    if ! bash "${hybrid_dir}/stop.sh"; then
+    if ! native_stop_for_maintenance "$hybrid_dir"; then
         echo "ERROR: services could not be stopped; the installation was not modified." >&2
         echo "Stop ChengOS manually, then rerun the update." >&2
         return 1
@@ -2027,11 +2254,11 @@ update_native_install() {
         local reason="$1"
         echo "ERROR: ${reason}" >&2
         echo "Restoring the previous package from ${backup_dir}..." >&2
-        bash "${hybrid_dir}/stop.sh" >/dev/null 2>&1 || true
+        native_stop_for_maintenance "$hybrid_dir" >/dev/null 2>&1 || true
         if rel_restore_package_state "$backup_dir" "$ROOT_DIR" "$shared_dir" "$hybrid_dir"; then
             echo "Previous package restored (${local_version:-unknown}); restarting services..." >&2
             if [[ "$was_running" == "true" ]]; then
-                bash "${hybrid_dir}/start.sh" --with "$(compute_native_modules "$shared_dir")" || \
+                native_start_for_maintenance "$hybrid_dir" "$shared_dir" || \
                     echo "ERROR: the previous service failed to restart; run './chengos.sh start' after inspecting the logs." >&2
             fi
         else
@@ -2070,7 +2297,7 @@ update_native_install() {
     # ── Start and prove the new release is actually serving ──────────────────
     if [[ "$was_running" == "true" ]]; then
         echo "Starting services on ${target_version}..."
-        if ! bash "${hybrid_dir}/start.sh" --with "$(compute_native_modules "$shared_dir")"; then
+        if ! native_start_for_maintenance "$hybrid_dir" "$shared_dir"; then
             restore_previous_release "the new release failed to start"
             return 1
         fi
@@ -2132,10 +2359,10 @@ rollback_native_install() {
     echo "Rollback point: ${backup_dir}"
 
     local was_running="false"
-    [[ -f "${shared_dir}/runtime/cheng-api.pid" ]] && was_running="true"
+    native_maintenance_running && was_running="true"
 
     echo "Stopping services..."
-    if ! bash "${hybrid_dir}/stop.sh"; then
+    if ! native_stop_for_maintenance "$hybrid_dir"; then
         echo "ERROR: services could not be stopped; no files were restored." >&2
         return 1
     fi
@@ -2147,7 +2374,7 @@ rollback_native_install() {
 
     if [[ "$was_running" == "true" ]]; then
         echo "Starting services on ${previous_version}..."
-        if ! bash "${hybrid_dir}/start.sh" --with "$(compute_native_modules "$shared_dir")"; then
+        if ! native_start_for_maintenance "$hybrid_dir" "$shared_dir"; then
             echo "ERROR: the restored release failed to start. Inspect the logs and run './chengos.sh start'." >&2
             return 1
         fi
@@ -2219,7 +2446,10 @@ uninstall_native_install() {
     echo "This removes package-owned binaries and static assets only. .env, logs, runtime data, skills, and workspaces are kept by default."
     read -p "Continue uninstalling native package files? (y/n) [Default n]: " confirm < /dev/tty
     [[ "$confirm" =~ ^[Yy]$ ]] || return 0
-    bash "${hybrid_dir}/stop.sh" || true
+    native_stop_for_maintenance "$hybrid_dir" || true
+    if native_autostart_enabled; then
+        native_autostart disable || true
+    fi
 
     local recorded_modules
     recorded_modules="$(read_installed_modules 2>/dev/null || echo "api,ui,app")"
@@ -2477,6 +2707,12 @@ run_setup_cli() {
 if [[ $# -gt 0 ]]; then
     CMD="$1"
     shift
+
+    if [[ "$CMD" == "service-run" ]]; then
+        [[ $# -eq 1 ]] || { echo "Usage: service-run api|ui|app" >&2; exit 2; }
+        run_native_foreground "$1"
+        exit $?
+    fi
 
     # `admin` forwards its own arguments to the binary. It is handled before the
     # option parser below, which understands install-style flags only and would
@@ -2876,26 +3112,44 @@ if [[ $# -gt 0 ]]; then
             if [[ "$MODE" == "docker" ]]; then
                 run_service_cmd start docker
             else
-                # Load config to see what modules to launch
                 shared_dir="$(resolve_shared_dir)"
-                hybrid_dir="$(resolve_hybrid_dir)"
                 cd "$shared_dir"
                 if [[ -f .env ]]; then
                     # shellcheck disable=SC1090
                     set -a; source .env; set +a
                 fi
                 ensure_native_log_file_envs "$shared_dir"
-                
-                modules="$(compute_native_modules "$shared_dir")"
-                
-                run_service_cmd start native --with "$modules"
+                if native_systemd_available; then
+                    if native_autostart_ready; then
+                        mapfile -t units < <(native_systemd_units)
+                        ${SUDO} systemctl start "${units[@]}"
+                    else
+                        native_autostart enable
+                    fi
+                    show_native_systemd_status
+                else
+                    echo "systemd unavailable; starting without boot recovery."
+                    modules="$(compute_native_modules "$shared_dir")"
+                    run_service_cmd start native --with "$modules"
+                fi
             fi
             clear_cli_pending_restart
             ;;
             
         stop)
             echo "${t[stopping]}"
-            run_service_cmd stop "$MODE" "$WITH_INFRA_OPT"
+            if [[ "$MODE" == "native" ]] && native_systemd_managed && native_systemd_available; then
+                mapfile -t units < <(native_systemd_units)
+                ${SUDO} systemctl stop "${units[@]}"
+                native_autostart disable
+                if [[ "$WITH_INFRA_OPT" == "true" ]]; then
+                    bash "$(resolve_hybrid_dir)/stop.sh" --with-infra
+                fi
+                show_native_systemd_status
+            else
+                run_service_cmd stop "$MODE" "$WITH_INFRA_OPT"
+                [[ "$MODE" != "native" ]] || show_native_systemd_status
+            fi
             ;;
             
         status)
@@ -2904,7 +3158,13 @@ if [[ $# -gt 0 ]]; then
             echo "${t[status_header]}"
             print_version_status "$MODE"
             status_rc=0
-            run_service_cmd status "$MODE" || status_rc=$?
+            if [[ "$MODE" == "native" ]] && native_systemd_managed && native_systemd_available; then
+                show_native_systemd_status
+                systemctl is-active --quiet cheng-api.service || status_rc=$?
+            else
+                run_service_cmd status "$MODE" || status_rc=$?
+                [[ "$MODE" != "native" ]] || show_native_systemd_status
+            fi
             exit "$status_rc"
             ;;
 
@@ -2924,6 +3184,13 @@ if [[ $# -gt 0 ]]; then
                 run_service_cmd stop docker false || true
                 echo "Starting Docker services..."
                 run_service_cmd start docker
+            elif native_systemd_available && ! native_autostart_ready; then
+                native_autostart enable
+                show_native_systemd_status
+            elif native_autostart_enabled; then
+                mapfile -t units < <(native_systemd_units)
+                ${SUDO} systemctl restart "${units[@]}"
+                show_native_systemd_status
             else
                 shared_dir="$(resolve_shared_dir)"
                 hybrid_dir="$(resolve_hybrid_dir)"
