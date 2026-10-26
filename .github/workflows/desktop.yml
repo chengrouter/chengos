@@ -55,9 +55,29 @@ jobs:
           embedded:: runtime_capabilities:: middleware::client_ip::
           rest::handlers::auth::tests::
 
+  # Cheap cfg-regression gate: type-checks the backend for the Windows target
+  # from Linux (stub C toolchain, no linking), so Unix-only code that escapes
+  # its gate fails here rather than on the Windows builder.
+  windows-target:
+    name: Windows target type check
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install OpenSSL headers
+        run: sudo apt-get update && sudo apt-get install -y libssl-dev
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: chengflow -> target/win-check
+      - name: Type-check backend crates for x86_64-pc-windows-msvc
+        working-directory: chengflow
+        run: bash scripts/check-windows-target.sh
+
   bundle:
     name: Bundle (${{ matrix.os }})
-    needs: check
+    needs: [check, windows-target]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
