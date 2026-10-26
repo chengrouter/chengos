@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "profiles": [
+    {
+      "id": "nanopi-r76s-kwrt-25.12",
+      "status": "experimental",
+      "arch": "arm64",
+      "match": {
+        "board": "friendlyarm,nanopi-r76s",
+        "machine": "aarch64",
+        "distrib_target": "rockchip/armv8",
+        "distrib_release": "25.12-SNAPSHOT"
+      },
+      "min_ram_mb": 1024,
+      "min_free_mb": 2048,
+      "min_free_inodes": 100000,
+      "notes": "Functional on Kwrt 25.12-SNAPSHOT (plan D13-D17). Not supported until the firmware image is pinned by revision and a durable SSD/eMMC passes the reboot suite."
+    }
+  ]
+}

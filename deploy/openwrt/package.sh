@@ -7,8 +7,12 @@
 # and chengos-router-helper (the privileged Router Hub helper),
 # the built editor UI (ui/), the channel-gateway App built for the /gateway/
 # prefix (app/), server config/skills/templates, the on-device manager
-# (chengos-openwrt.sh) and SHA256SUMS over every file. PostgreSQL is not
-# bundled: the installer fetches it from the device's own feed.
+# (chengos-openwrt.sh) and SHA256SUMS over every file. PostgreSQL ships as a
+# separate per-profile asset (pg-bundle.sh).
+#
+# With CHENGOS_RELEASE_PUBKEY_FILE set (a usign public key), the manager is
+# rendered with it as its release trust anchor; without, the archive is a
+# development build that cannot verify signed releases.
 #
 # This is a separate asset from the Linux GNU hybrid bundle and is never
 # named or relabelled as one.
@@ -78,6 +82,11 @@ for dir in config skills workflow-templates; do
     cp -a "${CHENGFLOW}/${dir}" "${ROOT}/${dir}"
 done
 install -m 0755 "${OPENWRT_DIR}/appliance/chengos-openwrt.sh" "${ROOT}/chengos-openwrt.sh"
+if [[ -n "${CHENGOS_RELEASE_PUBKEY_FILE:-}" ]]; then
+    "${OPENWRT_DIR}/release-sign.sh" render "$CHENGOS_RELEASE_PUBKEY_FILE" "${ROOT}/chengos-openwrt.sh"
+else
+    ow_warn "CHENGOS_RELEASE_PUBKEY_FILE is not set: development build without a release key"
+fi
 install -m 0644 "${OPENWRT_DIR}/remote/port-listeners.sh" "${ROOT}/lib/port-listeners.sh"
 printf '%s\n' "$VERSION" > "${ROOT}/VERSION"
 printf '%s\n' "$ARCH" > "${ROOT}/ARCH"
