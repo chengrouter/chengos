@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="deploy/config/image/vite.svg" alt="ChengOS logo" width="168" height="168">
+<img src="deploy/ui/chengos.png" alt="ChengOS logo" width="168" height="168">
 
 <h1 id="chengos">ChengOS</h1>
 
@@ -22,7 +22,7 @@ Build, publish, and deploy intelligent workflows across web, mobile, messaging, 
 <br>
 <br>
 
-[Website](https://chengos.dev/) · [Live Demo](#live-demo) · [Overview](#overview) · [Screenshots](#screenshots) · [Quick start](#quick-start) · [Docs](https://chenghub.org/docs) · [中文介绍](#中文介绍)
+[Website](https://chengos.dev/) · [Live Demo](#live-demo) · [Overview](#overview) · [Screenshots](#screenshots) · [Quick start](#quick-start) · [Windows / ARM](deploy/WINDOWS-ARM.md) · [Docs](https://chenghub.org/docs) · [中文介绍](#中文介绍)
 
 </div>
 
@@ -140,6 +140,14 @@ ChengOS includes local Word (`.docx`) and spreadsheet (`.xlsx` or grid) workspac
 <a id="quick-start"></a>
 
 ## Quick start
+
+### Windows desktop (recommended on Windows x64)
+
+Download the ChengFlow Desktop `.msi` from [GitHub Releases](https://github.com/chengrouter/chengos/releases) and run it. The desktop app embeds its own database and services, so no server setup is required. The first launch initializes the local database and can take a minute or two.
+
+For Windows ARM64 PCs and ARM64 OpenWrt routers, see the [Windows and ARM64 guide](deploy/WINDOWS-ARM.md).
+
+### Server deployment
 
 Launch the interactive bilingual management console:
 
@@ -277,7 +285,7 @@ For business inquiries or enterprise consultation, contact [hello@chengrouter.co
 
 **可视化 AI 数据处理与智能体工作流平台**
 
-[在线体验](#在线体验) · [产品概览](#产品概览) · [系统架构](#系统架构) · [快速开始](#快速开始) · [文档](https://chenghub.org/docs) · [返回英文](#chengos)
+[在线体验](#在线体验) · [产品概览](#产品概览) · [系统架构](#系统架构) · [快速开始](#快速开始) · [Windows / ARM](deploy/WINDOWS-ARM.md) · [文档](https://chenghub.org/docs) · [返回英文](#chengos)
 
 </div>
 
@@ -360,6 +368,14 @@ ChengOS 内置 Word（`.docx`）和电子表格（`.xlsx` 或网格）工作区�
 <a id="快速开始"></a>
 
 ## 快速开始
+
+### Windows 桌面版（Windows x64 推荐）
+
+从 [GitHub Releases](https://github.com/chengrouter/chengos/releases) 下载 ChengFlow Desktop 的 `.msi` 安装包并运行。桌面应用内置数据库和服务，无需单独部署服务器。首次启动需要初始化本机数据库，可能需要一两分钟。
+
+Windows ARM64 电脑和 ARM64 OpenWrt 路由器的说明，请参阅 [Windows 与 ARM64 使用指南](deploy/WINDOWS-ARM.md)。
+
+### 服务器部署
 
 启动中英双语交互式管理控制台：
 
