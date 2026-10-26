@@ -1,8 +1,12 @@
+<div align="center">
+  <img src="ui/chengos.png" alt="ChengOS" width="88" />
+</div>
+
 # ChengOS 部署与系统架构指南 / ChengOS Deployment & Architecture Guide
 
 <div align="center">
 
-[安装部署 / Installation](#6-部署步骤与快捷命令-quick-start--commands) · [核心特性 / Features](#2-系统核心特性-key-features) · [工具目录 / Tools](#3-工作流工具箱一览-workflow-tools-directory) · [文档 / Docs](https://chenghub.org/docs) · [English](#english)
+[Windows / ARM 使用指南](WINDOWS-ARM.md) · [安装部署 / Installation](#6-部署步骤与快捷命令-quick-start--commands) · [核心特性 / Features](#2-系统核心特性-key-features) · [工具目录 / Tools](#3-工作流工具箱一览-workflow-tools-directory) · [文档 / Docs](https://chenghub.org/docs) · [English](#english)
 
 </div>
 
@@ -356,7 +360,7 @@ ChengOS 当前为**免费使用**授权，但**不开源**。
 
 Visual AI Data Processing & Agentic Workflow Engine
 
-[Installation](#6-deployment-steps--commands) · [Features](#2-key-system-features) · [Tools Directory](#3-workflow-tools-directory) · [Docs](https://chenghub.org/docs)
+[Windows / ARM guide](WINDOWS-ARM.md) · [Installation](#6-deployment-steps--commands) · [Features](#2-key-system-features) · [Tools Directory](#3-workflow-tools-directory) · [Docs](https://chenghub.org/docs)
 
 </div>
 

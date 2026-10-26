@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     
     <!-- Favicon -->
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/png" href="/chengos.png" />
     
     <!-- Primary Meta Tags -->
     <title>ChengOS - 可视化流程编排与执行平台</title>
@@ -101,26 +101,12 @@
       .boot-logo-svg {
         width: 176px;
         height: 176px;
-        overflow: visible;
+        border-radius: 32px;
+        object-fit: contain;
         filter: drop-shadow(0 12px 30px rgba(201, 100, 66, 0.24));
       }
-
-      .boot-orbit {
-        transform-origin: 62px 63px;
-        animation: boot-orbit 1.15s linear infinite;
-      }
-
-      @keyframes boot-orbit {
-        from {
-          transform: rotate(0deg);
-        }
-
-        to {
-          transform: rotate(360deg);
-        }
-      }
     </style>
-    <script type="module" crossorigin src="/assets/js/index-SHrPEYGs.js"></script>
+    <script type="module" crossorigin src="/assets/js/index-aetJxa59.js"></script>
     <link rel="modulepreload" crossorigin href="/assets/js/react-vendor-__7b2ISL.js">
     <link rel="modulepreload" crossorigin href="/assets/js/markdown-CHxHEOCw.js">
     <link rel="modulepreload" crossorigin href="/assets/js/vendor-CIlMsPrz.js">
@@ -134,37 +120,13 @@
     <link rel="modulepreload" crossorigin href="/assets/js/utils-BRcdmxPv.js">
     <link rel="modulepreload" crossorigin href="/assets/js/toast-D-Kj3oHY.js">
     <link rel="stylesheet" crossorigin href="/assets/css/reactflow-C4TUBwev.css">
-    <link rel="stylesheet" crossorigin href="/assets/css/index-BdnSocDN.css">
+    <link rel="stylesheet" crossorigin href="/assets/css/index-B4kCNYhI.css">
   </head>
   <body>
     <!-- React Root -->
     <div id="root">
       <div class="boot-shell" aria-label="Application boot loading">
-        <svg class="boot-logo-svg" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <defs>
-            <linearGradient id="boot-gradient" x1="30" y1="30" x2="92" y2="92">
-              <stop offset="0%" stop-color="#cd6a46" />
-              <stop offset="100%" stop-color="#c96442" />
-            </linearGradient>
-          </defs>
-
-          <path
-            d="M31 28C21.5 37 16 49.3 16 63c0 25.4 20.6 46 46 46 13.6 0 25.9-5.9 34.3-15.2"
-            stroke="#f1cfc2"
-            stroke-width="6"
-            stroke-linecap="round"
-          />
-
-          <circle cx="62" cy="63" r="43" stroke="#eadfd9" stroke-width="2.5" opacity="0.55" />
-
-          <circle cx="62" cy="63" r="31" fill="url(#boot-gradient)" />
-
-          <text x="62" y="73" text-anchor="middle" fill="white" font-size="28" font-weight="700" font-family="Inter, system-ui, sans-serif" letter-spacing="0.08em">CO</text>
-
-          <g class="boot-orbit">
-            <circle cx="62" cy="20" r="6.5" fill="#D49170" />
-          </g>
-        </svg>
+        <img class="boot-logo-svg" src="/chengflow.png" alt="" aria-hidden="true" />
       </div>
     </div>
     <!-- Vite Script -->
