@@ -25,6 +25,8 @@
 #   --sdk-dir DIR     gateway App source (default: chengflow-sdk); built here
 #                     with CHENGOS_APP_BASE=/gateway/
 #   --skip-build      package the already built binary instead of building
+#   --out DIR         output directory (default: workspace dist/)
+#   --release-repo R  installer download repository (default: chengrouter/chengos)
 set -euo pipefail
 
 OPENWRT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -39,16 +41,21 @@ UI_DIR="${REPO_ROOT}/chengflow-ui/dist"
 SDK_DIR="${REPO_ROOT}/chengflow-sdk"
 GATEWAY_BASE="/gateway/"
 SKIP_BUILD=0
+DIST="${REPO_ROOT}/dist"
+RELEASE_REPO="chengrouter/chengos"
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --target) TARGET="${2:-}"; shift 2 ;;
         --ui-dir) UI_DIR="${2:-}"; shift 2 ;;
         --sdk-dir) SDK_DIR="${2:-}"; shift 2 ;;
         --skip-build) SKIP_BUILD=1; shift ;;
+        --out) DIST="${2:?--out needs a directory}"; shift 2 ;;
+        --release-repo) RELEASE_REPO="${2:?--release-repo needs OWNER/REPO}"; shift 2 ;;
         -h|--help) usage; exit 0 ;;
         *) ow_error "unknown option: $1"; usage >&2; exit 2 ;;
     esac
 done
+[[ "$RELEASE_REPO" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9][A-Za-z0-9_.-]*$ ]] || ow_die "invalid release repository"
 
 ARCH="$(ow_release_arch_for_triple "$TARGET")" || ow_die "unsupported target: ${TARGET}"
 VERSION="$(tr -d '[:space:]' < "${REPO_ROOT}/VERSION")"
@@ -82,6 +89,7 @@ for dir in config skills workflow-templates; do
     cp -a "${CHENGFLOW}/${dir}" "${ROOT}/${dir}"
 done
 install -m 0755 "${OPENWRT_DIR}/appliance/chengos-openwrt.sh" "${ROOT}/chengos-openwrt.sh"
+sed -i "s#https://github.com/chengrouter/chengos/releases#https://github.com/${RELEASE_REPO}/releases#g" "${ROOT}/chengos-openwrt.sh"
 if [[ -n "${CHENGOS_RELEASE_PUBKEY_FILE:-}" ]]; then
     "${OPENWRT_DIR}/release-sign.sh" render "$CHENGOS_RELEASE_PUBKEY_FILE" "${ROOT}/chengos-openwrt.sh"
 else
@@ -104,7 +112,6 @@ for required in chengos-openwrt.sh lib/port-listeners.sh ui/index.html app/index
 done
 ( cd "$ROOT" && sha256sum -c --quiet SHA256SUMS ) || ow_die "SHA256SUMS does not verify"
 
-DIST="${REPO_ROOT}/dist"
 ARCHIVE="${DIST}/chengos-openwrt-${ARCH}-v${VERSION}.tar.gz"
 mkdir -p "$DIST"
 tar -C "$STAGE" --owner=0 --group=0 -czf "$ARCHIVE" chengos-openwrt

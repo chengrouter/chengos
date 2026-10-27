@@ -90,7 +90,12 @@ RELEASE_SCRIPTS=(
     deploy/generate-env.sh
     deploy/openwrt/elf-check.sh
     deploy/openwrt/lib/common.sh
+    deploy/openwrt/lib/release-bundle.sh
+    deploy/openwrt/lib/release-upload.sh
     deploy/openwrt/package.sh
+    deploy/openwrt/release-assets.sh
+    deploy/tests/openwrt-release-upload-smoke.sh
+    deploy/tests/openwrt-release-gh-fixture.sh
     deploy/openwrt/appliance/chengos-openwrt.sh
     deploy/tests/openwrt-appliance-smoke.sh
     chengflow/build.sh
@@ -141,6 +146,17 @@ if [[ -f deploy/tests/update-smoke.sh ]]; then
     fi
 else
     bad "deploy/tests/update-smoke.sh is missing"
+fi
+
+section "OpenWrt local release upload tests (offline)"
+if [[ -f deploy/tests/openwrt-release-upload-smoke.sh ]]; then
+    if bash deploy/tests/openwrt-release-upload-smoke.sh; then
+        ok "deploy/tests/openwrt-release-upload-smoke.sh"
+    else
+        bad "deploy/tests/openwrt-release-upload-smoke.sh failed"
+    fi
+else
+    bad "deploy/tests/openwrt-release-upload-smoke.sh is missing"
 fi
 
 # ── 4. Compose resolution ─────────────────────────────────────────────────────
