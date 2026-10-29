@@ -22,7 +22,7 @@ Build, publish, and deploy intelligent workflows across web, mobile, messaging, 
 <br>
 <br>
 
-[Website](https://chengos.dev/) · [Live Demo](#live-demo) · [Overview](#overview) · [Screenshots](#screenshots) · [Quick start](#quick-start) · [Windows / ARM](deploy/WINDOWS-ARM.md) · [Docs](https://chenghub.org/docs) · [中文介绍](#中文介绍)
+[Website](https://chengos.com/) · [Live Demo](https://demo.chengos.com/) · [Overview](#overview) · [Screenshots](#screenshots) · [Quick start](#quick-start) · [Windows / ARM](deploy/WINDOWS-ARM.md) · [Community](https://hub.chengos.com/) · [Docs](https://hub.chengos.com/docs) · [中文介绍](#中文介绍)
 
 </div>
 
@@ -40,15 +40,7 @@ This repository provides the deployment scripts, infrastructure configuration, b
 
 ### Live demo
 
-| Service | URL |
-|---|---|
-| Visual workflow editor and administration | [demo-ui.chengrouter.com](https://demo-ui.chengrouter.com/) |
-| Published applications and chat | [demo-app.chengrouter.com](https://demo-app.chengrouter.com/) |
-
-Use the following shared demo account for both services:
-
-- **Email:** `demo@chengrouter.com`
-- **Password:** `demo123456`
+Try the online demo: [demo.chengos.com](https://demo.chengos.com/)
 
 ### What you can build
 
@@ -285,7 +277,7 @@ For business inquiries or enterprise consultation, contact [hello@chengrouter.co
 
 **可视化 AI 数据处理与智能体工作流平台**
 
-[在线体验](#在线体验) · [产品概览](#产品概览) · [系统架构](#系统架构) · [快速开始](#快速开始) · [Windows / ARM](deploy/WINDOWS-ARM.md) · [文档](https://chenghub.org/docs) · [返回英文](#chengos)
+[在线体验](https://demo.chengos.com/) · [产品概览](#产品概览) · [系统架构](#系统架构) · [快速开始](#快速开始) · [Windows / ARM](deploy/WINDOWS-ARM.md) · [社区](https://hub.chengos.com/) · [文档](https://hub.chengos.com/docs) · [返回英文](#chengos)
 
 </div>
 
@@ -301,15 +293,7 @@ ChengOS 是一个用于构建、运行和发布 AI 工作流与智能体的可�
 
 ### 在线体验
 
-| 服务 | 访问地址 |
-|---|---|
-| 可视化工作流编辑器与管理后台 | [demo-ui.chengrouter.com](https://demo-ui.chengrouter.com/) |
-| 已发布应用与聊天界面 | [demo-app.chengrouter.com](https://demo-app.chengrouter.com/) |
-
-两个体验地址均使用以下公共演示账号：
-
-- **用户名：** `demo@chengrouter.com`
-- **密码：** `demo123456`
+在线 Demo：[demo.chengos.com](https://demo.chengos.com/)
 
 你可以使用 ChengOS 构建：
 
