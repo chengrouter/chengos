@@ -280,6 +280,9 @@ fi
 if [[ -d "${SCRIPT_DIR}/workflow-templates" ]]; then
     replace_env_line "TEMPLATE_WORKFLOWS_DIR" "${SCRIPT_DIR}/workflow-templates"
 fi
+if [[ -d "${SCRIPT_DIR}/skill-templates" ]]; then
+    replace_env_line "SKILL_TEMPLATES_DIR" "${SCRIPT_DIR}/skill-templates"
+fi
 
 # Point the API at this file so the deployment settings panel can edit it.
 # Native deployments read the host path directly; Docker overrides this with

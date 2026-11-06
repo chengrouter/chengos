@@ -2033,10 +2033,13 @@ rebuild_native_from_git_checkout() {
         mkdir -p "${shared_dir}/config"
         cp -an "${git_root}/chengflow/config/." "${shared_dir}/config/"
     fi
-    if [[ -d "${git_root}/chengflow/skills" ]]; then
-        echo "Syncing skills from source..."
-        mkdir -p "${shared_dir}/skills"
-        cp -a "${git_root}/chengflow/skills/." "${shared_dir}/skills/"
+    # Skill templates are package-owned; the skills/ root holds workspace
+    # instances (runtime data) and is never overwritten from source.
+    if [[ -d "${git_root}/chengflow/skill-templates" ]]; then
+        echo "Syncing skill-templates from source..."
+        rm -rf "${shared_dir}/skill-templates"
+        mkdir -p "${shared_dir}/skill-templates" "${shared_dir}/skills"
+        cp -a "${git_root}/chengflow/skill-templates/." "${shared_dir}/skill-templates/"
     fi
 
     # Copy built frontend assets to shared directory
@@ -2918,10 +2921,11 @@ if [[ $# -gt 0 ]]; then
                     mkdir -p "${shared_dir}/config"
                     cp -an "${ROOT_DIR}/chengflow/config/." "${shared_dir}/config/"
                 fi
-                if [[ -d "${ROOT_DIR}/chengflow/skills" ]]; then
-                    echo "Syncing skills from source..."
-                    mkdir -p "${shared_dir}/skills"
-                    cp -a "${ROOT_DIR}/chengflow/skills/." "${shared_dir}/skills/"
+                if [[ -d "${ROOT_DIR}/chengflow/skill-templates" ]]; then
+                    echo "Syncing skill-templates from source..."
+                    rm -rf "${shared_dir}/skill-templates"
+                    mkdir -p "${shared_dir}/skill-templates" "${shared_dir}/skills"
+                    cp -a "${ROOT_DIR}/chengflow/skill-templates/." "${shared_dir}/skill-templates/"
                 fi
 
                 # Copy built frontend assets to shared directory

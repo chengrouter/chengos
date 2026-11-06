@@ -792,7 +792,11 @@ cmd_run_api() {
     if [ -f "$data/current/app/index.html" ]; then
         export CHENGOS_GATEWAY_DIR="$data/current/app"
     fi
-    export SKILLS_DIR="$data/current/skills"
+    # Skill instances are workspace data: they live outside the release
+    # directory so an update or rollback never replaces them.
+    mkdir -p "$data/skills"
+    export SKILLS_DIR="$data/skills"
+    export SKILL_TEMPLATES_DIR="$data/current/skill-templates"
     export TEMPLATE_WORKFLOWS_DIR="$data/current/workflow-templates"
     export CHENG_WORKSPACE_ROOT="$data/home/workspace"
     export CHENGOS_ROUTER_SOCKET="$ROUTER_SOCKET"

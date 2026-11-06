@@ -85,7 +85,7 @@ ow_log "Building the gateway App for ${GATEWAY_BASE}"
 rm -f "${ROOT}/app/runtime-env.js"
 grep -q "src=\"${GATEWAY_BASE}assets/" "${ROOT}/app/index.html" \
     || ow_die "the gateway build does not reference ${GATEWAY_BASE}assets/"
-for dir in config skills workflow-templates; do
+for dir in config skill-templates workflow-templates; do
     cp -a "${CHENGFLOW}/${dir}" "${ROOT}/${dir}"
 done
 install -m 0755 "${OPENWRT_DIR}/appliance/chengos-openwrt.sh" "${ROOT}/chengos-openwrt.sh"

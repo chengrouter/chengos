@@ -35,7 +35,9 @@
 : "${CHENGOS_REQUIRE_SIGNATURE:=auto}"
 
 # Package-owned entries living under the shared resource directory.
-REL_PACKAGE_DIRS=(bin ui app config workflow-templates skills node_skills infra)
+# `skills` is deliberately absent: it holds per-workspace Skill instances
+# (runtime data). Only the read-only `skill-templates` ship with a release.
+REL_PACKAGE_DIRS=(bin ui app config workflow-templates skill-templates node_skills infra)
 REL_PACKAGE_FILES=(.env.example VERSION)
 # Package-owned deployment scripts living under the hybrid directory.
 REL_HYBRID_SCRIPTS=(start.sh stop.sh status.sh generate-env.sh)

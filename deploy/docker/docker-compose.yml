@@ -91,6 +91,7 @@ services:
       NODE_SKILLS_DIR: /app/node_skills
       CHENG_GLOBAL_CONFIG_DIR: /app/config
       TEMPLATE_WORKFLOWS_DIR: /app/workflow-templates
+      SKILL_TEMPLATES_DIR: /app/skill-templates
       # The deployment settings panel edits this file. `env_file` above only
       # injects the variables, so the file itself is bind-mounted below.
       # Saved changes apply on the next `docker compose up -d`.
@@ -127,6 +128,7 @@ services:
       - ../node_skills:/app/node_skills
       - ../workspace:/app/workspace
       - ../workflow-templates:/app/workflow-templates:ro
+      - ../skill-templates:/app/skill-templates:ro
     ports:
       - "127.0.0.1:${API_PORT:-19225}:3000"
     # Lets an optional host-run `laya serve` be reached as
