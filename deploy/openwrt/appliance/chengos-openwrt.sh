@@ -793,8 +793,9 @@ cmd_run_api() {
         export CHENGOS_GATEWAY_DIR="$data/current/app"
     fi
     # Skill instances are workspace data: they live outside the release
-    # directory so an update or rollback never replaces them.
-    mkdir -p "$data/skills"
+    # directory so an update or rollback never replaces them. install/update
+    # create the directory as root (ensure_skills_dir); this runs as chengos.
+    [ -d "$data/skills" ] || die "$data/skills is missing; run: chengos repair"
     export SKILLS_DIR="$data/skills"
     export SKILL_TEMPLATES_DIR="$data/current/skill-templates"
     export TEMPLATE_WORKFLOWS_DIR="$data/current/workflow-templates"
@@ -1153,6 +1154,7 @@ Re-run with --force-firewall-reload to accept that, or with --no-firewall to ski
         install_postgres_bundle "$data/pg/root" "$kept" "$pg_sha" "$data/pgdata"
         rm -rf "${data:?}/pg/root.prev"
     fi
+    ensure_skills_dir "$data" || fail storage "could not prepare $data/skills"
     ensure_secrets "$data/etc/chengos.env" "$pg_port"
     ensure_setup_token "$data/etc/chengos.env"
     init_database "$data" "$pg_port"
@@ -1446,6 +1448,37 @@ verify_release() {
     "$1/bin/cheng-api" --version >/dev/null 2>&1 || fail firmware "$1/bin/cheng-api does not run on this device"
 }
 
+# ensure_skills_dir DATA [SOURCE]: prepare the persistent Skills root
+# DATA/skills (SKILLS_DIR since the per-workspace Skill layout) and, once,
+# import the Skill files older releases kept inside releases/<version>/skills.
+# Without this an upgrade would silently stop reading them: the old directory
+# belongs to a release that prune_backups deletes two updates later.
+# SOURCE defaults to the newest release directory that still has skills/.
+# Entries are copied, never moved, so a rollback to the old release still finds
+# its own files; existing entries in DATA/skills are never overwritten. The
+# marker makes it one-time. The API's own layout migration (dry run first)
+# then moves the imported legacy packages into workspaces.
+ensure_skills_dir() {
+    data=$1 src=${2:-}
+    dest="$data/skills"
+    marker="$dest/.migration/openwrt-release-import"
+    mkdir -p "$dest/.migration" || return 1
+    if [ ! -f "$marker" ]; then
+        [ -n "$src" ] || src=$(ls -1td "$data"/releases/*/skills 2>/dev/null | head -n 1)
+        if [ -n "$src" ] && [ -d "$src" ]; then
+            for entry in "$src"/*; do
+                [ -e "$entry" ] || continue
+                name=${entry##*/}
+                [ -e "$dest/$name" ] && continue
+                cp -a "$entry" "$dest/$name" || return 1
+            done
+            log "imported Skill files from $src into $dest"
+        fi
+        printf 'source=%s\nat=%s\n' "${src:-none}" "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" > "$marker" || return 1
+    fi
+    chown -R "$CHENGOS_USER:$CHENGOS_USER" "$dest"
+}
+
 # stage_release SRC DATA VERSION: put SRC at releases/VERSION atomically. A
 # release staged on the same mount is moved, so it is never on disk twice.
 stage_release() {
@@ -1546,6 +1579,13 @@ cmd_update() {
         fail database "the new release's PostgreSQL could not be installed; ChengOS $old was restarted unchanged"
     fi
 
+    # Before the switch, while the old release is stopped: keep its Skill
+    # files (they lived inside the release directory before SKILLS_DIR moved
+    # to $data/skills).
+    if ! ensure_skills_dir "$data" "$data/releases/$old/skills"; then
+        start_services
+        fail storage "could not copy the Skill files of $old into $data/skills; ChengOS $old was restarted unchanged"
+    fi
     ln -sfn "releases/$new" "$data/current"
     # The init scripts and hotplug hooks ship with the release. Any failure from
     # here on takes the restore path below rather than leaving the switch half done.
