@@ -30,6 +30,7 @@ docs/
 # Ignore Project Meta & IDE Files
 .agents/
 .claude/
+.cursor/
 .devin/
 .codex
 CLAUDE.md
@@ -81,6 +82,10 @@ rungem.log
 # Release artifacts are generated at install/upgrade time, never committed:
 # a binary per release grows the repository linearly and forever.
 deploy/ui/downloads/
+
+# Runtime Skill instances (SKILLS_DIR). Releases ship only the read-only
+# skill-templates/; skills/ is per-install data and never versioned.
+deploy/skills/
 
 # Desktop build staging and archives: git bundles of the source repositories, a
 # full mirror of deploy/, and the MSI/deb/rpm trees the builder VM produces.
