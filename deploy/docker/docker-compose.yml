@@ -115,7 +115,8 @@ services:
       # Remembered browser profiles live in the runtime/ bind mount (private,
       # persistent). Pinned like PORT: the .env value is a host path. Unused
       # unless BROWSER_REMEMBERED_PROFILES=true. A container has no display,
-      # so local-window handoff stays off; use BROWSER_REMOTE_VIEWER.
+      # so local-window handoff stays off. The remote viewer is on unless
+      # BROWSER_REMOTE_VIEWER=false.
       BROWSER_PROFILE_ROOT: /app/runtime/browser-profiles
       BROWSER_HANDOFF_LOCAL_WINDOW: "false"
     volumes:

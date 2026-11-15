@@ -104,7 +104,7 @@ ChengOS 工作流引擎内置了涵盖代码执行、文件管理、网络抓取
 
 ### 🌐 网络与外部集成 (Web & Remote Integration)
 - **`tools/http`**: 通用 HTTP/HTTPS API 请求客户端，支持 Auth 凭证管理、自定义 Header 与 JSON/Form 请求体。
-- **`tools/browser`**: 基于 Chromium/CDP（chromiumoxide）的浏览器自动化，支持页面导航、截图、DOM 提取与交互；可选（需 `browser` 构建特性并显式开启）：把实时页面交给用户完成登录/验证后再交还（`BROWSER_HUMAN_HANDOFF`，单 API 实例），以及按用户与工作区隔离的记住登录（`BROWSER_REMEMBERED_PROFILES`，非永久登录）。不提供绕过验证码或站点风控的能力。
+- **`tools/browser`**: 基于 Chromium/CDP（chromiumoxide）的浏览器自动化，支持页面导航、截图、DOM 提取与交互。当前会话、把登录态写入节点凭据（`save_state`）、以及把 bot 本机上的实时页面交给用户接管后再交还，默认开启，把对应环境变量设为 `false` 才关闭（`BROWSER_CURRENT_SESSION_MODE`、`BROWSER_SAVE_STATE`、`BROWSER_HUMAN_HANDOFF`、`BROWSER_REMOTE_VIEWER`；接管仍要求单 API 实例）。接管只传画面和操作，页面不在用户电脑上打开，网站进出都走 bot 所在电脑的网络；交还后把登录会话写入凭证库（密码箱）。另有按用户与工作区隔离的记住登录（`BROWSER_REMEMBERED_PROFILES`，默认关，非永久登录）。不提供绕过验证码或站点风控的能力。
 - **`tools/web`**: Web 搜索引擎接入与网页内容提纯提取。
 - **`tools/mail`**: SMTP/IMAP 邮件自动发送与读取。
 - **`tools/ssh`**: 远程服务器 SSH 命令执行与运维交互。
@@ -455,7 +455,7 @@ Built-in `skill-importer` pipeline converts external capability specifications i
 
 ### 🌐 Network & External Integrations
 - **`tools/http`**: General HTTP/HTTPS API client with auth credentials and custom headers.
-- **`tools/browser`**: Chromium/CDP (chromiumoxide) browser automation for navigation, screenshots, extraction, and interaction. Optional (API built with the `browser` feature, each switch off by default): hand the live page to its user for a sign-in or verification and take it back (`BROWSER_HUMAN_HANDOFF`; single API instance), and opt-in remembered sign-in isolated per user and workspace (`BROWSER_REMEMBERED_PROFILES`; not permanent login). It does not bypass CAPTCHAs or site anti-automation controls.
+- **`tools/browser`**: Chromium/CDP (chromiumoxide) browser automation for navigation, screenshots, extraction, and interaction. Current-session mode, saving a login into the node's credential (`save_state`), and handing the live page on the bot computer to its user are on unless the matching variable is `false` (`BROWSER_CURRENT_SESSION_MODE`, `BROWSER_SAVE_STATE`, `BROWSER_HUMAN_HANDOFF`, `BROWSER_REMOTE_VIEWER`; takeover still needs a single API instance). Takeover streams pixels and input only — the site is not opened on the user's computer, so both directions of traffic use the bot computer's network. Handing the page back stores the sign-in session in the credential vault. Remembered sign-in stays opt-in and is isolated per user and workspace (`BROWSER_REMEMBERED_PROFILES`; not permanent login). It does not bypass CAPTCHAs or site anti-automation controls.
 - **`tools/web`**: Web search engine integration and clean content extraction.
 - **`tools/mail`**: SMTP/IMAP email sending and fetching.
 - **`tools/ssh`**: Remote server SSH command execution.
