@@ -3,7 +3,7 @@
   "description": "Chat workflow with conversation memory. Loads and maintains conversation history through the turn coordinator (configurable window size, optional history search), sends context to an LLM for response generation, and persists replies via the turn coordinator. Used as the memory-enabled sub-workflow of main_chat.",
   "state": "active",
   "nodeCount": 6,
-  "edgeCount": 5,
+  "edgeCount": 4,
   "createdAt": "2026-06-17T07:47:34.587506979+00:00",
   "updatedAt": "2026-07-25T22:46:25.877045+00:00",
   "version": 1,
@@ -319,7 +319,8 @@
           "tool_0": "",
           "tools": null,
           "user_message": "",
-          "user_message_rich": null
+          "user_message_rich": null,
+          "file_parts_mode": "auto"
         },
         "inputs": [
           {
@@ -576,6 +577,13 @@
         "sourcePort": "agent_context",
         "targetNode": "60c38934-b27f-4dfc-81b9-d75123579c08",
         "targetPort": "context"
+      },
+      {
+        "edgeId": "ea8cdcb4-8935-46ac-95b4-18a61a38abb7",
+        "sourceNode": "a4c5f548-ec3b-4452-adae-f79dd1b30012",
+        "sourcePort": "user_message_rich",
+        "targetNode": "60c38934-b27f-4dfc-81b9-d75123579c08",
+        "targetPort": "user_message_rich"
       }
     ],
     "notes": [],

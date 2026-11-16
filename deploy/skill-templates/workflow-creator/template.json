@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "key": "workflow-creator",
+  "version": "1.0.0",
+  "name": "Workflow Creator",
+  "description": "Creates a ChengOS workflow from a requirement, saves it, runs it in the editor, and verifies the execution result.",
+  "sortOrder": 30,
+  "enabledByDefault": true,
+  "requiresWorkflowTemplates": []
+}

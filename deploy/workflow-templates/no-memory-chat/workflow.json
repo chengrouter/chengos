@@ -3,7 +3,7 @@
   "description": "Lightweight single-turn chat workflow without conversation memory. Sends user input directly to an LLM and returns the response with no history retention. Suitable for stateless Q&A or one-shot tasks where context from previous turns is not needed. Used as the no-memory sub-workflow of main_chat.",
   "state": "active",
   "nodeCount": 4,
-  "edgeCount": 3,
+  "edgeCount": 5,
   "createdAt": "2026-07-21T08:40:38.263180816+00:00",
   "updatedAt": "2026-07-25T22:32:58.298826+00:00",
   "version": 1,
@@ -439,7 +439,8 @@
           "y": 715.3156439031692
         },
         "config": {
-          "instruction_prompt": "你是claude code"
+          "instruction_prompt": "你是claude code",
+          "file_parts_mode": "auto"
         },
         "inputs": [
           {
@@ -563,6 +564,20 @@
         "sourcePort": "llm_config",
         "targetNode": "5d0241c7-459a-41c8-b840-3e4b83266d58",
         "targetPort": "llm_config"
+      },
+      {
+        "edgeId": "fc2bd781-ae5d-4c96-8d84-3bdfeb16683d",
+        "sourceNode": "6635710c-89a7-436b-bd80-543831f99a11",
+        "sourcePort": "agent_context",
+        "targetNode": "5d0241c7-459a-41c8-b840-3e4b83266d58",
+        "targetPort": "context"
+      },
+      {
+        "edgeId": "358972d6-ef15-47fc-82f5-14521269dcdd",
+        "sourceNode": "6635710c-89a7-436b-bd80-543831f99a11",
+        "sourcePort": "user_message_rich",
+        "targetNode": "5d0241c7-459a-41c8-b840-3e4b83266d58",
+        "targetPort": "user_message_rich"
       }
     ],
     "notes": [],

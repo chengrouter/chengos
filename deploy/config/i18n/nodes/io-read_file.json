@@ -4,7 +4,7 @@
   "nodes.io.read_file.inputs.artifact.title": "工件",
   "nodes.io.read_file.inputs.file_path.description": "本地绝对或相对路径（旧版；与工件互斥）",
   "nodes.io.read_file.inputs.file_path.title": "文件路径",
-  "nodes.io.read_file.inputs.max_bytes.description": "本次窗口读取的最大字节数（默认 16 KiB，硬上限 1 MiB）",
+  "nodes.io.read_file.inputs.max_bytes.description": "本次窗口读取的最大字节数（省略时默认 16 KiB；最小 1，硬上限 1 MiB）",
   "nodes.io.read_file.inputs.max_bytes.title": "最大字节数",
   "nodes.io.read_file.inputs.max_lines.description": "行模式下读取的最大行数",
   "nodes.io.read_file.inputs.max_lines.title": "最大行数",

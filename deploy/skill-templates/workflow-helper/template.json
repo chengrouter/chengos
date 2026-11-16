@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "key": "workflow-helper",
+  "version": "1.1.0",
+  "name": "Workflow Helper",
+  "description": "Answers questions about building, wiring, configuring, and troubleshooting ChengOS workflows using live node schemas.",
+  "sortOrder": 10,
+  "enabledByDefault": true,
+  "requiresWorkflowTemplates": []
+}

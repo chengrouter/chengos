@@ -10,7 +10,8 @@
 # Preset fields:
 #   id           – stable, file-unique identity
 #   preset_type  – the category id this preset belongs to
-#   node_type    – the node type this patch is valid for (e.g. tools/code)
+#   node_type    – registered node type id this patch is valid for
+#                  (must match a real typeId, e.g. tools/code_python)
 #   label        – display label
 #   description  – optional human/LLM-facing explanation
 #   llm_visible  – whether scoped LLM discovery may surface it (default false)
@@ -27,44 +28,72 @@ preset_types:
     description: Presets for AI/LLM nodes
 
 presets:
+  # Python executor — primary code preset used by LLM discovery when
+  # tools/code_python is connected alongside the agent.
   - id: code-safe-mode
     preset_type: tool_nodes
-    node_type: tools/code
+    node_type: tools/code_python
     label: Code execution safe mode
-    description: Restrict file and shell behavior
+    description: Restrict workspace writes and full-disk reads
     llm_visible: true
     risk_level: high
     config_patch:
-      allow_write: false
-      sandbox: strict
+      allow_filesystem: false
+      allow_full_disk_readonly: false
 
   - id: code-full-access
     preset_type: tool_nodes
-    node_type: tools/code
+    node_type: tools/code_python
     label: Code execution full access
-    description: Allow unrestricted file and shell access
+    description: Allow workspace writes and full-disk reads
     llm_visible: false
     risk_level: high
     config_patch:
-      allow_write: true
-      sandbox: none
+      allow_filesystem: true
+      allow_full_disk_readonly: true
+
+  # Shell executor (default-enabled code node) — separate ids because each
+  # preset targets exactly one registered node type.
+  - id: code-shell-safe-mode
+    preset_type: tool_nodes
+    node_type: tools/code_shell
+    label: Shell execution safe mode
+    description: Restrict filesystem writes, network, and full-disk reads
+    llm_visible: true
+    risk_level: high
+    config_patch:
+      allow_filesystem: false
+      allow_network: false
+      allow_full_disk_readonly: false
+      disable_sandbox: false
+
+  - id: code-shell-full-access
+    preset_type: tool_nodes
+    node_type: tools/code_shell
+    label: Shell execution full access
+    description: Allow workspace writes, network, and full-disk reads (still sandboxed)
+    llm_visible: false
+    risk_level: high
+    config_patch:
+      allow_filesystem: true
+      allow_network: true
+      allow_full_disk_readonly: true
+      disable_sandbox: false
 
   - id: search-strict
     preset_type: tool_nodes
-    node_type: tools/search
+    node_type: tools/search_files
     label: Search strict mode
-    description: Strict matching with max results
+    description: Cap returned matches for focused searches
     config_patch:
-      match_mode: strict
       max_results: 10
 
   - id: agent-deep-think
     preset_type: ai_nodes
-    node_type: ai/agent
+    node_type: agent/react_agent
     label: Agent deep think
-    description: Enable extended reasoning with more iterations
+    description: Raise the per-turn iteration budget for harder tasks
     llm_visible: true
     risk_level: medium
     config_patch:
       max_iterations: 30
-      reasoning_mode: deep

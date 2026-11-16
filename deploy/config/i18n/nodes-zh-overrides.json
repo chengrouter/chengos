@@ -208,7 +208,7 @@
   "nodes.tools.read_artifact.description": "按引用读取文本制品的有界字节/行窗口。仅接受制品引用——不接受原始文件路径——并返回分页续读信息。对于源快照制品，传入 snapshot_path 可读取清单中指定的一个文本文件。",
   "nodes.tools.read_artifact.inputs.artifact.description": "要读取的制品引用（唯一接受的来源）",
   "nodes.tools.read_artifact.inputs.artifact.title": "制品",
-  "nodes.tools.read_artifact.inputs.max_bytes.description": "本次窗口读取的最大字节数（默认 16 KiB，硬上限 1 MiB）",
+  "nodes.tools.read_artifact.inputs.max_bytes.description": "本次窗口读取的最大字节数（省略时默认 16 KiB；最小 1，硬上限 1 MiB）",
   "nodes.tools.read_artifact.inputs.max_bytes.title": "最大字节数",
   "nodes.tools.read_artifact.inputs.max_lines.description": "行模式下读取的最大行数",
   "nodes.tools.read_artifact.inputs.max_lines.title": "最大行数",

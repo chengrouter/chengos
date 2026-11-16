@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "key": "workflow-json-builder",
+  "version": "1.2.0",
+  "name": "Workflow JSON Builder",
+  "description": "Guides a user through designing a workflow and produces a canonical importable workflow JSON file without creating, saving, or running it.",
+  "sortOrder": 20,
+  "enabledByDefault": true,
+  "requiresWorkflowTemplates": []
+}
