@@ -22,6 +22,45 @@ Every release section must declare its rollback compatibility so operators and
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-16
+
+### Release notes
+
+<!-- Maintainer: describe the user-facing changes, required migration
+     steps, and any rollback limitation before publishing. -->
+
+### Added
+
+- feat(deploy): ship skill-templates; keep skills/ as runtime data
+- feat(openwrt): prepare and upload release assets locally
+- feat(deploy): add systemd boot autostart for native installs
+- feat(openwrt): add signed self-service installer
+
+### Changed
+
+- chore: update gitignore
+- docs: update node name in deploy README
+- docs(deploy): document browser takeover and handoff env defaults
+- chore(deploy): stop tracking runtime Skill instances
+- docs(readme): point links to chengos.com domains
+- docs(readme): use transparent terracotta ChengOS mark
+- docs(readme): lead with Windows desktop and use ChengOS logo
+- docs(deploy): add Windows and ARM64 usage guide and ChengOS logo
+
+### Fixed
+
+- fix(openwrt): import release-dir Skill files into the persistent skills root
+
+### Other
+
+- logo
+- style(logo): use brand terracotta #C96442 for the ChengOS mark
+- ci: type-check backend for Windows target
+
+### Notes
+
+- Migration policy: reversible
+
 ## [0.3.0] - 2026-10-24
 
 ### Release notes
