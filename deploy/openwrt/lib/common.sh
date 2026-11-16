@@ -60,6 +60,28 @@ ow_elf_machine_of() {
     printf '%s' "$machine"
 }
 
+# ow_profiles_lint FILE: the advertised (supported/experimental) profiles must
+# declare how their PostgreSQL input is frozen, and no router may match two of
+# them: the device takes the first match, so an overlap would be silent.
+ow_profiles_lint() {
+    local file="${1:?profiles file required}" problems
+    problems="$(jq -r '
+        [.profiles[] | select(.status == "supported" or .status == "experimental")] as $p
+        | ($p[] | select((.package_format == "ipk" or .package_format == "apk-v3-adb") | not)
+            | "profile \(.id): package_format must be ipk or apk-v3-adb"),
+          ($p[] | select((.package_arch // "") == "") | "profile \(.id): package_arch is required"),
+          ($p[] | select(.package_format == "apk-v3-adb"
+                    and (((.feed.urls // []) | length) == 0 or ((.feed.key_sha256 // []) | length) == 0))
+            | "profile \(.id): feed.urls and feed.key_sha256 are required for apk-v3-adb"),
+          (range(0; $p | length) as $i | range($i + 1; $p | length) as $j
+            | select(["board", "machine", "distrib_id", "distrib_release", "distrib_revision", "distrib_target"]
+                | all(. as $k | ($p[$i].match[$k] // null) == null or ($p[$j].match[$k] // null) == null
+                                or $p[$i].match[$k] == $p[$j].match[$k]))
+            | "profiles \($p[$i].id) and \($p[$j].id) can match the same router")
+    ' "$file")" || ow_die "cannot read ${file}"
+    [[ -z "$problems" ]] || ow_die "${file}:"$'\n'"${problems}"
+}
+
 # Removes ANSI escape sequences (colors, cursor movement) from stdin. Router
 # and service logs may carry them; parse only sanitised text.
 ow_strip_ansi() {

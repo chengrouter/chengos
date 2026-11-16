@@ -83,6 +83,11 @@ UCI_NAME=chengos
 # ncurses, ...) must already be on the image, which the library check after
 # unpacking proves.
 PG_PACKAGES="pgsql-server pgsql-cli libpq"
+# The PostgreSQL bundle layout this manager installs (pg-bundle.sh).
+PG_BUNDLE_FORMAT=rootfs-v1
+# Where the firmware's own libraries live (the bundle's BASE-LIBS are looked up here).
+PG_SYSTEM_LIB_DIR=${CHENGOS_SYSTEM_LIB_DIR:-/lib}
+PG_SYSTEM_USRLIB_DIR=${CHENGOS_SYSTEM_USRLIB_DIR:-/usr/lib}
 # usign public key (base64 line) of the release signing key; rendered by
 # package.sh. Left as the placeholder, this is a development build.
 RELEASE_PUBKEY='@CHENGOS_RELEASE_PUBKEY@'
@@ -643,40 +648,120 @@ install_postgres_from_feed() {
     printf 'feed' > "$root/.chengos-complete"
 }
 
-# install_postgres_bundle ROOT BUNDLE SHA256 PGDATA: unpack the release's
-# PostgreSQL package set. The bundle's own hash comes from the signed
-# manifest, and each package inside is checked against the bundle's list. A
-# tree already unpacked from the same bundle is kept; a different bundle
-# replaces it, keeping the old one as ROOT.prev (restored by a failed update).
-# A different PostgreSQL major version is refused: the cluster in PGDATA
-# would need a dump and restore this installer does not do.
+# pg_tree_matches TREE FILES: the tree is exactly what the file list says:
+# every file with its SHA-256, every symlink with its target, nothing else
+# (ChengOS's own top-level .chengos-* entries aside). On a mismatch, returns
+# 1 with the reason in PG_TREE_PROBLEM.
+pg_tree_matches() {
+    tree=$1 files=$2 PG_TREE_PROBLEM=""
+    while read -r type value path; do
+        case "$path" in ''|/*|..|../*|*/..|*/../*) PG_TREE_PROBLEM="invalid path in the file list: '$path'"; return 1 ;; esac
+        case "$type" in
+            f) [ -f "$tree/$path" ] && [ ! -L "$tree/$path" ] || { PG_TREE_PROBLEM="$path is missing"; return 1; } ;;
+            l) [ -L "$tree/$path" ] && [ "$(readlink "$tree/$path")" = "$value" ] \
+                   || { PG_TREE_PROBLEM="the link $path does not match its file list"; return 1; } ;;
+            *) PG_TREE_PROBLEM="unknown entry type '$type' in the file list"; return 1 ;;
+        esac
+    done < "$files"
+    awk '$1 == "f" { print $2 "  " $3 }' "$files" > "$tree.sha256"
+    if ! ( cd "$tree" && sha256sum -c "$tree.sha256" >/dev/null 2>&1 ); then
+        rm -f "$tree.sha256"
+        PG_TREE_PROBLEM="files do not match the SHA-256 in its file list"
+        return 1
+    fi
+    rm -f "$tree.sha256"
+    [ "$(find "$tree" ! -type d ! -path "$tree/.chengos-*" | wc -l)" -eq "$(wc -l < "$files")" ] \
+        || { PG_TREE_PROBLEM="it holds files that are not in its file list"; return 1; }
+}
+
+# verify_pg_tree TREE FILES: pg_tree_matches for a freshly unpacked bundle.
+verify_pg_tree() {
+    pg_tree_matches "$1" "$2" || fail trust "the PostgreSQL bundle is not intact: $PG_TREE_PROBLEM"
+}
+
+# check_pg_base_libs LIST: every library the bundle expects from the firmware
+# (BASE-LIBS: the payload's DT_NEEDED names it does not ship itself, extension
+# modules included) is on this image. This, not a package-set fingerprint, is
+# the bundle's contract with a customized image.
+check_pg_base_libs() {
+    missing=""
+    while read -r lib; do
+        [ -n "$lib" ] || continue
+        case "$lib" in */*) fail trust "invalid library name in the PostgreSQL bundle: '$lib'" ;; esac
+        [ -e "$PG_SYSTEM_LIB_DIR/$lib" ] || [ -e "$PG_SYSTEM_USRLIB_DIR/$lib" ] || missing="$missing $lib"
+    done < "$1"
+    [ -z "$missing" ] || fail firmware "this firmware lacks libraries the PostgreSQL bundle needs:$missing
+Install the packages that provide them, or use the qualified image for this profile."
+}
+
+# check_pg_runs ROOT VERSION: before a new tree replaces a working one, its
+# postgres must report the packaged version and initdb must build a cluster
+# of the same major version (in a scratch directory, removed again).
+check_pg_runs() {
+    tree=$1 upstream=${2%-*}
+    got=$(env "$(pg_env "$tree")" "$tree/usr/bin/postgres" -V 2>&1) \
+        || fail database "the bundled postgres does not run: $got"
+    case "$got" in *" $upstream") ;; *) fail database "the bundled postgres reports '$got', the bundle lists PostgreSQL $upstream" ;; esac
+    scratch="$(dirname "$tree")/initdb-check"
+    rm -rf "${scratch:?}" && mkdir -p "$scratch"
+    chown "$CHENGOS_USER:$CHENGOS_USER" "$scratch" && chmod 0700 "$scratch" \
+        || fail database "cannot prepare $scratch for the PostgreSQL check"
+    if ! as_user "$(pg_env "$tree")" "$tree/usr/bin/initdb" -D "$scratch/pgdata" -U "$CHENGOS_USER" \
+            -E UTF8 --locale=C --no-sync >"$scratch/initdb.log" 2>&1 \
+        || [ "$(cat "$scratch/pgdata/PG_VERSION" 2>/dev/null)" != "${upstream%%.*}" ]; then
+        tail -n 20 "$scratch/initdb.log" >&2 2>/dev/null || true
+        rm -rf "${scratch:?}"
+        fail database "the bundled PostgreSQL cannot initialize a cluster on this device"
+    fi
+    rm -rf "${scratch:?}"
+}
+
+# install_postgres_bundle ROOT BUNDLE SHA256 PGDATA: install the release's
+# PostgreSQL (bundle FORMAT rootfs-v1: a tree normalized by the publisher,
+# so no package manager is involved). The bundle's own hash comes from the
+# signed manifest; the tree is checked against the bundle's file list. A tree
+# already installed from the same bundle is kept; a different bundle replaces
+# it only after the new one has run, keeping the old one as ROOT.prev
+# (restored by a failed update). A different PostgreSQL major version is
+# refused: the cluster in PGDATA would need a dump and restore this installer
+# does not do.
 install_postgres_bundle() {
     root=$1 bundle=$2 want=$3 pgdata=$4
     marker="$root/.chengos-complete"
-    [ -f "$marker" ] && [ "$(cat "$marker")" = "$want" ] && return 0
+    if [ -f "$marker" ] && [ "$(cat "$marker")" = "$want" ]; then
+        # Installed from this bundle: keep it only while it is still intact,
+        # so repair restores a damaged tree from the kept bundle.
+        if [ -f "$root/.chengos-files" ] && pg_tree_matches "$root" "$root/.chengos-files"; then
+            return 0
+        fi
+        warn "the installed PostgreSQL tree is damaged (${PG_TREE_PROBLEM:-no file list}); reinstalling it from the bundle"
+    fi
     [ -f "$bundle" ] || fail database "PostgreSQL bundle $bundle is missing"
     [ "$(sha256_of "$bundle")" = "$want" ] || fail trust "the PostgreSQL bundle does not match the SHA-256 in the signed manifest"
     work="$(dirname "$root")/bundle-x"
     new="$root.new"
-    rm -rf "${work:?}" "${new:?}" && mkdir -p "$work" "$new"
+    rm -rf "${work:?}" "${new:?}" && mkdir -p "$work"
     tar -xzf "$bundle" -C "$work" || fail database "cannot unpack the PostgreSQL bundle"
-    list="$work/chengos-pg/PACKAGES"
-    [ -s "$list" ] || fail trust "the PostgreSQL bundle has no PACKAGES list"
-    server_version=""
-    while read -r name version sha file; do
-        case "$file" in ''|*/*|.*) fail trust "invalid file name in the PostgreSQL bundle: '$file'" ;; esac
-        [ "$(sha256_of "$work/chengos-pg/$file")" = "$sha" ] || fail trust "$file does not match the SHA-256 in the bundle's list"
-        [ "$name" != pgsql-server ] || server_version=$version
-        unpack_ipk "$work/chengos-pg/$file" "$new"
-        log "unpacked $name $version"
-    done < "$list"
+    pg="$work/chengos-pg"
+    format=$(cat "$pg/FORMAT" 2>/dev/null || true)
+    [ "$format" = "$PG_BUNDLE_FORMAT" ] \
+        || fail trust "the PostgreSQL bundle has format '${format:-none}'; this manager installs $PG_BUNDLE_FORMAT"
+    [ -s "$pg/PACKAGES" ] && [ -s "$pg/FILES" ] && [ -f "$pg/BASE-LIBS" ] && [ -d "$pg/root" ] \
+        || fail trust "the PostgreSQL bundle is incomplete (PACKAGES, FILES, BASE-LIBS, root)"
+    server_version=$(awk '$1 == "pgsql-server" { print $2; exit }' "$pg/PACKAGES")
     [ -n "$server_version" ] || fail trust "the PostgreSQL bundle has no pgsql-server package"
     if [ -f "$pgdata/PG_VERSION" ]; then
         cluster_major=$(tr -d '[:space:]' < "$pgdata/PG_VERSION")
         [ "${server_version%%.*}" = "$cluster_major" ] \
             || fail database "the bundle has PostgreSQL $server_version but the cluster is version $cluster_major; a major upgrade is not supported by this installer"
     fi
+    check_pg_base_libs "$pg/BASE-LIBS"
+    verify_pg_tree "$pg/root" "$pg/FILES"
+    mv "$pg/root" "$new"
+    cp "$pg/FILES" "$new/.chengos-files"
+    log "unpacked PostgreSQL $server_version ($(wc -l < "$pg/FILES") files)"
     check_pg_libraries "$new"
+    check_pg_runs "$new" "$server_version"
     rm -rf "${root:?}.prev"
     [ ! -d "$root" ] || mv "$root" "$root.prev"
     mv "$new" "$root"
@@ -1540,6 +1625,24 @@ prune_backups() {
     rm -rf "${data:?}/pgdata.failed"
 }
 
+# restore_pg_prev DATA: undo this update's PostgreSQL swap, including one
+# interrupted between moving the old tree aside and moving the new one in.
+restore_pg_prev() {
+    [ -d "$1/pg/root.prev" ] || return 0
+    rm -rf "${1:?}/pg/root"
+    mv "$1/pg/root.prev" "$1/pg/root"
+}
+
+# abort_update_before_switch KIND MESSAGE: the new release has not run yet
+# (its database is untouched): put back the old PostgreSQL tree and release
+# link, restart the old release and fail.
+abort_update_before_switch() {
+    restore_pg_prev "$data"
+    ln -sfn "releases/$old" "$data/current" || true
+    start_services
+    fail "$1" "$2"
+}
+
 cmd_update() {
     pg_bundle="" pg_sha=""
     while [ $# -gt 0 ]; do
@@ -1574,19 +1677,21 @@ cmd_update() {
     snap=$(snapshot_db "$data" "$old")
     printf 'from=%s\nto=%s\nsnapshot=%s\n' "$old" "$new" "$snap" > "$data/backups/last-update"
     log "database snapshot: $snap"
+    # From here, pg/root.prev exists only if this update swapped the tree, so
+    # every failure path can undo exactly that.
+    rm -rf "${data:?}/pg/root.prev"
     if [ -n "$pg_bundle" ] && ! ( install_postgres_bundle "$data/pg/root" "$pg_bundle" "$pg_sha" "$data/pgdata" ); then
-        start_services
-        fail database "the new release's PostgreSQL could not be installed; ChengOS $old was restarted unchanged"
+        abort_update_before_switch database "the new release's PostgreSQL could not be installed; ChengOS $old was restarted unchanged"
     fi
 
     # Before the switch, while the old release is stopped: keep its Skill
     # files (they lived inside the release directory before SKILLS_DIR moved
     # to $data/skills).
     if ! ensure_skills_dir "$data" "$data/releases/$old/skills"; then
-        start_services
-        fail storage "could not copy the Skill files of $old into $data/skills; ChengOS $old was restarted unchanged"
+        abort_update_before_switch storage "could not copy the Skill files of $old into $data/skills; ChengOS $old was restarted unchanged"
     fi
-    ln -sfn "releases/$new" "$data/current"
+    ln -sfn "releases/$new" "$data/current" \
+        || abort_update_before_switch storage "could not switch $data/current to $new; ChengOS $old was restarted unchanged"
     # The init scripts and hotplug hooks ship with the release. Any failure from
     # here on takes the restore path below rather than leaving the switch half done.
     if write_init_scripts && install_command "$data/current" && start_services && wait_healthy 300 "$new"; then
@@ -1608,10 +1713,7 @@ cmd_update() {
     warn "ChengOS $new did not become healthy; restoring $old and its database snapshot"
     stop_services
     restore_db "$data" "$snap"
-    if [ -d "$data/pg/root.prev" ]; then
-        rm -rf "${data:?}/pg/root"
-        mv "$data/pg/root.prev" "$data/pg/root"
-    fi
+    restore_pg_prev "$data"
     ln -sfn "releases/$old" "$data/current"
     install_command "$data/current"
     start_services

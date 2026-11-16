@@ -21,6 +21,7 @@ printf '9.9.9\n' > "$ROOT/VERSION"
 printf 'dist/\nchengflow/\nchengflow-ui/\n' > "$ROOT/.gitignore"
 cat > "$OW/profiles.json" <<'EOF'
 {"schema":1,"profiles":[{"id":"test-router","status":"experimental","arch":"arm64",
+"package_arch":"aarch64_generic","package_format":"ipk",
 "match":{"board":"test","machine":"aarch64","distrib_release":"test"},
 "min_ram_mb":1024,"min_free_mb":2048,"min_free_inodes":100000}]}
 EOF
@@ -53,16 +54,9 @@ tar -czf "$archive" -C "$stage" chengos-openwrt
 echo "$archive"
 EOF
 chmod +x "$OW/package.sh"
-mk_ipk() {
-    local name=$1 dir="$T/ipk-work-$1"
-    mkdir -p "$dir/outer" "$dir/control" "$dir/data"
-    printf 'Package: %s\nVersion: 1.0-r1\n' "$name" > "$dir/control/control"
-    echo payload > "$dir/data/payload"
-    tar -czf "$dir/outer/control.tar.gz" -C "$dir/control" .
-    tar -czf "$dir/outer/data.tar.gz" -C "$dir/data" .
-    tar -czf "$T/ipks/${name}_1.0-r1_arm64.ipk" -C "$dir/outer" .
-}
-for name in pgsql-server pgsql-cli libpq; do mk_ipk "$name"; done
+# shellcheck source=openwrt-pg-fixture.sh
+source "$REPO_ROOT/deploy/tests/openwrt-pg-fixture.sh"
+pg_fixture_dir "$T/ipks"
 for part in root chengflow chengflow-ui; do
     dir="$ROOT"; [[ "$part" == root ]] || dir="$ROOT/$part"
     mkdir -p "$dir"
@@ -89,7 +83,7 @@ reset_remote() {
 reset_remote
 SCRIPT="$OW/release-assets.sh"
 BUNDLE="$ROOT/dist/openwrt/v9.9.9"
-prepare=(--key "$T/key.pem" --pg-ipks "test-router=$T/ipks" --skip-build)
+prepare=(--key "$T/key.pem" --pg-pkgs "test-router=$T/ipks" --skip-build)
 retry=(--upload-only --publish --out "$BUNDLE")
 pass=0
 ok() { pass=$((pass + 1)); echo "  ok $*"; }
@@ -185,14 +179,23 @@ ok "one invocation prepares, signs, uploads and verifies the complete release"
 reset_remote
 FAKE_HOME="$T/home"
 FIXED="$FAKE_HOME/.config/chengos/release"
-mkdir -p "$FIXED/openwrt-pg-ipks/test-router"
+mkdir -p "$FIXED/openwrt-pg-pkgs"
 cp "$T/key.pem" "$FIXED/release-key.pem"
-cp "$T"/ipks/*.ipk "$FIXED/openwrt-pg-ipks/test-router/"
-env -u CHENGOS_RELEASE_KEY -u CHENGOS_OPENWRT_PG_IPKS_ROOT HOME="$FAKE_HOME" \
+cp -a "$T/ipks" "$FIXED/openwrt-pg-pkgs/test-router"
+env -u CHENGOS_RELEASE_KEY -u CHENGOS_OPENWRT_PG_PKGS_ROOT -u CHENGOS_OPENWRT_PG_IPKS_ROOT HOME="$FAKE_HOME" \
     bash "$SCRIPT" --skip-build --out "$T/defaults" > "$T/defaults.log" 2>&1 \
     || { cat "$T/defaults.log"; exit 1; }
 [[ -f "$T/defaults/release-assets.json" ]]
-ok "signing key and PostgreSQL .ipk directory come from fixed defaults without --key or --pg-ipks"
+ok "signing key and PostgreSQL package directory come from fixed defaults without --key or --pg-pkgs"
+reset_remote
+mv "$FIXED/openwrt-pg-pkgs" "$FIXED/openwrt-pg-ipks"
+env -u CHENGOS_RELEASE_KEY -u CHENGOS_OPENWRT_PG_PKGS_ROOT -u CHENGOS_OPENWRT_PG_IPKS_ROOT HOME="$FAKE_HOME" \
+    bash "$SCRIPT" --skip-build --out "$T/legacy" > "$T/legacy.log" 2>&1 \
+    || { cat "$T/legacy.log"; exit 1; }
+[[ -f "$T/legacy/release-assets.json" ]]
+ok "the legacy openwrt-pg-ipks directory is still found"
+jq -e ".profiles[0].postgres.format == \"rootfs-v1\"" "$T/legacy/chengos-openwrt-manifest.json" >/dev/null
+ok "the manifest records the PostgreSQL bundle format"
 reset_remote
 echo changed >> "$ROOT/chengflow/source"
 expect_fail 'uncommitted changes' bash "$SCRIPT" "${prepare[@]}" --out "$T/dirty-output"

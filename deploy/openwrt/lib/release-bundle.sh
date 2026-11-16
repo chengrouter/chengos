@@ -25,6 +25,7 @@ ow_bundle_verify() {
             (.archive.sha256 | test("^[a-f0-9]{64}$")) and
             (.postgres.sha256 | test("^[a-f0-9]{64}$")) and
             (.archive.size | type == "number") and (.postgres.size | type == "number") and
+            .postgres.format == "rootfs-v1" and
             any(.postgres.packages[]; .name == "pgsql-server"))
     ' "$manifest" >/dev/null || ow_die "invalid release manifest for $TAG"
     manager="$(jq -r .manager.asset "$manifest")"

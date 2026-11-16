@@ -2,9 +2,41 @@
   "schema": 1,
   "profiles": [
     {
-      "id": "nanopi-r76s-kwrt-25.12",
+      "id": "nanopi-r76s-openwrt-25.12.5",
       "status": "experimental",
       "arch": "arm64",
+      "package_arch": "aarch64_generic",
+      "package_format": "apk-v3-adb",
+      "package_manager": "apk",
+      "feed": {
+        "urls": [
+          "https://downloads.openwrt.org/releases/25.12.5/packages/aarch64_generic/base",
+          "https://downloads.openwrt.org/releases/25.12.5/packages/aarch64_generic/packages"
+        ],
+        "key_sha256": [
+          "27d61d827d64ccf2f46dce5f52aec6279404d4a00686dafb22f52f3b4ee675f8"
+        ]
+      },
+      "match": {
+        "board": "friendlyelec,nanopi-r76s",
+        "machine": "aarch64",
+        "distrib_id": "OpenWrt",
+        "distrib_release": "25.12.5",
+        "distrib_revision": "r33051-f5dae5ece4",
+        "distrib_target": "rockchip/armv8"
+      },
+      "min_ram_mb": 1024,
+      "min_free_mb": 2048,
+      "min_free_inodes": 100000,
+      "notes": "OpenWrt 25.12.5 (apk-tools 3) on NanoPi R76S. PostgreSQL 17.5 from the official 25.12.5 feeds, normalized to rootfs-v1. Support boundary: the pinned DISTRIB_* identity is not an image fingerprint; any image matching it is accepted if it has every library in the bundle's BASE-LIBS (libc.so, libgcc_s.so.1, libreadline.so.8, libz.so.1), which the router checks before installing, and passes the loader, postgres -V and initdb checks. Qualified only on a custom 25.12.5 build (DISTRIB_TAINTS=busybox, ~1090 packages). Not supported until the signed install, reboot and update suites pass on durable storage."
+    },
+    {
+      "id": "nanopi-r76s-kwrt-25.12",
+      "status": "unlisted",
+      "arch": "arm64",
+      "package_arch": "aarch64_generic",
+      "package_format": "ipk",
+      "package_manager": "opkg",
       "match": {
         "board": "friendlyarm,nanopi-r76s",
         "machine": "aarch64",
@@ -14,7 +46,7 @@
       "min_ram_mb": 1024,
       "min_free_mb": 2048,
       "min_free_inodes": 100000,
-      "notes": "Functional on Kwrt 25.12-SNAPSHOT (plan D13-D17). Not supported until the firmware image is pinned by revision and a durable SSD/eMMC passes the reboot suite."
+      "notes": "Functional on Kwrt 25.12-SNAPSHOT (plan D13-D17). Unlisted: no qualified, frozen .ipk set exists. Re-advertise only with one that passes pg-bundle.sh and the device acceptance suite, after the image is pinned by revision."
     }
   ]
 }

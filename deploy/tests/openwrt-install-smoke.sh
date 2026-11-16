@@ -12,7 +12,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 OW="${REPO_ROOT}/deploy/openwrt"
 SCRIPT="${OW}/appliance/chengos-openwrt.sh"
-for tool in busybox jq openssl; do
+for tool in busybox jq openssl readelf; do
     command -v "$tool" >/dev/null 2>&1 || { echo "SKIP: $tool not installed"; exit 0; }
 done
 
@@ -68,7 +68,16 @@ case "$2" in
 esac
 EOF
 printf '#!/bin/sh\n[ "$1" = -u ] && { echo 0; exit 0; }\nexec /usr/bin/id "$@"\n' > "$T/bin/id"
-printf '#!/bin/sh\nexit 0\n' > "$T/bin/start-stop-daemon"
+# start-stop-daemon -S ... -x PROG -- ARGS: runs PROG ARGS as the caller;
+# chown: the tests run unprivileged and there is no chengos user.
+cat > "$T/bin/start-stop-daemon" <<'EOF'
+#!/bin/sh
+x=""
+while [ $# -gt 0 ]; do case "$1" in -x) x=$2; shift 2 ;; --) shift; break ;; *) shift ;; esac; done
+[ -n "$x" ] && exec "$x" "$@"
+exit 0
+EOF
+printf '#!/bin/sh\nexit 0\n' > "$T/bin/chown"
 printf '#!/bin/sh\nexit 0\n' > "$T/musl-loader"
 chmod +x "$T/bin"/* "$T/musl-loader"
 
@@ -150,53 +159,192 @@ expect_ok "headroom has a floor and counts two snapshots" \
     "[ \$(required_free_mb 100 50 0) -eq \$((100 + 100 + HEADROOM_MARGIN_MB)) ] && [ \$(required_free_mb 1 0 4096) -eq 4096 ]"
 
 echo "== PostgreSQL bundle"
-# mk_ipk DIR NAME VERSION FILE...: a minimal .ipk whose data holds FILEs.
-mk_ipk() {
-    local dir=$1 name=$2 version=$3 w
-    shift 3
-    w="$(mktemp -d "$T/ipk.XXXXXX")"
-    mkdir -p "$w/data" "$w/ctl" "$w/outer"
-    for f in "$@"; do mkdir -p "$w/data/$(dirname "$f")"; printf '#!/bin/sh\necho %s\n' "$f" > "$w/data/$f"; chmod +x "$w/data/$f"; done
-    printf 'Package: %s\nVersion: %s\nArchitecture: aarch64_generic\n' "$name" "$version" > "$w/ctl/control"
-    tar -C "$w/data" -czf "$w/outer/data.tar.gz" .
-    tar -C "$w/ctl" -czf "$w/outer/control.tar.gz" ./control
-    echo 2.0 > "$w/outer/debian-binary"
-    tar -C "$w/outer" -czf "$dir/${name}_${version}_aarch64_generic.ipk" ./debian-binary ./data.tar.gz ./control.tar.gz
-    rm -rf "$w"
-}
+# shellcheck source=openwrt-pg-fixture.sh
+source "${REPO_ROOT}/deploy/tests/openwrt-pg-fixture.sh"
+HOST_ARCH="$(source "${OW}/lib/common.sh"; ow_release_arch_for_uname "$(uname -m)")"
+OTHER_ARCH=arm64; [[ "$HOST_ARCH" != arm64 ]] || OTHER_ARCH=amd64
+jq -n --arg host "$HOST_ARCH" --arg other "$OTHER_ARCH" '{schema: 1, profiles: [
+  {id: "test-profile", status: "supported", arch: "arm64", package_arch: "aarch64_generic", package_format: "ipk", match: {}},
+  {id: "test-apk", status: "supported", arch: "arm64", package_arch: "aarch64_generic", package_format: "apk-v3-adb", match: {}},
+  {id: "test-host", status: "supported", arch: $host, package_arch: "aarch64_generic", package_format: "ipk", match: {}},
+  {id: "test-other", status: "supported", arch: $other, package_arch: "aarch64_generic", package_format: "ipk", match: {}}
+]}' > "$T/pg-profiles.json"
 IPK="$T/ipks"; mkdir -p "$IPK"
-mk_ipk "$IPK" pgsql-server 17.5-r3 usr/bin/postgres usr/bin/initdb usr/bin/pg_ctl
-mk_ipk "$IPK" pgsql-cli 17.5-r3 usr/bin/psql
-mk_ipk "$IPK" libpq 17.5-r3 usr/lib/libpq.so.5
+pg_fixture_dir "$IPK"
 DIST="$T/dist"; mkdir -p "$DIST"
-BUNDLE="$("${OW}/pg-bundle.sh" --profile test-profile --ipk-dir "$IPK" --version 9.9.9 --out "$DIST" 2>/dev/null)"
+# bundle PROFILE DIR [OUT]: build a bundle, print its path.
+bundle() { "${OW}/pg-bundle.sh" --profile "$1" --pkg-dir "$2" --profiles "$T/pg-profiles.json" --version 9.9.9 --out "${3:-$T/junk}"; }
+# variant NAME: a copy of the fixture input to break.
+variant() { rm -rf "$T/v-$1"; cp -a "$IPK" "$T/v-$1"; printf '%s' "$T/v-$1"; }
+BUNDLE="$(bundle test-profile "$IPK" "$DIST" 2>/dev/null)"
 [[ -f "$BUNDLE" ]] && ok "bundle built" || bad "bundle not built"
 listing="$(tar -xzOf "$BUNDLE" chengos-pg/PACKAGES)"
 [[ "$listing" == *"pgsql-server 17.5-r3 "* && "$(wc -l <<< "$listing")" -eq 3 ]] && ok "PACKAGES lists every package" || bad "PACKAGES: $listing"
+[[ "$(tar -xzOf "$BUNDLE" chengos-pg/FORMAT)" == rootfs-v1 ]] && ok "the bundle declares FORMAT rootfs-v1" || bad "FORMAT"
+members="$(tar -tzf "$BUNDLE")"
+files="$(tar -xzOf "$BUNDLE" chengos-pg/FILES)"
+[[ "$members" == *"chengos-pg/root/usr/bin/postgres"* && "$members" != *"etc/init.d"* && "$members" != *".ipk"* ]] \
+    && ok "the payload is a normalized tree without init scripts or packages" || bad "members: $members"
+grep -q '^dropped pgsql-server etc/init.d/postgresql$' <(tar -xzOf "$BUNDLE" chengos-pg/PROVENANCE) \
+    && ok "dropped paths are recorded in PROVENANCE" || bad "PROVENANCE: $(tar -xzOf "$BUNDLE" chengos-pg/PROVENANCE)"
+[[ "$files" == *"l postgres usr/bin/postmaster"* && "$files" == *"l libpq.so.5.17 usr/lib/libpq.so.5"* \
+   && "$(grep -c '^f ' <<< "$files")" -eq 6 ]] && ok "FILES lists every file and symlink" || bad "FILES: $files"
+[[ "$members" == *"chengos-pg/licenses/libpq"* ]] && ok "licenses ship per package" || bad "no licenses"
 first="$(sha256sum "$BUNDLE" | cut -d' ' -f1)"
-"${OW}/pg-bundle.sh" --profile test-profile --ipk-dir "$IPK" --version 9.9.9 --out "$DIST" >/dev/null 2>&1
+bundle test-profile "$IPK" "$DIST" >/dev/null 2>&1
 [[ "$(sha256sum "$BUNDLE" | cut -d' ' -f1)" == "$first" ]] && ok "bundle is reproducible" || bad "bundle hash changed between builds"
-mkdir -p "$T/noserver"; cp "$IPK"/libpq_* "$T/noserver/"
-expect_cmd "a bundle without pgsql-server is refused" 1 "pgsql-server" "${OW}/pg-bundle.sh" --profile x --ipk-dir "$T/noserver" --out "$T/junk"
+expect_cmd "the --ipk-dir alias still works" 0 "" "${OW}/pg-bundle.sh" --profile test-profile --ipk-dir "$IPK" --profiles "$T/pg-profiles.json" --version 9.9.9 --out "$T/junk"
 
+echo "== PostgreSQL bundle: publisher refusals"
+v="$(variant noserver)"; rm "$v"/pgsql-server_*; pg_fixture_index "$v"
+expect_cmd "a bundle without pgsql-server is refused" 1 "pgsql-server" bundle test-profile "$v"
+v="$(variant unindexed)"; pg_fixture_ipk "$v" pgsql-cli 17.5-r3 -- usr/bin/psql usr/bin/extra
+expect_cmd "a package not in the frozen feed index is refused" 1 "does not match the frozen feed indexes" bundle test-profile "$v"
+v="$(variant noindex)"; rm -rf "$v/feeds"
+expect_cmd "a package set without feed indexes is refused" 1 "no frozen feed indexes" bundle test-profile "$v"
+v="$(variant mixed)"; echo x > "$v/libpq-17.5-r3.apk"
+expect_cmd "mixed package formats are refused" 1 "mixes package formats" bundle test-profile "$v"
+expect_cmd "an ipk set is refused for an apk-v3-adb profile" 1 "no .apk packages" bundle test-apk "$IPK"
+v="$(variant arch)"; rm "$v"/pgsql-cli_*; pg_fixture_ipk "$v" pgsql-cli 17.5-r3 x86_64 -- usr/bin/psql; pg_fixture_index "$v"
+expect_cmd "a package for another package arch is refused" 1 "needs aarch64_generic" bundle test-profile "$v"
+v="$(variant license)"; rm "$v/licenses/libpq"
+expect_cmd "a package without a license is refused" 1 "no license for libpq" bundle test-profile "$v"
+v="$(variant nobase)"; rm "$v/base-libs.txt"
+expect_cmd "a bundle without the image's library list is refused" 1 "base-libs.txt is missing" bundle test-profile "$v"
+v="$(variant abslink)"; pg_fixture_ipk "$v" extra 1 -- "usr/lib/libx.so->/etc/shadow"; pg_fixture_index "$v"; echo L > "$v/licenses/extra"
+expect_cmd "an absolute symlink is refused" 1 "absolute symlink" bundle test-profile "$v"
+v="$(variant escape)"; pg_fixture_ipk "$v" extra 1 -- "usr/lib/libx.so->../../../etc/shadow"; pg_fixture_index "$v"; echo L > "$v/licenses/extra"
+expect_cmd "a symlink leaving the payload is refused" 1 "leaves the payload" bundle test-profile "$v"
+v="$(variant libc)"; pg_fixture_ipk "$v" extra 1 -- usr/lib/libc.so; pg_fixture_index "$v"; echo L > "$v/licenses/extra"
+expect_cmd "the C library is never bundled" 1 "never carry the C library" bundle test-profile "$v"
+v="$(variant clash)"; pg_fixture_ipk "$v" extra 1 -- usr/bin/psql; pg_fixture_index "$v"; echo L > "$v/licenses/extra"
+expect_cmd "two packages shipping one path are refused" 1 "both ship usr/bin/psql" bundle test-profile "$v"
+# A real host ELF: its libraries must come from the payload or the image.
+v="$(variant elf)"; echo L > "$v/licenses/extra"
+w="$T/elf-x"; rm -rf "$w"; mkdir -p "$w/o" "$w/d/usr/bin" "$w/c"
+cp "$(type -P true)" "$w/d/usr/bin/tool"
+printf 'Package: extra\nVersion: 1\nArchitecture: aarch64_generic\n' > "$w/c/control"
+tar -C "$w/d" -czf "$w/o/data.tar.gz" . && tar -C "$w/c" -czf "$w/o/control.tar.gz" ./control && echo 2.0 > "$w/o/debian-binary"
+tar -C "$w/o" -czf "$v/extra_1_aarch64_generic.ipk" ./debian-binary ./data.tar.gz ./control.tar.gz; pg_fixture_index "$v"
+expect_cmd "an unresolved library is refused" 1 "usr/bin/tool needs" bundle test-host "$v"
+readelf -d "$(type -P true)" | sed -n 's/.*(NEEDED).*\[\(.*\)\]/\1/p' >> "$v/base-libs.txt"
+elf_bundle="$(bundle test-host "$v" 2>/dev/null)"
+[[ -f "$elf_bundle" ]] && ok "libraries the image has resolve" || bad "libraries the image has resolve: $(bundle test-host "$v" 2>&1)"
+[[ "$(tar -xzOf "$elf_bundle" chengos-pg/BASE-LIBS)" == "$(readelf -d "$(type -P true)" | sed -n 's/.*(NEEDED).*\[\(.*\)\]/\1/p' | LC_ALL=C sort -u)" ]] \
+    && ok "BASE-LIBS lists exactly what the payload needs from the image" || bad "BASE-LIBS: $(tar -xzOf "$elf_bundle" chengos-pg/BASE-LIBS)"
+expect_cmd "an ELF for another architecture is refused" 1 "built for ELF machine" bundle test-other "$v"
+
+echo "== PostgreSQL bundle: apk-v3-adb input"
+# Needs apk-tools 3.x (e.g. an OpenWrt ImageBuilder's staging_dir/host/bin/apk).
+TEST_APK="${CHENGOS_TEST_APK:-$(command -v apk || true)}"
+if [[ -n "$TEST_APK" ]] && "$TEST_APK" --version 2>/dev/null | grep -q '^apk-tools 3\.'; then
+    A="$T/apk"; mkdir -p "$A/keys" "$A/in/keys" "$A/in/feeds/packages" "$A/in/licenses" "$A/other"
+    openssl ecparam -name prime256v1 -genkey -noout -out "$A/keys/feed.key" 2>/dev/null
+    openssl ec -in "$A/keys/feed.key" -pubout -out "$A/in/keys/feed.pem" 2>/dev/null
+    openssl ecparam -name prime256v1 -genkey -noout -out "$A/keys/other.key" 2>/dev/null
+    openssl ec -in "$A/keys/other.key" -pubout -out "$A/keys/other.pem" 2>/dev/null
+    # mk_apk DIR NAME PATH...: an apk v3 package in DIR, files as in pg_fixture_ipk.
+    mk_apk() {
+        local out=$1 name=$2 x="$A/x-$2"; shift 2
+        rm -rf "$x"; mkdir -p "$x"
+        pg_fixture_ipk "$x" "$name" 17.5-r3 -- "$@"
+        mkdir -p "$x/o" "$x/root" && tar -xzf "$x"/*.ipk -C "$x/o" && tar -xzf "$x/o/data.tar.gz" -C "$x/root"
+        "$TEST_APK" mkpkg -I "name:$name" -I version:17.5-r3 -I arch:aarch64_generic -I license:PostgreSQL \
+            -F "$x/root" -o "$out/$name-17.5-r3.apk" >/dev/null
+    }
+    mk_apk "$A/in" pgsql-server usr/bin/postgres usr/bin/initdb usr/bin/pg_ctl etc/init.d/postgresql "usr/bin/postmaster->postgres"
+    mk_apk "$A/in" pgsql-cli usr/bin/psql
+    mk_apk "$A/in" libpq usr/lib/libpq.so.5.17 "usr/lib/libpq.so.5->libpq.so.5.17"
+    # apk_index DIR KEY: sign an index of DIR's packages into DIR/feeds/packages.
+    apk_index() {
+        "$TEST_APK" --allow-untrusted mkndx --sign-key "$2" -o "$1/feeds/packages/packages.adb" "$1"/*.apk >/dev/null
+    }
+    apk_index "$A/in" "$A/keys/feed.key"
+    printf 'libc.so\n' > "$A/in/base-libs.txt"
+    for n in pgsql-server pgsql-cli libpq; do echo "PostgreSQL License" > "$A/in/licenses/$n"; done
+    jq -n --arg key "$(sha256sum "$A/in/keys/feed.pem" | cut -d' ' -f1)" '{schema: 1, profiles: [
+      {id: "test-apk", status: "supported", arch: "arm64", package_arch: "aarch64_generic",
+       package_format: "apk-v3-adb", feed: {urls: ["https://example.invalid/packages"], key_sha256: [$key]}, match: {}}]}' \
+        > "$A/profiles.json"
+    abundle() { "${OW}/pg-bundle.sh" --profile test-apk --pkg-dir "$1" --profiles "$A/profiles.json" --apk "$TEST_APK" --version 9.9.9 --out "$A/dist"; }
+    avariant() { rm -rf "$A/v-$1"; cp -a "$A/in" "$A/v-$1"; printf '%s' "$A/v-$1"; }
+    APK_BUNDLE="$(abundle "$A/in" 2>/dev/null)"
+    [[ -f "$APK_BUNDLE" && "$(tar -xzOf "$APK_BUNDLE" chengos-pg/FORMAT)" == rootfs-v1 ]] \
+        && ok "an apk v3 package set verifies and normalizes to rootfs-v1" || bad "apk bundle not built: $(abundle "$A/in" 2>&1)"
+    [[ "$(tar -xzOf "$APK_BUNDLE" chengos-pg/PACKAGES | cut -d' ' -f1,2 | tr '\n' ,)" == "libpq 17.5-r3,pgsql-cli 17.5-r3,pgsql-server 17.5-r3," ]] \
+        && ok "names and versions come from the ADB metadata" || bad "PACKAGES: $(tar -xzOf "$APK_BUNDLE" chengos-pg/PACKAGES)"
+    members="$(tar -tzf "$APK_BUNDLE")"
+    [[ "$members" == *"chengos-pg/root/usr/bin/postgres"* && "$members" != *"etc/init.d"* && "$members" != *"lib/apk"* ]] \
+        && ok "apk metadata and init scripts are dropped" || bad "members: $members"
+    v="$(avariant unpinned)"; cp "$A/keys/other.pem" "$v/keys/"
+    expect_cmd "a feed key the profile does not pin is refused" 1 "is not a key profile test-apk pins" abundle "$v"
+    v="$(avariant othersig)"; apk_index "$v" "$A/keys/other.key"
+    expect_cmd "an index signed by another key is refused" 1 "not signed by a pinned key" abundle "$v"
+    v="$(avariant tamper)"; printf 'x' >> "$v/pgsql-cli-17.5-r3.apk"
+    expect_cmd "a package with bytes appended is refused" 1 "is not the pgsql-cli the frozen feed index lists" abundle "$v"
+    v="$(avariant flip)"; f="$v/pgsql-cli-17.5-r3.apk"; size=$(stat -c %s "$f")
+    printf '\377' | dd of="$f" bs=1 seek=$((size - 20)) conv=notrunc status=none
+    expect_cmd "a package with a modified byte is refused" 1 "pgsql-cli-17.5-r3.apk" abundle "$v"
+    v="$(avariant swapped)"; mk_apk "$v" pgsql-cli usr/bin/psql usr/bin/extra
+    expect_cmd "a rebuilt package the frozen index does not list is refused" 1 "does not verify against the frozen feed indexes" abundle "$v"
+    APK_SHA="$(sha256sum "$APK_BUNDLE" | cut -d' ' -f1)"
+    expect_ok "the apk-built bundle installs with the same device code" \
+        "install_postgres_bundle '$T/data/apk/pg/root' '$APK_BUNDLE' $APK_SHA '$T/data/apk/pgdata' && [ -x '$T/data/apk/pg/root/usr/bin/psql' ] && [ -L '$T/data/apk/pg/root/usr/lib/libpq.so.5' ]"
+else
+    echo "  skip  no apk-tools 3.x (set CHENGOS_TEST_APK to an OpenWrt ImageBuilder's staging_dir/host/bin/apk)"
+fi
+
+echo "== PostgreSQL bundle: device install"
 PGSHA="$first"
 D="$T/data/inst"
 mkdir -p "$D/pg"
+# rebundle NAME SNIPPET: unpack the good bundle, run SNIPPET in its chengos-pg/, repack, print the hash.
+rebundle() {
+    local w="$T/re-$1"; rm -rf "$w"; mkdir -p "$w"; tar -xzf "$BUNDLE" -C "$w"
+    (cd "$w/chengos-pg" && eval "$2")
+    tar -C "$w" -czf "$T/$1.tar.gz" chengos-pg
+    sha256sum "$T/$1.tar.gz" | cut -d' ' -f1
+}
 expect_ok "bundle installs, marks the tree with its hash" \
-    "install_postgres_bundle '$D/pg/root' '$BUNDLE' $PGSHA '$D/pgdata' && [ -x '$D/pg/root/usr/bin/postgres' ] && [ \"\$(cat '$D/pg/root/.chengos-complete')\" = $PGSHA ]"
-expect_ok "the same bundle is not unpacked again" \
-    "rm '$D/pg/root/usr/bin/psql'; install_postgres_bundle '$D/pg/root' '$BUNDLE' $PGSHA '$D/pgdata' && [ ! -e '$D/pg/root/usr/bin/psql' ]"
+    "install_postgres_bundle '$D/pg/root' '$BUNDLE' $PGSHA '$D/pgdata' && [ -x '$D/pg/root/usr/bin/postgres' ] && [ -L '$D/pg/root/usr/bin/postmaster' ] \
+     && [ \"\$(cat '$D/pg/root/.chengos-complete')\" = $PGSHA ] && [ ! -e '$D/pg/root/etc' ] && [ ! -e '$D/pg/initdb-check' ] && [ ! -e '$D/pg/bundle-x' ]"
+expect_ok "the file list is kept with the installed tree" "[ -s '$D/pg/root/.chengos-files' ]"
+expect_ok "an intact tree from the same bundle is not unpacked again" \
+    "out=\$(install_postgres_bundle '$D/pg/root' '$BUNDLE' $PGSHA '$D/pgdata' 2>&1) && case \"\$out\" in *unpacked*) false ;; esac && [ ! -e '$D/pg/root.prev' ]"
+expect_ok "a damaged tree from the same bundle is reinstalled from it (repair)" \
+    "rm '$D/pg/root/usr/bin/psql'; echo x >> '$D/pg/root/usr/bin/pg_ctl'; install_postgres_bundle '$D/pg/root' '$BUNDLE' $PGSHA '$D/pgdata' \
+     && [ -x '$D/pg/root/usr/bin/psql' ] && pg_tree_matches '$D/pg/root' '$D/pg/root/.chengos-files'"
+expect_fail "a damaged tree without its bundle fails explicitly" \
+    "rm '$D/pg/root/usr/bin/psql'; install_postgres_bundle '$D/pg/root' '$T/no-such-bundle.tar.gz' $PGSHA '$D/pgdata'" "bundle $T/no-such-bundle.tar.gz is missing"
+expect_ok "a tree without a file list (older install) is reinstalled" \
+    "rm -rf '$D/pg/root.prev'; rm '$D/pg/root/.chengos-files'; install_postgres_bundle '$D/pg/root' '$BUNDLE' $PGSHA '$D/pgdata' && [ -s '$D/pg/root/.chengos-files' ] && [ -x '$D/pg/root/usr/bin/psql' ]"
 expect_fail "a bundle not matching the manifest hash is refused" \
     "install_postgres_bundle '$D/pg/root2' '$BUNDLE' 0000 '$D/pgdata'" "does not match the SHA-256 in the signed manifest"
-# A package swapped inside a bundle whose own hash is (re)trusted.
-w="$T/evil"; mkdir -p "$w"; tar -xzf "$BUNDLE" -C "$w"
-mkdir -p "$T/evil-ipk"
-mk_ipk "$T/evil-ipk" pgsql-cli 17.5-r3 usr/bin/psql usr/bin/extra
-cp "$T/evil-ipk"/pgsql-cli_* "$w/chengos-pg/"
-tar -C "$w" -czf "$T/evil.tar.gz" chengos-pg
-EVILSHA="$(sha256sum "$T/evil.tar.gz" | cut -d' ' -f1)"
-expect_fail "a package not matching the bundle's list is refused" \
-    "install_postgres_bundle '$D/pg/root3' '$T/evil.tar.gz' $EVILSHA '$D/pgdata'" "does not match the SHA-256 in the bundle's list"
+sha="$(rebundle tampered 'echo evil >> root/usr/bin/psql')"
+expect_fail "a file not matching the bundle's list is refused" \
+    "install_postgres_bundle '$D/pg/root3' '$T/tampered.tar.gz' $sha '$D/pgdata'" "do not match the SHA-256 in its file list"
+sha="$(rebundle extra 'echo x > root/usr/bin/extra')"
+expect_fail "a file not in the bundle's list is refused" \
+    "install_postgres_bundle '$D/pg/root3' '$T/extra.tar.gz' $sha '$D/pgdata'" "not in its file list"
+sha="$(rebundle relink 'ln -sfn initdb root/usr/bin/postmaster')"
+expect_fail "a symlink not matching the bundle's list is refused" \
+    "install_postgres_bundle '$D/pg/root3' '$T/relink.tar.gz' $sha '$D/pgdata'" "does not match its file list"
+sha="$(rebundle format 'echo rootfs-v2 > FORMAT')"
+expect_fail "an unknown bundle format is refused" \
+    "install_postgres_bundle '$D/pg/root3' '$T/format.tar.gz' $sha '$D/pgdata'" "has format 'rootfs-v2'"
+sha="$(rebundle nobase 'rm BASE-LIBS')"
+expect_fail "a bundle without BASE-LIBS is refused" \
+    "install_postgres_bundle '$D/pg/root3' '$T/nobase.tar.gz' $sha '$D/pgdata'" "incomplete"
+mkdir -p "$T/syslib/lib" "$T/syslib/usr/lib"; : > "$T/syslib/lib/libc.so"; : > "$T/syslib/usr/lib/libz.so.1"
+sha="$(rebundle baselibs 'printf "libc.so\nlibz.so.1\n" > BASE-LIBS')"
+expect_ok "firmware libraries in /lib and /usr/lib satisfy BASE-LIBS" \
+    "PG_SYSTEM_LIB_DIR='$T/syslib/lib'; PG_SYSTEM_USRLIB_DIR='$T/syslib/usr/lib'; install_postgres_bundle '$D/pg/rootb' '$T/baselibs.tar.gz' $sha '$D/pgdata'"
+sha="$(rebundle lacklib 'printf "libc.so\nlibreadline.so.8\n" > BASE-LIBS')"
+expect_fail "a firmware lacking a needed library is refused" \
+    "PG_SYSTEM_LIB_DIR='$T/syslib/lib'; PG_SYSTEM_USRLIB_DIR='$T/syslib/usr/lib'; install_postgres_bundle '$D/pg/rootc' '$T/lacklib.tar.gz' $sha '$D/pgdata'" "lacks libraries the PostgreSQL bundle needs: libreadline.so.8"
+sha="$(rebundle dotdot 'echo "f 00 ../../escape" >> FILES')"
+expect_fail "a file list path leaving the tree is refused" \
+    "install_postgres_bundle '$D/pg/root3' '$T/dotdot.tar.gz' $sha '$D/pgdata'" "invalid path"
 mkdir -p "$D/pgdata"; echo 16 > "$D/pgdata/PG_VERSION"
 expect_fail "a different PostgreSQL major than the cluster is refused" \
     "install_postgres_bundle '$D/pg/root4' '$BUNDLE' $PGSHA '$D/pgdata'" "major upgrade is not supported"
@@ -205,6 +353,35 @@ expect_ok "a new bundle replaces the tree and keeps the old one as .prev" \
     "echo stale > '$D/pg/root/.chengos-complete'; install_postgres_bundle '$D/pg/root' '$BUNDLE' $PGSHA '$D/pgdata' && [ -d '$D/pg/root.prev' ] && [ -x '$D/pg/root/usr/bin/psql' ]"
 expect_fail "missing PostgreSQL libraries are refused" \
     "rm -rf '$D/pg/root5'; printf '#!/bin/sh\necho \"libssl.so.3 => not found\"\n' > '$T/bad-loader'; chmod +x '$T/bad-loader'; MUSL_LOADER='$T/bad-loader'; install_postgres_bundle '$D/pg/root5' '$BUNDLE' $PGSHA '$D/pgdata'" "cannot resolve its libraries"
+expect_fail "a postgres reporting another version is refused before the swap" \
+    "echo stale > '$D/pg/root/.chengos-complete'; PG_FIXTURE_VERSION=17.4; export PG_FIXTURE_VERSION; install_postgres_bundle '$D/pg/root' '$BUNDLE' $PGSHA '$D/pgdata'" "reports 'postgres (PostgreSQL) 17.4'"
+expect_fail "a PostgreSQL that cannot initdb is refused before the swap" \
+    "PG_FIXTURE_INITDB_FAIL=1; export PG_FIXTURE_INITDB_FAIL; install_postgres_bundle '$D/pg/root' '$BUNDLE' $PGSHA '$D/pgdata'" "cannot initialize a cluster"
+expect_ok "a refused new tree leaves the installed one in place" \
+    "[ -x '$D/pg/root/usr/bin/psql' ] && [ \"\$(cat '$D/pg/root/.chengos-complete')\" = stale ] && [ ! -e '$D/pg/initdb-check' ]"
+
+echo "== update: failures before the release switch"
+# abort_update_before_switch with the services stubbed: the swapped
+# PostgreSQL tree and the release link must both be the old ones again.
+U="$T/data/upd"
+prep_update() {
+    rm -rf "$U"; mkdir -p "$U/pg/root" "$U/pg/root.prev" "$U/releases/1.0.0" "$U/releases/2.0.0"
+    echo new > "$U/pg/root/which"; echo old > "$U/pg/root.prev/which"
+    ln -sfn releases/2.0.0 "$U/current"
+}
+prep_update
+expect_fail "a failure after the PostgreSQL swap restores the old tree and release" \
+    "start_services() { :; }; data='$U' old=1.0.0; abort_update_before_switch storage 'could not copy the Skill files'" "could not copy the Skill files"
+[[ "$(cat "$U/pg/root/which")" == old && ! -e "$U/pg/root.prev" && "$(readlink "$U/current")" == releases/1.0.0 ]] \
+    && ok "the old PostgreSQL tree and release link are back" || bad "after abort: $(cat "$U/pg/root/which" 2>&1) $(readlink "$U/current")"
+prep_update; rm -rf "$U/pg/root"
+expect_fail "a swap interrupted between the two moves is undone too" \
+    "start_services() { :; }; data='$U' old=1.0.0; abort_update_before_switch database 'x'" "x"
+[[ "$(cat "$U/pg/root/which")" == old ]] && ok "the old tree is back after an interrupted swap" || bad "interrupted swap not undone"
+prep_update; rm -rf "$U/pg/root.prev"
+expect_fail "without a swap the installed tree is left alone" \
+    "start_services() { :; }; data='$U' old=1.0.0; abort_update_before_switch database 'x'" "x"
+[[ "$(cat "$U/pg/root/which")" == new ]] && ok "an unswapped tree is not touched" || bad "unswapped tree changed"
 
 echo "== release manifest"
 # A fake release archive with a runnable cheng-api and a rendered manager.
@@ -218,10 +395,10 @@ cp "$T/manager-rendered.sh" "$DIST/chengos-openwrt-manager-v9.9.9.sh"
 cp "$BUNDLE" "$DIST/chengos-openwrt-pg-test-experimental-v9.9.9.tar.gz"
 cat > "$T/profiles.json" <<'EOF'
 {"schema": 1, "profiles": [
-  {"id": "test-profile", "status": "supported", "arch": "arm64",
+  {"id": "test-profile", "status": "supported", "arch": "arm64", "package_arch": "aarch64_generic", "package_format": "ipk",
    "match": {"board": "test,board", "machine": "MACHINE", "distrib_release": "24.10.4", "distrib_target": "armsr/armv8"},
    "min_ram_mb": 512, "min_free_mb": 1, "min_free_inodes": 1},
-  {"id": "test-experimental", "status": "experimental", "arch": "arm64",
+  {"id": "test-experimental", "status": "experimental", "arch": "arm64", "package_arch": "aarch64_generic", "package_format": "ipk",
    "match": {"board": "test,experimental", "machine": "MACHINE", "distrib_release": "24.10.4"},
    "min_ram_mb": 512, "min_free_mb": 1, "min_free_inodes": 1},
   {"id": "test-retired", "status": "retired", "arch": "arm64",

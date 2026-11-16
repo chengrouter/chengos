@@ -38,6 +38,7 @@ command -v jq >/dev/null 2>&1 || ow_die "jq is required"
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || ow_die "version '${VERSION}' is not MAJOR.MINOR.PATCH"
 [[ "$VALIDITY_DAYS" =~ ^[0-9]+$ && "$VALIDITY_DAYS" -ge 1 ]] || ow_die "--validity-days must be a positive number"
 [[ "$(jq -r .schema "$PROFILES")" == 1 ]] || ow_die "${PROFILES}: unsupported schema"
+ow_profiles_lint "$PROFILES"
 
 # asset_json FILE: {asset, sha256, size, unpacked_size}.
 asset_json() {
@@ -69,10 +70,13 @@ for ((i = 0; i < count; i++)); do
     archive="$(asset_json "${DIST}/chengos-openwrt-${arch}-v${VERSION}.tar.gz")"
     pg_file="${DIST}/chengos-openwrt-pg-${id}-v${VERSION}.tar.gz"
     pg="$(asset_json "$pg_file")"
+    pg_format="$(gzip -dc "$pg_file" | tar -xOf - chengos-pg/FORMAT 2>/dev/null | tr -d '[:space:]')" || true
+    [[ "$pg_format" == rootfs-v1 ]] || ow_die "${pg_file} is not a rootfs-v1 PostgreSQL bundle (rebuild it with pg-bundle.sh)"
     packages="$(gzip -dc "$pg_file" | tar -xOf - chengos-pg/PACKAGES \
         | jq -R -s 'split("\n") | map(select(length > 0) | split(" ")
             | {name: .[0], version: .[1], sha256: .[2], file: .[3]})')"
-    pg="$(jq --argjson packages "$packages" '. + {packages: $packages}' <<< "$pg")"
+    pg="$(jq --argjson packages "$packages" --arg format "$pg_format" \
+        '. + {format: $format, packages: $packages}' <<< "$pg")"
     entry="$(jq --argjson archive "$archive" --argjson postgres "$pg" \
         '{id, status, arch, match, min_ram_mb, min_free_mb, min_free_inodes, archive: $archive, postgres: $postgres}' <<< "$p")"
     profiles="$(jq --argjson e "$entry" '. + [$e]' <<< "$profiles")"

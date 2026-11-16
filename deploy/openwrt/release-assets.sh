@@ -17,9 +17,14 @@ Usage: deploy/openwrt/release-assets.sh [options]
   The release is always root VERSION (tag v<VERSION>); there is no tag option.
   --key FILE          OpenSSL Ed25519 PEM signing key (never uploaded)
                       default: $CHENGOS_RELEASE_KEY or ~/.config/chengos/release/release-key.pem
-  --pg-ipks ID=DIR    qualified PostgreSQL .ipks for one advertised profile
-                      default: $CHENGOS_OPENWRT_PG_IPKS_ROOT/ID or
-                      ~/.config/chengos/release/openwrt-pg-ipks/ID
+  --pg-pkgs ID=DIR    frozen PostgreSQL package directory for one advertised
+                      profile (see pg-bundle.sh); --pg-ipks is an alias
+                      default: $CHENGOS_OPENWRT_PG_PKGS_ROOT/ID or
+                      ~/.config/chengos/release/openwrt-pg-pkgs/ID
+                      (legacy fallback: ~/.config/chengos/release/openwrt-pg-ipks/ID)
+  --apk PATH          apk-tools 3.x for apk-v3-adb profiles, e.g. an OpenWrt
+                      ImageBuilder's staging_dir/host/bin/apk
+                      default: $CHENGOS_OPENWRT_APK or apk on PATH
   --repo OWNER/REPO   GitHub repository (default: chengrouter/chengos)
   --out DIR          frozen bundle directory (default: dist/openwrt/v<VERSION>/)
   --ui-dir DIR       use a prebuilt editor instead of building chengflow-ui
@@ -39,20 +44,23 @@ EOF
 
 KEY="" PUBLISH=0 UPLOAD_ONLY=0 DRY_RUN=0 SKIP_BUILD=0 UI_PREBUILT=0
 KEY_DEFAULT="${CHENGOS_RELEASE_KEY:-$HOME/.config/chengos/release/release-key.pem}"
-PG_IPKS_ROOT="${CHENGOS_OPENWRT_PG_IPKS_ROOT:-$HOME/.config/chengos/release/openwrt-pg-ipks}"
+PG_PKGS_ROOT="${CHENGOS_OPENWRT_PG_PKGS_ROOT:-${CHENGOS_OPENWRT_PG_IPKS_ROOT:-$HOME/.config/chengos/release/openwrt-pg-pkgs}}"
+PG_LEGACY_ROOT="$HOME/.config/chengos/release/openwrt-pg-ipks"
+APK="${CHENGOS_OPENWRT_APK:-}"
 RELEASE_REPO="chengrouter/chengos" DIST=""
 UI_DIR="${REPO_ROOT}/chengflow-ui/dist"
-declare -A PG_IPKS=()
+declare -A PG_PKGS=()
 package_args=()
 need_arg() { [[ -n "${2:-}" && "$2" != --* ]] || ow_die "$1 requires a value"; }
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --key) need_arg "$@"; KEY=$2; shift 2 ;;
-        --pg-ipks)
+        --pg-pkgs|--pg-ipks)
             need_arg "$@"
-            [[ "$2" == *=* ]] || ow_die "--pg-ipks needs PROFILE=DIR"
+            [[ "$2" == *=* ]] || ow_die "$1 needs PROFILE=DIR"
             id="${2%%=*}"; [[ "$id" =~ ^[a-z0-9][a-z0-9._-]*$ ]] || ow_die "invalid profile id"
-            PG_IPKS["$id"]="${2#*=}"; shift 2 ;;
+            PG_PKGS["$id"]="${2#*=}"; shift 2 ;;
+        --apk) need_arg "$@"; APK=$2; shift 2 ;;
         --repo) need_arg "$@"; RELEASE_REPO=$2; shift 2 ;;
         --out) need_arg "$@"; DIST=$2; shift 2 ;;
         --ui-dir) need_arg "$@"; UI_DIR=$2; UI_PREBUILT=1; shift 2 ;;
@@ -124,14 +132,23 @@ PUB="$WORK/release.pub"
 
 # Advertised profiles and the architectures they need.
 jq -e '.schema == 1 and (.profiles | type == "array")' "$PROFILES" >/dev/null
+ow_profiles_lint "$PROFILES"
 mapfile -t advertised < <(jq -r '.profiles[] | select(.status == "supported" or .status == "experimental") | .id' "$PROFILES")
 mapfile -t arches < <(jq -r '.profiles[] | select(.status == "supported" or .status == "experimental") | .arch' "$PROFILES" | sort -u)
 [[ ${#advertised[@]} -gt 0 ]] || ow_die "profiles.json advertises no profile"
 for id in "${advertised[@]}"; do
     [[ "$id" =~ ^[a-z0-9][a-z0-9._-]*$ ]] || ow_die "invalid advertised profile: $id"
-    PG_IPKS["$id"]="${PG_IPKS[$id]:-$PG_IPKS_ROOT/$id}"
-    [[ -d "${PG_IPKS[$id]}" ]] || ow_die "PostgreSQL .ipk directory not found: ${PG_IPKS[$id]} (put the qualified .ipk files there, or pass --pg-ipks)"
-    PG_IPKS["$id"]="$(realpath "${PG_IPKS[$id]}")"
+    if [[ -z "${PG_PKGS[$id]:-}" ]]; then
+        PG_PKGS["$id"]="$PG_PKGS_ROOT/$id"
+        [[ -d "${PG_PKGS[$id]}" || ! -d "$PG_LEGACY_ROOT/$id" ]] || PG_PKGS["$id"]="$PG_LEGACY_ROOT/$id"
+    fi
+    [[ -d "${PG_PKGS[$id]}" ]] || ow_die "PostgreSQL package directory not found: ${PG_PKGS[$id]} (freeze it there, or pass --pg-pkgs)"
+    PG_PKGS["$id"]="$(realpath "${PG_PKGS[$id]}")"
+    if [[ "$(jq -r --arg id "$id" '.profiles[] | select(.id == $id) | .package_format' "$PROFILES")" == apk-v3-adb ]]; then
+        [[ -n "$APK" ]] || APK="$(command -v apk || true)"
+        [[ -n "$APK" ]] && "$APK" --version 2>/dev/null | grep -q '^apk-tools 3\.' \
+            || ow_die "profile $id needs apk-tools 3.x to bundle PostgreSQL (pass --apk or set CHENGOS_OPENWRT_APK)"
+    fi
 done
 if [[ "$UI_PREBUILT" == 1 ]]; then
     [[ -f "$UI_DIR/index.html" ]] || ow_die "built editor not found: $UI_DIR/index.html"
@@ -173,7 +190,8 @@ DIST="$STAGE"
 PREPARED_SOURCES="$SOURCES"
 
 for id in "${advertised[@]}"; do
-    "${OPENWRT_DIR}/pg-bundle.sh" --profile "$id" --ipk-dir "${PG_IPKS[$id]}" --version "$VERSION" --out "$DIST" >/dev/null
+    CHENGOS_OPENWRT_APK="$APK" "${OPENWRT_DIR}/pg-bundle.sh" --profile "$id" --pkg-dir "${PG_PKGS[$id]}" \
+        --profiles "$PROFILES" --version "$VERSION" --out "$DIST" >/dev/null
 done
 if [[ "$UI_PREBUILT" == 0 ]]; then
     ow_log "Building the editor from its tagged source"
