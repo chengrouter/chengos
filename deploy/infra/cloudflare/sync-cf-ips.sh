@@ -18,7 +18,6 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 TARGETS=(
   "${REPO_ROOT}/chengflow-ui/nginx/realip-cloudflare.conf"
-  "${REPO_ROOT}/chengflow-sdk/nginx/realip-cloudflare.conf"
 )
 
 CHECK_ONLY=false

@@ -23,14 +23,13 @@ Usage: deploy/openwrt/release-assets.sh [options]
   --repo OWNER/REPO   GitHub repository (default: chengrouter/chengos)
   --out DIR          frozen bundle directory (default: dist/openwrt/v<VERSION>/)
   --ui-dir DIR       use a prebuilt editor instead of building chengflow-ui
-  --sdk-dir DIR      gateway source (default: chengflow-sdk)
-  --skip-build       reuse Rust binaries; still package UI/gateway and sign
+  --skip-build       reuse Rust binaries; still package UI and sign
   --publish          upload missing assets to an EXISTING GitHub Release
   --upload-only      reuse a prepared bundle; no builds, signing or private key
   --dry-run          show checks/plan; no builds, signing, output or uploads
   -h, --help         show help
 
-Preparation requires clean, tagged root/backend/editor/gateway source trees.
+Preparation requires clean, tagged root/backend/editor source trees.
 The bundle is never overwritten. Retry with --upload-only --publish.
 Same-name identical remote assets are skipped; conflicts are never overwritten.
 GitHub Release assets have no /openwrt subfolders; only local output is grouped.
@@ -43,7 +42,6 @@ KEY_DEFAULT="${CHENGOS_RELEASE_KEY:-$HOME/.config/chengos/release/release-key.pe
 PG_IPKS_ROOT="${CHENGOS_OPENWRT_PG_IPKS_ROOT:-$HOME/.config/chengos/release/openwrt-pg-ipks}"
 RELEASE_REPO="chengrouter/chengos" DIST=""
 UI_DIR="${REPO_ROOT}/chengflow-ui/dist"
-SDK_DIR="${REPO_ROOT}/chengflow-sdk"
 declare -A PG_IPKS=()
 package_args=()
 need_arg() { [[ -n "${2:-}" && "$2" != --* ]] || ow_die "$1 requires a value"; }
@@ -58,7 +56,6 @@ while [[ $# -gt 0 ]]; do
         --repo) need_arg "$@"; RELEASE_REPO=$2; shift 2 ;;
         --out) need_arg "$@"; DIST=$2; shift 2 ;;
         --ui-dir) need_arg "$@"; UI_DIR=$2; UI_PREBUILT=1; shift 2 ;;
-        --sdk-dir) need_arg "$@"; SDK_DIR=$2; shift 2 ;;
         --skip-build) SKIP_BUILD=1; package_args+=(--skip-build); shift ;;
         --publish) PUBLISH=1; shift ;;
         --upload-only) UPLOAD_ONLY=1; shift ;;
@@ -91,7 +88,7 @@ trap 'exit 143' TERM
 SOURCES='{}'
 check_sources() {
     local part path head tagged top
-    for part in root chengflow chengflow-ui chengflow-sdk; do
+    for part in root chengflow chengflow-ui; do
         path="$REPO_ROOT"; [[ "$part" == root ]] || path="$REPO_ROOT/$part"
         top="$(git -C "$path" rev-parse --show-toplevel)" || ow_die "$part is not a Git checkout"
         [[ "$(realpath "$top")" == "$(realpath "$path")" ]] || ow_die "$part must have its own tagged source repository"
@@ -141,10 +138,9 @@ if [[ "$UI_PREBUILT" == 1 ]]; then
 else
     [[ -d "$REPO_ROOT/chengflow-ui/node_modules" ]] || ow_die "run pnpm install in chengflow-ui first"
 fi
-[[ -d "$SDK_DIR/node_modules" ]] || ow_die "gateway dependencies not installed: $SDK_DIR"
-UI_DIR="$(realpath -m "$UI_DIR")"; SDK_DIR="$(realpath "$SDK_DIR")"
-package_args+=(--ui-dir "$UI_DIR" --sdk-dir "$SDK_DIR" --release-repo "$RELEASE_REPO")
-command -v pnpm >/dev/null 2>&1 || ow_die "pnpm is required to package the gateway"
+UI_DIR="$(realpath -m "$UI_DIR")"
+package_args+=(--ui-dir "$UI_DIR" --release-repo "$RELEASE_REPO")
+command -v pnpm >/dev/null 2>&1 || ow_die "pnpm is required to build the editor"
 command -v readelf >/dev/null 2>&1 || ow_die "readelf is required to verify the packaged binaries"
 if [[ "$SKIP_BUILD" == 0 ]]; then
     command -v cargo >/dev/null 2>&1 || ow_die "cargo is required"

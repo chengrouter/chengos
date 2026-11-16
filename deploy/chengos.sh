@@ -2002,9 +2002,8 @@ rebuild_native_from_git_checkout() {
         echo "Building UI from updated source..."
         (cd "${git_root}/chengflow-ui" && (pnpm build:deploy || npm run build:deploy))
     fi
-    if [[ ",$recorded_modules," == *",app,"* && -d "${git_root}/chengflow-app" ]]; then
-        echo "Building Chat App from updated source..."
-        (cd "${git_root}/chengflow-app" && (pnpm build:deploy || npm run build:deploy))
+    if [[ ",$recorded_modules," == *",app,"* ]]; then
+        echo "Skipping Chat App rebuild: gateway SPA packaging was removed (chengflow-sdk is a library only)."
     fi
 
     echo "Building backend Cargo packages from updated source..."
@@ -2048,11 +2047,6 @@ rebuild_native_from_git_checkout() {
         rm -rf "${shared_dir:?}/ui"
         cp -a "${git_root}/chengflow-ui/dist" "${shared_dir}/ui"
         install_downloads "$shared_dir" "$git_root"
-    fi
-    if [[ ",$recorded_modules," == *",app,"* && -d "${git_root}/chengflow-app/dist-app" ]]; then
-        echo "Copying App build output..."
-        rm -rf "${shared_dir:?}/app"
-        cp -a "${git_root}/chengflow-app/dist-app" "${shared_dir}/app"
     fi
 
     if [[ "$was_running" == "true" ]]; then
@@ -2883,18 +2877,17 @@ if [[ $# -gt 0 ]]; then
             elif [[ -d "${ROOT_DIR}/chengflow" && -d "${ROOT_DIR}/chengflow-ui" ]]; then
                 echo "Developer workspace detected. Compiling from source..."
                 
-                # 1. Build Frontends
+                # 1. Build frontends (editor only; gateway SPA packaging was removed)
                 if [[ "$enable_ui" == "true" ]]; then
                     echo "Building UI..."
                     cd "${ROOT_DIR}/chengflow-ui"
                     pnpm build:deploy || npm run build:deploy
                 fi
                 if [[ "$enable_app" == "true" ]]; then
-                    echo "Building Chat App..."
-                    cd "${ROOT_DIR}/chengflow-app"
-                    pnpm build:deploy || npm run build:deploy
+                    echo "Skipping Chat App: gateway SPA packaging was removed (chengflow-sdk is a library only)."
+                    enable_app="false"
                 fi
-                
+
                 # 2. Build backend
                 echo "Building backend Cargo packages..."
                 cd "${ROOT_DIR}/chengflow"
@@ -2934,11 +2927,6 @@ if [[ $# -gt 0 ]]; then
                     rm -rf "${shared_dir:?}/ui"
                     cp -a "${ROOT_DIR}/chengflow-ui/dist" "${shared_dir}/ui"
                     install_downloads "$shared_dir" "$ROOT_DIR"
-                fi
-                if [[ "$enable_app" == "true" && -d "${ROOT_DIR}/chengflow-app/dist-app" ]]; then
-                    echo "Copying App build output..."
-                    rm -rf "${shared_dir:?}/app"
-                    cp -a "${ROOT_DIR}/chengflow-app/dist-app" "${shared_dir}/app"
                 fi
             else
                 echo "Release bundle detected. Skipping source compilation."

@@ -209,7 +209,7 @@ in `.env` if the API is reachable at a different address.
 For people who want to save resources or customize deployment:
 
 - build the backend and CLI binaries with `./build.sh --hybrid`
-- serve `chengflow-ui/dist` and `chengflow-app/dist-app` with host Nginx/Caddy
+- serve `chengflow-ui/dist` with host Nginx/Caddy
 - run `bin/cheng-api` directly on the host
 - run `bin/cheng` for the terminal client
 - keep Postgres, Redis, and Qdrant from `deploy/infra/docker-compose.yml`

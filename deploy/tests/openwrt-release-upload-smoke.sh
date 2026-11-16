@@ -18,7 +18,7 @@ printf '#!/bin/sh\nprintf "%%s\\n" "$PWD $*" >> "$UI_BUILD_LOG"\n' > "$T/bin/pnp
 chmod +x "$T/bin/pnpm"
 export PATH="$T/bin:$PATH" BUILD_LOG="$T/builds" UI_BUILD_LOG="$T/ui-builds"
 printf '9.9.9\n' > "$ROOT/VERSION"
-printf 'dist/\nchengflow/\nchengflow-ui/\nchengflow-sdk/\n' > "$ROOT/.gitignore"
+printf 'dist/\nchengflow/\nchengflow-ui/\n' > "$ROOT/.gitignore"
 cat > "$OW/profiles.json" <<'EOF'
 {"schema":1,"profiles":[{"id":"test-router","status":"experimental","arch":"arm64",
 "match":{"board":"test","machine":"aarch64","distrib_release":"test"},
@@ -63,7 +63,7 @@ mk_ipk() {
     tar -czf "$T/ipks/${name}_1.0-r1_arm64.ipk" -C "$dir/outer" .
 }
 for name in pgsql-server pgsql-cli libpq; do mk_ipk "$name"; done
-for part in root chengflow chengflow-ui chengflow-sdk; do
+for part in root chengflow chengflow-ui; do
     dir="$ROOT"; [[ "$part" == root ]] || dir="$ROOT/$part"
     mkdir -p "$dir"
     echo "$part" > "$dir/source"
@@ -77,7 +77,7 @@ for part in root chengflow chengflow-ui chengflow-sdk; do
 done
 export MOCK_TAG_COMMIT
 MOCK_TAG_COMMIT="$(git -C "$ROOT" rev-parse HEAD)"
-mkdir -p "$ROOT/chengflow-ui/dist" "$ROOT/chengflow-ui/node_modules" "$ROOT/chengflow-sdk/node_modules"
+mkdir -p "$ROOT/chengflow-ui/dist" "$ROOT/chengflow-ui/node_modules"
 echo ui > "$ROOT/chengflow-ui/dist/index.html"
 "$OW/release-sign.sh" keygen "$T/key.pem" "$T/key.pub" >/dev/null 2>&1
 export MOCK_DIR="$T/github"

@@ -90,7 +90,7 @@ ow_bundle_verify_inventory() {
     [[ -f "$index" && ! -L "$index" ]] || ow_die "release-assets.json is missing or symlinked; prepare the bundle first"
     jq -e --arg repo "$RELEASE_REPO" --arg tag "$TAG" --argjson count "${#ASSET_NAMES[@]}" '
         .schema == 1 and .repo == $repo and .tag == $tag and
-        (.sources | type == "object" and length == 4) and
+        (.sources | type == "object" and length == 3) and
         all(.sources[]; test("^([a-f0-9]{40}|[a-f0-9]{64})$")) and
         (.assets | length == $count) and
         ([.assets[].name] | length == (unique | length))

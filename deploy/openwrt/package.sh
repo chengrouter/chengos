@@ -5,10 +5,9 @@
 #
 # The archive holds one `chengos-openwrt/` directory: the static cheng-api
 # and chengos-router-helper (the privileged Router Hub helper),
-# the built editor UI (ui/), the channel-gateway App built for the /gateway/
-# prefix (app/), server config/skills/templates, the on-device manager
-# (chengos-openwrt.sh) and SHA256SUMS over every file. PostgreSQL ships as a
-# separate per-profile asset (pg-bundle.sh).
+# the built editor UI (ui/), server config/skills/templates, the on-device
+# manager (chengos-openwrt.sh) and SHA256SUMS over every file. PostgreSQL
+# ships as a separate per-profile asset (pg-bundle.sh).
 #
 # With CHENGOS_RELEASE_PUBKEY_FILE set (a usign public key), the manager is
 # rendered with it as its release trust anchor; without, the archive is a
@@ -22,8 +21,6 @@
 #
 #   --target TRIPLE   default aarch64-unknown-linux-musl
 #   --ui-dir DIR      built editor (default: chengflow-ui/dist)
-#   --sdk-dir DIR     gateway App source (default: chengflow-sdk); built here
-#                     with CHENGOS_APP_BASE=/gateway/
 #   --skip-build      package the already built binary instead of building
 #   --out DIR         output directory (default: workspace dist/)
 #   --release-repo R  installer download repository (default: chengrouter/chengos)
@@ -34,12 +31,10 @@ REPO_ROOT="$(cd "${OPENWRT_DIR}/../.." && pwd)"
 # shellcheck source=lib/common.sh
 source "${OPENWRT_DIR}/lib/common.sh"
 
-usage() { sed -n '2,22p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,20p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
 
 TARGET="aarch64-unknown-linux-musl"
 UI_DIR="${REPO_ROOT}/chengflow-ui/dist"
-SDK_DIR="${REPO_ROOT}/chengflow-sdk"
-GATEWAY_BASE="/gateway/"
 SKIP_BUILD=0
 DIST="${REPO_ROOT}/dist"
 RELEASE_REPO="chengrouter/chengos"
@@ -47,7 +42,6 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --target) TARGET="${2:-}"; shift 2 ;;
         --ui-dir) UI_DIR="${2:-}"; shift 2 ;;
-        --sdk-dir) SDK_DIR="${2:-}"; shift 2 ;;
         --skip-build) SKIP_BUILD=1; shift ;;
         --out) DIST="${2:?--out needs a directory}"; shift 2 ;;
         --release-repo) RELEASE_REPO="${2:?--release-repo needs OWNER/REPO}"; shift 2 ;;
@@ -61,7 +55,6 @@ ARCH="$(ow_release_arch_for_triple "$TARGET")" || ow_die "unsupported target: ${
 VERSION="$(tr -d '[:space:]' < "${REPO_ROOT}/VERSION")"
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || ow_die "VERSION '${VERSION}' is not MAJOR.MINOR.PATCH"
 [[ -f "${UI_DIR}/index.html" ]] || ow_die "no built editor at ${UI_DIR} (run pnpm build in chengflow-ui)"
-[[ -d "${SDK_DIR}/node_modules" ]] || ow_die "no node_modules in ${SDK_DIR} (run pnpm install there)"
 
 CHENGFLOW="${REPO_ROOT}/chengflow"
 build_args=(--project "$CHENGFLOW" --package cheng-api --bin cheng-api --target "$TARGET")
@@ -79,12 +72,6 @@ mkdir -p "${ROOT}/bin" "${ROOT}/lib"
 install -m 0755 "$BINARY" "${ROOT}/bin/cheng-api"
 install -m 0755 "$HELPER" "${ROOT}/bin/chengos-router-helper"
 cp -a "$UI_DIR" "${ROOT}/ui"
-ow_log "Building the gateway App for ${GATEWAY_BASE}"
-( cd "$SDK_DIR" && CHENGOS_APP_BASE="$GATEWAY_BASE" pnpm exec vite build --outDir "${ROOT}/app" >&2 )
-# The API generates runtime-env.js for the prefix; the build's copy is never served.
-rm -f "${ROOT}/app/runtime-env.js"
-grep -q "src=\"${GATEWAY_BASE}assets/" "${ROOT}/app/index.html" \
-    || ow_die "the gateway build does not reference ${GATEWAY_BASE}assets/"
 for dir in config skill-templates workflow-templates; do
     cp -a "${CHENGFLOW}/${dir}" "${ROOT}/${dir}"
 done
@@ -107,7 +94,7 @@ find "$ROOT" \( -name '.env' -o -name '.DS_Store' -o -name '*.swp' \) -delete
 # Verify the staged tree the way the device will: static ELF for ARCH, the
 # entry points present, and every file matching SHA256SUMS.
 "${OPENWRT_DIR}/elf-check.sh" --expect-arch "$ARCH" "${ROOT}/bin/cheng-api" "${ROOT}/bin/chengos-router-helper"
-for required in chengos-openwrt.sh lib/port-listeners.sh ui/index.html app/index.html config/presets.yaml VERSION ARCH; do
+for required in chengos-openwrt.sh lib/port-listeners.sh ui/index.html config/presets.yaml VERSION ARCH; do
     [[ -s "${ROOT}/${required}" ]] || ow_die "staged release is missing ${required}"
 done
 ( cd "$ROOT" && sha256sum -c --quiet SHA256SUMS ) || ow_die "SHA256SUMS does not verify"
