@@ -93,3 +93,4 @@ deploy/skills/
 # this repository is the public mirror.
 # See chengflow-ui/scripts/make-source-bundles.sh.
 output/
+.pnpm-store/
