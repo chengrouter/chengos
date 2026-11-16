@@ -112,7 +112,7 @@ ChengOS 工作流引擎内置了涵盖代码执行、文件管理、网络抓取
 
 ### 🤖 AI 推理与多模态 (AI & Multimodal)
 - **`ai/llm`**: 通用大语言模型调用（支持 OpenAI、Claude、DeepSeek、Ollama 等兼容接口）。
-- **`ai/llm_branch`**: LLM 智能条件分流与路由节点，支持根据提示词或字段条件分派下游分支。
+- **`utils/condition_router`**: 按字段条件分流的路由节点（If/Switch，支持兜底与多分支）。
 - **`agent/react_agent`**: ReAct 自主智能体节点，支持多轮思考 (Reasoning) 与工具迭代调用。
 - **`tools/generate_image` / `tools/generate_audio` / `tools/generate_video`**: AI 图像生成、语音合成 (TTS) 与视频生成。
 - **`io/speech_to_text` (ASR)**: 语音转文字与音频转写。
@@ -463,7 +463,7 @@ Built-in `skill-importer` pipeline converts external capability specifications i
 
 ### 🤖 AI Inference & Multimodal
 - **`ai/llm`**: LLM provider invocation (OpenAI, Claude, DeepSeek, Ollama, etc.).
-- **`ai/llm_branch`**: Intelligent conditional routing node.
+- **`utils/condition_router`**: Field-based conditional routing (If/Switch, with fallback).
 - **`agent/react_agent`**: ReAct autonomous Agent node with multi-step reasoning and tool iterations.
 - **`tools/generate_image` / `tools/generate_audio` / `tools/generate_video`**: AI image, text-to-speech, and video generation.
 - **`io/speech_to_text` (ASR)**: Speech recognition and audio transcription.
