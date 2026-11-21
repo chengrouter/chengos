@@ -824,6 +824,94 @@ assert_contains "no installation directory" "$out" "claude.sh accepts --install-
 assert_contains 'claude_args+=(--install-deps)' "$(cat "${DEPLOY_DIR}/chengos.sh")" \
     "chengos.sh install forwards --install-deps to Claude"
 
+# ── Antigravity CLI (cli/antigravity.sh) ─────────────────────────────────────
+
+section "Antigravity CLI installer (cli/antigravity.sh)"
+
+AGY="${DEPLOY_DIR}/cli/antigravity.sh"
+A="${WORK_ROOT}/agy-install"
+mkdir -p "$A"
+printf 'CHENG_CODING_AGENT_ENABLED=true\n' > "${A}/.env"
+agy() { "$BASH" "$AGY" --shared-dir "$A" --mode native --non-interactive "$@" </dev/null 2>&1; }
+
+out="$(agy)"
+assert_contains "there is no 'latest'" "$out" "setup without --bin or --version is refused (no latest)"
+out="$(agy --agent-mode auto --bin /bin/true)"
+assert_contains "auto is never accepted" "$out" "auto mode is refused"
+out="$(agy --version 1.5)"
+assert_contains "exact version" "$out" "a non-exact version is refused"
+out="$(agy --sha512 abc --bin /bin/true)"
+assert_contains "128 lowercase hex" "$out" "a malformed --sha512 pin is refused"
+out="$("$BASH" "$AGY" --shared-dir "$A" --mode docker --check </dev/null 2>&1)"
+assert_contains "requires native deployment" "$out" "Docker mode is refused with the standard explanation"
+out="$("$BASH" "$AGY" --shared-dir /nonexistent --check 2>&1)"
+assert_contains "no installation directory" "$out" "a missing installation directory is reported"
+NOTELF="${WORK_ROOT}/notelf/agy"
+mkdir -p "$(dirname "$NOTELF")"
+printf '#!/bin/sh\necho 1.5.12\n' > "$NOTELF"; chmod +x "$NOTELF"
+out="$(agy --bin "$NOTELF" --skip-backend-probe)"
+assert_contains "not a native ELF binary" "$out" "a script is never installed as agy"
+before="$(sha256sum < "${A}/.env")"
+out="$(CHENGOS_ANTIGRAVITY_MANIFEST_BASE='' agy --version 1.5.12 --skip-backend-probe)"
+assert_contains "--manifest-base" "$out" "a download without a manifest base is refused"
+assert_eq "$before" "$(sha256sum < "${A}/.env")" "a refused setup leaves .env unchanged"
+
+if command -v cc >/dev/null 2>&1; then
+    FAKE_SRC="${WORK_ROOT}/fake-agy.c"
+    printf '%s\n' \
+        '#include <stdio.h>' \
+        '#include <string.h>' \
+        'int main(int argc, char **argv) {' \
+        '    if (argc > 1 && strcmp(argv[1], "--version") == 0) { puts("1.5.12"); return 0; }' \
+        '    return 2;' \
+        '}' > "$FAKE_SRC"
+    SHARED_BIN_DIR="${WORK_ROOT}/shared-bin"
+    mkdir -p "$SHARED_BIN_DIR"
+    cc -O1 -o "${SHARED_BIN_DIR}/agy" "$FAKE_SRC"
+    cp /bin/true "${SHARED_BIN_DIR}/other-tool"
+    out="$(agy --bin "${SHARED_BIN_DIR}/agy" --skip-backend-probe --allowed-rules 'command(git status)' --models gemini-3-pro)"
+    installed="$(envf_get "${A}/.env" CHENG_CODING_AGENT_ANTIGRAVITY_BIN)"
+    assert_eq "${A}/runtime/cli/antigravity/versions/1.5.12/bin/agy" "$installed" \
+        "a binary from a shared directory is copied into its own versions directory"
+    assert_eq "1" "$(find "$(dirname "$installed")" -maxdepth 1 -type f | wc -l | tr -d ' ')" \
+        "the installed directory holds agy alone"
+    assert_eq "true" "$(envf_get "${A}/.env" CHENG_CODING_AGENT_ANTIGRAVITY_ENABLED)" "the provider is enabled"
+    assert_eq "false" "$(envf_get "${A}/.env" CHENG_CODING_AGENT_ANTIGRAVITY_MANAGED_AUTH_ENABLED)" \
+        "managed Google login stays off without a flag"
+    assert_eq "command(git status)" "$(envf_get "${A}/.env" CHENG_CODING_AGENT_ANTIGRAVITY_ALLOWED_RULES)" \
+        "--allowed-rules is written"
+    assert_eq "$(sha512sum "${SHARED_BIN_DIR}/agy" | awk '{print $1}')" \
+        "$(envf_get "${A}/runtime/cli/antigravity/records/1.5.12.rec" BINARY_SHA512)" \
+        "the approved sha512 is recorded"
+    assert_eq "skipped" "$(envf_get "${A}/runtime/cli/antigravity/records/1.5.12.rec" BACKEND_PROBE)" \
+        "a skipped backend probe is recorded"
+    assert_true "the written .env still sources" "$BASH" -c "set -a; source '${A}/.env'"
+    out="$(agy --check)"
+    assert_contains "binary check:  ok" "$out" "check reports the binary separately"
+    assert_contains "isolation:" "$out" "check reports the isolation self-test separately"
+    assert_contains "managed auth:" "$out" "check reports managed auth separately"
+    out="$(agy --reconfigure --skip-backend-probe --enable-managed-auth --agent-mode plan)"
+    assert_contains "cloud-platform" "$out" "turning managed login on shows the scope risk"
+    assert_eq "true" "$(envf_get "${A}/.env" CHENG_CODING_AGENT_ANTIGRAVITY_MANAGED_AUTH_ENABLED)" \
+        "--enable-managed-auth switches it on"
+    assert_eq "plan" "$(envf_get "${A}/.env" CHENG_CODING_AGENT_ANTIGRAVITY_MODE)" "--agent-mode is written"
+    out="$(agy --repair)"
+    assert_contains "follow .env" "$out" "repair accepts the approved binary"
+    printf 'tampered' >> "$installed"
+    out="$(agy --repair)"
+    assert_contains "differs from its approved sha512" "$out" "repair refuses a binary whose sha512 changed"
+    out="$(agy --prune)"
+    assert_contains "keep   1.5.12" "$out" "prune keeps the configured version"
+else
+    printf '  (cc unavailable: Antigravity install path skipped)\n'
+fi
+assert_contains 'antigravity) shift; exec bash "${SETUP_DIR}/antigravity.sh"' "$(cat "${DEPLOY_DIR}/cli/setup.sh")" \
+    "setup.sh routes antigravity"
+assert_contains "update_one_script \"deploy/cli/antigravity.sh\"" "$(cat "${DEPLOY_DIR}/chengos.sh")" \
+    "script refresh ships cli/antigravity.sh"
+assert_contains "antigravity/versions/.*/bin/agy" "$(cat "${DEPLOY_DIR}/chengos.sh")" \
+    "the restart offer counts running agy processes"
+
 # ── Summary ──────────────────────────────────────────────────────────────────
 
 printf '\n─────────────────────────────────────────\n'

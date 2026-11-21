@@ -19,9 +19,10 @@ SETUP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 usage() {
     cat <<'EOF'
-Usage: setup.sh {codex|claude} [options]
+Usage: setup.sh {codex|claude|antigravity} [options]
 
-Options below are for codex; Claude Code has its own: setup.sh claude --help
+Options below are for codex; Claude Code and the Antigravity CLI have their own:
+setup.sh claude --help, setup.sh antigravity --help
 
   --shared-dir DIR          Installation directory holding .env (default: ..)
   --mode native|docker      Deployment mode (default: recorded mode, else native)
@@ -53,8 +54,9 @@ CLI_NAME="${1:-}"
 case "$CLI_NAME" in
     codex) shift ;;
     claude) shift; exec bash "${SETUP_DIR}/claude.sh" "$@" ;;
+    antigravity) shift; exec bash "${SETUP_DIR}/antigravity.sh" "$@" ;;
     -h|--help|"") usage; exit 2 ;;
-    *) echo "Unsupported coding-agent CLI: ${CLI_NAME} (available: codex, claude)" >&2; exit 2 ;;
+    *) echo "Unsupported coding-agent CLI: ${CLI_NAME} (available: codex, claude, antigravity)" >&2; exit 2 ;;
 esac
 
 SHARED_DIR="$(cd "${SETUP_DIR}/.." && pwd)"

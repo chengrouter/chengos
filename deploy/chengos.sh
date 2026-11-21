@@ -276,6 +276,11 @@ if [[ "$LANG_VAL" == "zh" ]]; then
     t[prompt_claude]="是否安装 Claude Code 任务模式? 每位用户使用自己的 Anthropic API Key 或 Claude 订阅 (y/N): "
     t[claude_docker_unavailable]="Docker 模式暂不支持编码智能体，已跳过 Claude Code。请使用原生 (hybrid) 安装。"
     t[claude_install_failed]="Claude Code 未能安装或启用；ChengOS 已正常安装。修复后可在菜单 14 或 ./chengos.sh setup-cli claude 重试。"
+    t[coding_agent_agy_install]="9) 安装 / 配置 Antigravity CLI (Gemini，任务模式)"
+    t[coding_agent_agy_status]="10) 查看 Antigravity CLI 状态 (二进制 / 隔离自检 / 托管登录)"
+    t[coding_agent_agy_reconfigure]="11) 修改 Antigravity 设置 (Google 登录开关 / 允许的命令 / 模型)"
+    t[antigravity_docker_unavailable]="Docker 模式暂不支持编码智能体，已跳过 Antigravity CLI。请使用原生 (hybrid) 安装。"
+    t[antigravity_install_failed]="Antigravity CLI 未能安装或启用；ChengOS 已正常安装。修复后可在菜单 14 或 ./chengos.sh setup-cli antigravity 重试。"
     t[coding_agent_back]="0) 返回"
     t[coding_agent_prompt]="请选择 [默认 2]: "
     t[prompt_codex]="是否安装 Codex 编码智能体 CLI? 不选则保持常规安装 (y/N): "
@@ -393,6 +398,11 @@ else
     t[prompt_claude]="Install Claude Code task mode? Each user brings their own Anthropic API key or Claude subscription (y/N): "
     t[claude_docker_unavailable]="Coding agents are not available in Docker mode; Claude Code was skipped. Use a native (hybrid) installation."
     t[claude_install_failed]="Claude Code was not installed or enabled; ChengOS itself installed normally. Fix the reported problem and retry from menu 14 or ./chengos.sh setup-cli claude."
+    t[coding_agent_agy_install]="9) Install / configure the Antigravity CLI (Gemini, task mode)"
+    t[coding_agent_agy_status]="10) Check Antigravity CLI status (binary / isolation self-test / managed login)"
+    t[coding_agent_agy_reconfigure]="11) Change Antigravity settings (Google login switch / allowed commands / models)"
+    t[antigravity_docker_unavailable]="Coding agents are not available in Docker mode; the Antigravity CLI was skipped. Use a native (hybrid) installation."
+    t[antigravity_install_failed]="The Antigravity CLI was not installed or enabled; ChengOS itself installed normally. Fix the reported problem and retry from menu 14 or ./chengos.sh setup-cli antigravity."
     t[coding_agent_back]="0) Back"
     t[coding_agent_prompt]="Select [default 2]: "
     t[prompt_codex]="Install the Codex coding-agent CLI? Leave it out for a normal installation (y/N): "
@@ -1966,6 +1976,7 @@ update_script_files() {
     update_one_script "deploy/cli/setup.sh" "${shared_dir}/cli/setup.sh"
     update_one_script "deploy/cli/codex.sh" "${shared_dir}/cli/codex.sh"
     update_one_script "deploy/cli/claude.sh" "${shared_dir}/cli/claude.sh"
+    update_one_script "deploy/cli/antigravity.sh" "${shared_dir}/cli/antigravity.sh"
 
     if [[ "$updated_any" == "true" ]]; then
         echo "Script update completed. Re-run ./chengos.sh for the refreshed manager if this command was launched from the old script."
@@ -2565,7 +2576,7 @@ run_admin_cli() {
 cli_pending_restart_files() {
     local shared cli
     shared="$(resolve_shared_dir)"
-    for cli in codex claude; do
+    for cli in codex claude antigravity; do
         printf '%s/runtime/cli/%s/state\n' "$shared" "$cli"
     done
 }
@@ -2645,7 +2656,7 @@ offer_cli_restart() {
         return 0
     fi
     local running
-    running="$(pgrep -fc 'runtime/cli/(codex/versions/.*/bin/codex app-server|claude/versions/.*/bin/claude )' 2>/dev/null || true)"
+    running="$(pgrep -fc 'runtime/cli/(codex/versions/.*/bin/codex app-server|claude/versions/.*/bin/claude |antigravity/versions/.*/bin/agy )' 2>/dev/null || true)"
     printf "${t[cli_restart_scope]}\n" "${running:-0}"
     local answer=""
     read -r -p "${t[cli_restart_prompt]}" answer < /dev/tty || answer=""
@@ -2742,6 +2753,8 @@ if [[ $# -gt 0 ]]; then
     CODEX_TIER=""
     CLAUDE_VERSION=""
     CLAUDE_BIN=""
+    ANTIGRAVITY_VERSION=""
+    ANTIGRAVITY_BIN=""
     ASSUME_YES="false"
     INSTALL_DEPS="false"
     
@@ -2801,6 +2814,14 @@ if [[ $# -gt 0 ]]; then
                 ;;
             --claude-bin)
                 CLAUDE_BIN="$2"
+                shift 2
+                ;;
+            --antigravity-version)
+                ANTIGRAVITY_VERSION="$2"
+                shift 2
+                ;;
+            --antigravity-bin)
+                ANTIGRAVITY_BIN="$2"
                 shift 2
                 ;;
             --yes)
@@ -3081,6 +3102,29 @@ if [[ $# -gt 0 ]]; then
                         cli_configured="true"
                     else
                         echo "${t[claude_install_failed]}" >&2
+                    fi
+                fi
+            fi
+            if [[ ",$WITH_MODULES," == *",antigravity,"* ]]; then
+                if [[ "$MODE" == "docker" ]]; then
+                    echo "${t[antigravity_docker_unavailable]}"
+                else
+                    agy_args=(antigravity)
+                    [[ -n "$ANTIGRAVITY_VERSION" ]] && agy_args+=(--version "$ANTIGRAVITY_VERSION")
+                    [[ -n "$ANTIGRAVITY_BIN" ]] && agy_args+=(--bin "$ANTIGRAVITY_BIN")
+                    [[ "$ASSUME_YES" == "true" ]] && agy_args+=(--non-interactive)
+                    agy_rc=0
+                    if [[ -z "$DEPLOY_CLI_DIR" ]]; then
+                        echo "WARNING: cli/setup.sh is missing; the Antigravity CLI was not installed." >&2
+                        agy_rc=1
+                    else
+                        bash "${DEPLOY_CLI_DIR}/setup.sh" "${agy_args[@]}" --shared-dir "$shared_dir" \
+                            --mode "$MODE" --lang "${LANG_VAL:-en}" || agy_rc=$?
+                    fi
+                    if [[ $agy_rc -eq 0 || $agy_rc -eq 5 ]]; then
+                        cli_configured="true"
+                    else
+                        echo "${t[antigravity_install_failed]}" >&2
                     fi
                 fi
             fi
@@ -3718,6 +3762,9 @@ EOF
             echo "  ${t[coding_agent_claude_prune]}"
             echo "  ${t[coding_agent_claude_prune_apply]}"
             echo "  ${t[coding_agent_claude_reconfigure]}"
+            echo "  ${t[coding_agent_agy_install]}"
+            echo "  ${t[coding_agent_agy_status]}"
+            echo "  ${t[coding_agent_agy_reconfigure]}"
             echo "  ${t[coding_agent_back]}"
             read -p "${t[coding_agent_prompt]}" ca_choice < /dev/tty
             echo ""
@@ -3736,6 +3783,17 @@ EOF
                     fi
                     ;;
                 8) bash "$0" setup-cli claude --reconfigure --mode "$install_mode" || true ;;
+                9)
+                    read -r -p "agy binary path (empty: download by version): " agy_path < /dev/tty || agy_path=""
+                    if [[ -n "$agy_path" ]]; then
+                        bash "$0" setup-cli antigravity --bin "$agy_path" --mode "$install_mode" || true
+                    else
+                        read -r -p "agy version (X.Y.Z): " agy_ver < /dev/tty || agy_ver=""
+                        [[ -n "$agy_ver" ]] && { bash "$0" setup-cli antigravity --version "$agy_ver" --mode "$install_mode" || true; }
+                    fi
+                    ;;
+                10) bash "$0" setup-cli antigravity --check --mode "$install_mode" || true ;;
+                11) bash "$0" setup-cli antigravity --reconfigure --mode "$install_mode" || true ;;
                 *) continue ;;
             esac
             read -p "${t[press_enter]}" dummy < /dev/tty
