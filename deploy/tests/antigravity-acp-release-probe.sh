@@ -58,23 +58,31 @@ others="$(find "$INSTALL_DIR" -maxdepth 1 -type f -perm -u+x ! -path "$BIN" | he
 mkdir -p "$OUT"
 OUT="$(readlink -f "$OUT")"
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/agy-acp-release-XXXXXX")"
-trap 'rm -rf "$WORK"' EXIT
+EGRESS_PID=""
+trap 'if [[ -n "$EGRESS_PID" ]]; then kill "$EGRESS_PID" 2>/dev/null; fi; rm -rf "$WORK"' EXIT
 
 SUPPORT_MOUNTS=(/usr /bin /sbin /lib /lib64 /lib32 /libx32 /etc/ld.so.cache /etc/ld.so.conf
     /etc/ld.so.conf.d /etc/alternatives /etc/ssl /etc/ca-certificates /etc/ca-certificates.conf
     /etc/resolv.conf /etc/hosts /etc/nsswitch.conf /etc/localtime)
 
 PINNED=()
+EGRESS_DIR="$WORK/egress"
+# Third argument "egress": the session phase as ChengFlow launches it (U11,
+# D12). No route out of the network namespace; the only exit is the
+# allowlist proxy (start_egress), reached through the same socat relay that
+# ChengFlow uses. Login runs without it: it needs the Google sign-in hosts.
 sandbox_argv() {
-    local home="$1" cwd="$2"
+    local home="$1" cwd="$2" egress="${3:-}"
     local args=(bwrap --unshare-pid --unshare-ipc --unshare-uts --new-session --die-with-parent
         --unsetenv DBUS_SESSION_BUS_ADDRESS --unsetenv XDG_RUNTIME_DIR)
+    [[ -n "$egress" ]] && args+=(--unshare-net)
     local m
     for m in "${SUPPORT_MOUNTS[@]}"; do [[ -e "$m" ]] && args+=(--ro-bind "$m" "$m"); done
     args+=(--proc /proc --dev /dev --tmpfs /tmp
         --ro-bind "$INSTALL_DIR" "$INSTALL_DIR"
         --bind "$home" "$home"
         --bind "$cwd" "$cwd")
+    [[ -n "$egress" ]] && args+=(--ro-bind "$EGRESS_DIR" "$EGRESS_DIR")
     for m in "${PINNED[@]}"; do [[ -e "$m" ]] && args+=(--ro-bind "$m" "$m"); done
     args+=(--chdir "$cwd"
         --clearenv
@@ -85,9 +93,101 @@ sandbox_argv() {
         --setenv XDG_CACHE_HOME "$home/.cache"
         --setenv XDG_STATE_HOME "$home/.local/state"
         --setenv AGY_CLI_DISABLE_AUTO_UPDATE 1
-        --setenv LANG C.UTF-8
-        "$BIN")
+        --setenv LANG C.UTF-8)
+    if [[ -n "$egress" ]]; then
+        args+=(/bin/sh "$EGRESS_DIR/relay.sh" "$SOCAT" "$EGRESS_DIR/proxy.sock" "$BIN")
+    else
+        args+=("$BIN")
+    fi
     printf '%s\0' "${args[@]}"
+}
+
+# Host side of the allowlist: a deny-by-default CONNECT proxy on a Unix
+# socket. It records hosts and outcomes only, never request content.
+start_egress() {
+    SOCAT="$(command -v socat || true)"
+    [[ -n "$SOCAT" ]] || { echo "socat is required for the egress allowlist" >&2; exit 2; }
+    mkdir -m 700 "$EGRESS_DIR"
+    cat > "$WORK/egress_proxy.py" <<'EGRESS_PY'
+import datetime, os, socket, sys, threading
+SOCK, LOG = sys.argv[1], sys.argv[2]
+ALLOW = {("daily-cloudcode-pa.googleapis.com", 443), ("cloudcode-pa.googleapis.com", 443),
+         ("oauth2.googleapis.com", 443)}
+
+def log(s):
+    with open(LOG, "a") as f:
+        f.write(datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ") + " " + s + "\n")
+
+def pipe(a, b):
+    try:
+        while True:
+            d = a.recv(65536)
+            if not d:
+                break
+            b.sendall(d)
+    except OSError:
+        pass
+    finally:
+        for x in (a, b):
+            try:
+                x.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+
+def reply(c, status):
+    c.sendall(("HTTP/1.1 " + status + "\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").encode())
+
+def handle(c):
+    try:
+        head = b""
+        while b"\r\n\r\n" not in head:
+            d = c.recv(4096)
+            if not d or len(head) > 8192:
+                return
+            head += d
+        parts = head.split(b"\r\n", 1)[0].decode(errors="replace").split()
+        if len(parts) < 2 or parts[0] != "CONNECT":
+            log("DENY non-connect request")
+            return reply(c, "405 Method Not Allowed")
+        host, _, port = parts[1].rpartition(":")
+        key = (host.lower(), int(port)) if port.isdigit() else None
+        if key not in ALLOW:
+            log("DENY " + parts[1])
+            return reply(c, "403 Forbidden")
+        up = socket.create_connection(key, timeout=20)
+        log("ALLOW " + parts[1])
+        c.sendall(b"HTTP/1.1 200 Connection Established\r\n\r\n")
+        threading.Thread(target=pipe, args=(c, up), daemon=True).start()
+        pipe(up, c)
+    except Exception as e:
+        log("ERR " + repr(e))
+    finally:
+        c.close()
+
+if os.path.exists(SOCK):
+    os.unlink(SOCK)
+srv = socket.socket(socket.AF_UNIX)
+srv.bind(SOCK)
+os.chmod(SOCK, 0o600)
+srv.listen(64)
+while True:
+    conn, _ = srv.accept()
+    threading.Thread(target=handle, args=(conn,), daemon=True).start()
+EGRESS_PY
+    cat > "$EGRESS_DIR/relay.sh" <<'RELAY_SH'
+"$1" TCP-LISTEN:3128,bind=127.0.0.1,fork,reuseaddr "UNIX-CONNECT:$2" &
+tries=0
+until "$1" -u OPEN:/dev/null TCP:127.0.0.1:3128 2>/dev/null; do
+    tries=$((tries + 1)); [ "$tries" -lt 100 ] || exit 111; sleep 0.05
+done
+export HTTPS_PROXY=http://127.0.0.1:3128 HTTP_PROXY=http://127.0.0.1:3128
+shift 2
+exec "$@"
+RELAY_SH
+    python3 "$WORK/egress_proxy.py" "$EGRESS_DIR/proxy.sock" "$OUT/egress_denials.txt" &
+    EGRESS_PID=$!
+    for _ in $(seq 100); do [[ -S "$EGRESS_DIR/proxy.sock" ]] && break; sleep 0.05; done
+    [[ -S "$EGRESS_DIR/proxy.sock" ]] || { echo "egress proxy did not start" >&2; exit 2; }
 }
 sandbox() {
     local home="$1" cwd="$2"; shift 2
@@ -171,7 +271,9 @@ cp "$LH/.gemini/antigravity-cli/hooks.json" "$WORK/hooks.before"
 note "layout: ${#PINNED[@]} paths pinned read-only; project config written"
 
 ARGV_FILE="$WORK/argv.bin"
-sandbox_argv "$LH" "$CWD" > "$ARGV_FILE"
+start_egress
+note "E0 egress allowlist on for the sessions: daily-cloudcode-pa, cloudcode-pa, oauth2 (443 only)"
+sandbox_argv "$LH" "$CWD" egress > "$ARGV_FILE"
 export ARGV_FILE CWD OUT MAX_TURNS OUTSIDE LH WORK
 python3 - <<'PY'
 import json, os, queue, subprocess, threading, time
@@ -376,5 +478,6 @@ fi
 for f in "$OUT"/frames_*.jsonl "$OUT"/notifications_*.jsonl "$OUT"/stderr_*.txt "$OUT"/summary.txt; do
     [[ -f "$f" ]] && sanitize < "$f" > "$f.tmp" && mv "$f.tmp" "$f"
 done
+note "E1 egress denials during the sessions (host:port count): $(sed -n 's/^.* DENY //p' "$OUT/egress_denials.txt" 2>/dev/null | sort | uniq -c | tr -s ' ' | tr '\n' ';')"
 note "Sanitized. The login home is deleted on exit."
 note "NEXT: revoke this disposable account's Antigravity access at https://myaccount.google.com/permissions"
