@@ -35,12 +35,17 @@ MAX_TURNS=6
 BIN=""
 OUT=""
 SPEND=0
+# Default: network open, the production default under D13. --allowlist runs
+# the sessions behind the egress allowlist (test harness for the optional
+# allowlist, not the production default).
+EGRESS=open
 usage() { sed -n '2,37p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --bin) BIN="${2:-}"; shift 2 ;;
         --out) OUT="${2:-}"; shift 2 ;;
         --spend) SPEND=1; shift ;;
+        --allowlist) EGRESS=allowlist; shift ;;
         -h|--help) usage 0 ;;
         *) echo "unknown argument: $1" >&2; usage 2 ;;
     esac
@@ -271,9 +276,14 @@ cp "$LH/.gemini/antigravity-cli/hooks.json" "$WORK/hooks.before"
 note "layout: ${#PINNED[@]} paths pinned read-only; project config written"
 
 ARGV_FILE="$WORK/argv.bin"
-start_egress
-note "E0 egress allowlist on for the sessions: daily-cloudcode-pa, cloudcode-pa, oauth2 (443 only)"
-sandbox_argv "$LH" "$CWD" egress > "$ARGV_FILE"
+if [[ "$EGRESS" == allowlist ]]; then
+    start_egress
+    note "E0 egress allowlist on for the sessions: daily-cloudcode-pa, cloudcode-pa, oauth2 (443 only)"
+    sandbox_argv "$LH" "$CWD" egress > "$ARGV_FILE"
+else
+    note "E0 network open for the sessions (production default, D13)"
+    sandbox_argv "$LH" "$CWD" > "$ARGV_FILE"
+fi
 export ARGV_FILE CWD OUT MAX_TURNS OUTSIDE LH WORK
 python3 - <<'PY'
 import json, os, queue, subprocess, threading, time
@@ -478,6 +488,8 @@ fi
 for f in "$OUT"/frames_*.jsonl "$OUT"/notifications_*.jsonl "$OUT"/stderr_*.txt "$OUT"/summary.txt; do
     [[ -f "$f" ]] && sanitize < "$f" > "$f.tmp" && mv "$f.tmp" "$f"
 done
-note "E1 egress denials during the sessions (host:port count): $(sed -n 's/^.* DENY //p' "$OUT/egress_denials.txt" 2>/dev/null | sort | uniq -c | tr -s ' ' | tr '\n' ';')"
+if [[ "$EGRESS" == allowlist ]]; then
+    note "E1 egress denials during the sessions (host:port count): $(sed -n 's/^.* DENY //p' "$OUT/egress_denials.txt" 2>/dev/null | sort | uniq -c | tr -s ' ' | tr '\n' ';')"
+fi
 note "Sanitized. The login home is deleted on exit."
 note "NEXT: revoke this disposable account's Antigravity access at https://myaccount.google.com/permissions"
