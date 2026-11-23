@@ -379,6 +379,7 @@ claude_status() {
     echo "  version:       ${version:-<not managed>}"
     echo "  binary:        ${bin:-<not configured>}"
     echo "  managed login: $(_claude_flag "$env_file" CHENG_CODING_AGENT_CLAUDE_MANAGED_AUTH_ENABLED)"
+    echo "  interactive:   $(_claude_flag "$env_file" CHENG_CODING_AGENT_CLAUDE_INTERACTIVE_ENABLED) (separate switch; needs a probed CLI release)"
     echo "  allowed tools: $(envf_get "$env_file" CHENG_CODING_AGENT_CLAUDE_ALLOWED_TOOLS 2>/dev/null || true)"
     echo "  models:        $(envf_get "$env_file" CHENG_CODING_AGENT_CLAUDE_MODELS 2>/dev/null || printf '<CLI default>')"
     if [[ -z "$(envf_get "$env_file" CHENG_CODING_AGENT_CODEX_BIN 2>/dev/null || true)" ]]; then
