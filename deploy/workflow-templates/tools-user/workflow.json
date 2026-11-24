@@ -1,9 +1,9 @@
 {
   "name": "tools_user",
-  "description": "ReAct agent workflow with file operation tools. Equips a ReAct agent with tools/file_ops_hub for reading, writing, and editing files within a sandbox. Includes conversation memory and reply persistence. Designed for tasks requiring autonomous file manipulation and is used as the tools sub-workflow of main_chat.",
+  "description": "ReAct agent workflow with file and document tools. Equips a ReAct agent with tools/file_ops_hub for reading, writing, and editing files within a sandbox, and document/ops_hub for reading workspace documents and proposing edits to the documents the user attached to the message (staged for review, never applied directly). Includes conversation memory and reply persistence. Used as the tools sub-workflow of main_chat.",
   "state": "active",
-  "nodeCount": 8,
-  "edgeCount": 7,
+  "nodeCount": 9,
+  "edgeCount": 8,
   "createdAt": "2026-07-18T12:29:45.967422429+00:00",
   "updatedAt": "2026-07-25T22:25:08.663432+00:00",
   "version": 1,
@@ -462,6 +462,29 @@
         ]
       },
       {
+        "nodeId": "3f6d2a8e-7b41-4c9a-9e52-5d1c8b7a4e60",
+        "nodeType": "document/ops_hub",
+        "name": "文档操作中心",
+        "position": {
+          "x": 848.8120090559313,
+          "y": 1814.6263267720683
+        },
+        "config": {
+          "allow_query": true,
+          "allow_format": true,
+          "allow_discovery": true,
+          "allow_diff": true,
+          "allow_update": true,
+          "allow_batch": true,
+          "allow_create": false,
+          "allow_duplicate": false,
+          "allow_import": false,
+          "allow_delete_document": false,
+          "allow_rollback": false,
+          "write_scope": "referenced"
+        }
+      },
+      {
         "nodeId": "db0825da-30bc-489f-bf06-faa273c9d548",
         "nodeType": "ai/llm_config",
         "name": "LLM 配置",
@@ -771,6 +794,13 @@
             "description": "Available tools (populated from connected tool nodes via tools port)",
             "group": "dynamic-array",
             "name": "tool_1",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "description": "Tool slot 2",
+            "group": "dynamic-array",
+            "name": "tool_2",
             "required": false,
             "type": "string"
           }
@@ -1206,6 +1236,13 @@
         "sourcePort": "agent_context",
         "targetNode": "44e7faf0-ce51-40df-b1b4-bd382f6ade69",
         "targetPort": "context"
+      },
+      {
+        "edgeId": "9b2e4c71-3d5a-4f86-a0c2-6e8d1f4b7a39",
+        "sourceNode": "3f6d2a8e-7b41-4c9a-9e52-5d1c8b7a4e60",
+        "sourcePort": "operation",
+        "targetNode": "44e7faf0-ce51-40df-b1b4-bd382f6ade69",
+        "targetPort": "tool_2"
       }
     ],
     "notes": [],

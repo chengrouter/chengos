@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "key": "claude-login",
+  "version": "1.0.0",
+  "name": "Claude Login Assistant",
+  "description": "Connects or reconnects a Claude Code subscription through the server-managed login. Sign-in email, link and authorization code are handled server-side; the user approves the login and clicks Authorize.",
+  "sortOrder": 40,
+  "enabledByDefault": false,
+  "requiresWorkflowTemplates": ["claude-login-assistant"]
+}

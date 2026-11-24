@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "key": "claude-login-assistant",
+  "version": "1.0.0",
+  "name": "claude-login-assistant",
+  "description": "Chat assistant that connects or reconnects the user's Claude Code subscription. Uses tools/managed_cli_login (server-managed login; the sign-in email and authorization code never reach the model) and tools/browser with human handoff. Each user selects their own IMAP mailbox credential on the login tool.",
+  "sortOrder": 60,
+  "enabledByDefault": false
+}

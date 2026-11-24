@@ -15,6 +15,7 @@
 | **workflow-helper** | 1.1.0 | 工作流帮助/排障助手：节点选择、端口连线、字段配置、错误排查、模式推荐。通过 `agent/workflow_inspect` 或只读 REST 接口实时查询节点 Schema 和模板。 | [SKILL.md](workflow-helper/SKILL.md) |
 | **workflow-json-builder** | 1.2.0 | 在线 UI 对话框工作流 JSON 生成助手：只调用只读发现 API，按规范输出可导入的工作流 JSON，不直接创建、保存或运行工作流。 | [SKILL.md](workflow-json-builder/SKILL.md) |
 | **workflow-creator** | 1.0.0 | 从需求创建 ChengOS 工作流，保存后在编辑器中运行并核对执行结果（`GET /api/v1/executions/{id}`），最后按用户确认清理测试工作流。 | [SKILL.md](workflow-creator/SKILL.md) |
+| **claude-login** | 1.0.0 | Claude 订阅登录助手：通过服务器托管的登录连接 / 重新连接 Claude Code；登录邮件、链接和授权码只在服务器端处理，用户确认并点击授权。默认不启用，需要运维开启 `CHENG_CREDENTIAL_AUTH_AGENT_LOGIN_ENABLED`，依赖工作流模板 `claude-login-assistant`。 | [SKILL.md](claude-login/SKILL.md) |
 
 工作流 JSON 的字段名、端口处理和校验规则以 `docs/workflow-json-generation-guide.md`
 （Workflow JSON Contract）为准。
@@ -28,6 +29,12 @@
   [field-guide.md](workflow-helper/references/field-guide.md)、
   [troubleshooting.md](workflow-helper/references/troubleshooting.md)、
   [index.md](workflow-helper/references/index.md)
+
+### claude-login
+
+- **触发条件**: 用户要求连接、登录或重新连接 Claude（Claude Code）订阅
+- **工具节点**: `tools/managed_cli_login`、`tools/browser`（允许人工接管，不记住登录、不导出登录态）
+- **前提**: 每个用户在登录工具上选择自己的 IMAP 凭证；见运行手册 §9
 
 ### workflow-json-builder
 
