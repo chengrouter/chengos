@@ -22,6 +22,30 @@ Every release section must declare its rollback compatibility so operators and
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-11-24
+
+### Release notes
+
+v0.4.0 adds the Antigravity coding-agent CLI (managed Google sign-in), agent-assisted Claude login, nested sub-workflow child conversations in chat, and a verified PostgreSQL bundle for the OpenWrt appliance.
+
+- Antigravity CLI provider: install, status and probes in deploy (`deploy/cli/antigravity.sh`), Google-account connect flow in settings, optional egress allowlist and token redaction. The interactive ACP transport ships behind a default-off switch.
+- Claude Code: agent-assisted login, and an interactive permission mode that stays gated off until a release has been probed.
+- Chat: sub-workflow runs appear as nested child conversations you can open and continue; document and table references carry through CLI turns; thinking and tool activity collapse into one expandable row.
+- Editor: frameless loop containers with anchor cards and member tags; multi-select workflow picker for multi-value fields.
+- OpenWrt: PostgreSQL packages are normalized into a verified rootfs-v1 bundle.
+- Mail node exposes its operation as an LLM field with clearer SMTP errors.
+- Deploy no longer packages the gateway SPA; chengflow-sdk is now only the `@chengflow/chat` library.
+
+Database: two additive migrations (sub-workflow child links). Rolling back to v0.3.1 is supported.
+
+### Other
+
+-  发版改动
+
+### Notes
+
+- Migration policy: reversible
+
 ## [0.4.0] - 2026-11-24
 
 ### Release notes
