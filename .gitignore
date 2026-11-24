@@ -94,3 +94,9 @@ deploy/skills/
 # See chengflow-ui/scripts/make-source-bundles.sh.
 output/
 .pnpm-store/
+
+# Raw captures from live coding-agent release/canary probe runs. They hold real
+# CLI session IDs and local paths; kept locally as evidence, never published.
+acp-canary/
+acp-release/
+claude-ix-release-1/
